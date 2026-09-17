@@ -38,6 +38,18 @@ Rule 4 is not only about not breaking things. If instrumentation alters the
 agent's behaviour, the simulation runs and the participant round measure two
 different systems, and nothing in the collected data would reveal it.
 
+**All thesis work lives on one long-lived branch**, `feat/thesis-regression-testing`.
+Not a branch per task: the instantiation is one artifact, and splitting it across
+branches would mean testing halves of an instrument that only makes sense whole.
+That covers this subtree, the thesis rules and session definitions in `.claude/`,
+and the Phase A instrumentation in `apps/`.
+
+It merges to master when the author has run it locally and found it stable —
+master stays deployable, as for any other work. Keep the branch current with
+`make sync` rather than letting it drift for weeks; Phase A touches application
+code, and a stale branch makes a conflict there look like an instrumentation bug.
+Commit freely on the branch; do not push without asking.
+
 **Privacy note:** the existing no-admin-view-of-user-content decision
 (`docs/DECISION_ai_conversation_privacy.md`) continues to apply. Study analysis
 reads participant data under consent, in notebooks, outside any admin surface.
