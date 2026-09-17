@@ -60,6 +60,11 @@ Affects: apps/api/src/lib/env.ts, apps/api/.env.example, root CLAUDE.md rule 2,
 event-model.md (run level `model_released_on`)
 Reverses: none · Closes: Q01
 Constraint: do not upgrade the model while the study is running.
+Evidence: a live `generateContent` call against the Vertex express endpoint
+returns `modelVersion: "gemini-3.5-flash"` — the id unchanged. Where an
+underlying snapshot exists the response resolves to it (a 2.x model returns
+`gemini-2.0-flash-001`), so the absence of a suffix here confirms the id is
+itself the version rather than a pointer to one.
 
 ### D03 — State reset is a precondition, not a logged field
 Date: 2026-09-17 · Decided by: author (escalated by agent)
