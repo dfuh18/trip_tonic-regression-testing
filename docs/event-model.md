@@ -6,8 +6,9 @@
 > schema — but the open questions that blocked Phase A have been ruled on and are
 > recorded in `DECISIONS.md` (D02, D03, D05).
 >
-> Three **`TODO(author)`** markers remain, none of which blocks Phase A. They are
-> where the manuscript is silent and a guess would be invisible later.
+> The `TODO(author)` markers were ruled on 2026-09-17/18 (D06–D19); each is
+> replaced below by a pointer to its decision. The "Field → writer" mapping is
+> added by task A01 once the schema exists.
 
 ## Why this file is load-bearing
 
@@ -47,7 +48,7 @@ the fact.
 |---|---|---|---|---|
 | `session_id` | uuid | app | Table 11 (author addition) | The authenticated session observation covers (§4.2.2) |
 | `user_id` | uuid | app | Table 11 (author addition) | Pseudonymous in all analysis output |
-| `run_type` | enum `pilot` \| `study` | app, at session creation | extension | Never inferred later from timestamp or email |
+| `run_type` | enum `pilot` \| `study` \| `simulation` | app, at session creation | extension | Never inferred later from timestamp or email. `simulation` on the harness's sessions (D15) — same tables, same app |
 | `consent_version` | text | app | §4.2.2 | Consent is recorded *with a version identifier* |
 | `consent_at` | timestamptz | app | §4.2.2 | Consent gates everything after it |
 | `device_type` | text | app | §4.2.2 | Derived from accessible browser data |
@@ -90,9 +91,11 @@ the analysis must handle both, and the pilot should produce one of each.
 | `submitted_at` | timestamptz | extension | |
 | `dismissed_at` | timestamptz \| null | extension | Distinguishes "dismissed" from "never reached" |
 
-**`TODO(author)`** — response scales and coding for the demographic items and
-the two UMUX-LITE items. UMUX-LITE is conventionally 7-point; fix it before the
-pilot, since rescaling after collection is not possible.
+**Scales (D18):** `age` exact integer; `gender` woman / man / non-binary /
+prefer not to say; `education_level` compulsory / apprenticeship or vocational
+/ matura or high school / bachelor / master or higher; `llm_familiarity` never
+/ rarely / monthly / weekly / daily. UMUX-LITE items 1..7, likelihood to
+recommend 1..7.
 
 ---
 
@@ -152,9 +155,8 @@ enough; this is not a schema question.
 | `provenance` | enum `seeded` \| `metamorphic` \| `retained` | Table 11 | |
 | `repetitions_n` | integer | extension | **Threshold — requires a decision** |
 
-**`TODO(author)`** — `declared_constraints` has no stated representation.
-Declarative schema, predicates, or hybrid is exactly the kind of choice that
-belongs in `DECISIONS.md` before code exists, not after.
+**Representation (D19):** hybrid — declarative YAML keys for the common checks,
+named Python predicates in `cases/predicates.py` for sequence-dependent ones.
 
 ---
 
@@ -178,18 +180,19 @@ live application.*
 | `retry_count` | integer | app | Table 11 | |
 | `error_code` | text \| null | app | Table 11 | Where a check or API call fails |
 
-**`TODO(author)`** — Table 11 records `thumb_feedback` at suggestion level, but
-§4.2.2 puts a thumbs control on **every agent message**. A message is not always
-a suggestion. Either the control is restricted to suggestion messages, or
-feedback needs its own level keyed to the message. This one changes the UI.
+**Suggestion = agent turn (D08).** Every turn writes exactly one reply row, so a
+control on every agent message *is* feedback at suggestion level; it is stored
+in `study_feedback` keyed by the reply's message id. `resulting_state_shape` is
+the compact shape plus post-turn counts of D10; `error_code` is the closed set
+of D11; `user_turn` is a copy with the chat row id beside it (D06).
 
-**`TODO(author)`** — the naming is settled (`ignored`); **when to write it is
-not.** `accepted` and `rejected` have observable triggers. `ignored` is the
-absence of one, so it needs a rule: is it written when the session ends, after a
-fixed interval, or when the conversation moves on by some definition? Until that
-rule exists the application cannot write the value at all, and §4.3's label
-distribution rests on it. Distinct from the rename — this is the operational
-definition, not the word.
+**When `ignored` is written (D17):** a scheduled job stamps it on rows older
+than 24 hours whose `user_action` is still null; nothing ever overwrites a
+non-null value. **Granularity (D12):** the app also appends one
+`study_user_actions` row per target (slot, place, edits); the turn-level column
+follows the rule any-slot-accepted → `accepted`, all-rejected → `rejected`,
+else `ignored`; a reverted live edit is `rejected`; `user_initiated` is derived
+in analysis, never written by the app.
 
 ---
 
@@ -203,9 +206,10 @@ definition, not the word.
 | `origin_suggestion_id` | uuid \| null | app | Table 11 | **Linked to the suggestion that produced it** |
 | `origin_kind` | enum | app | §3.3 | Agent-originated vs user-originated; null link is not enough to tell them apart |
 
-**`TODO(author)`** — which trip mutations are in scope? This repo mutates
-`trip_blocks`, `itinerary_slots`, `branches`, `trip_todos` and more. Logging all
-of them is cheap; deciding afterwards which ones counted is not possible.
+**Scope and values (D13):** `trip_blocks`, `itinerary_slots`, `itinerary_days`,
+`ai_suggestions`, `branches`; `origin_kind ∈ {agent_live_edit,
+agent_draft_accepted, agent_place_added, user_manual, system}`, captured by
+triggers reading the `x-study-origin` request header.
 
 ---
 
@@ -232,8 +236,7 @@ Not stored; computed in analysis from `structural_check_outcome` and
 | None | Feedback | Thumb up | Indication the suggestion was helpful |
 | None | Feedback | Thumb down | Indication the suggestion was not helpful |
 
-Table 11 and Table 12 now both say `ignored` (D05). The remaining question is
-when the application writes it — see the suggestion level above.
+Table 11 and Table 12 both say `ignored` (D05); when it is written is D17.
 
 ---
 

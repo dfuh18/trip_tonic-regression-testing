@@ -31,6 +31,276 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D24 — Coverage signature and matching tolerance (P1)
+Date: 2026-09-18 · Decided by: author (escalated by agent as Q19)
+Options: exact on everything · exact sequence + request_type with bucketed
+counts and boolean parameters · request_type and tool set only
+Chosen: the ordered tool sequence with consecutive repeats collapsed, plus
+`request_type`, matched exactly; calls per tool and turns bucketed {1, 2, 3+};
+parameters reduced to `has_location`, `has_date`, `has_price_term`,
+`has_dietary_term`; rule versioned (`SIGNATURE_RULE_VERSION`).
+Reason: fine enough that "uncovered" names a real shape, coarse enough that P1
+is not true by construction. Fixed now, before participant data, as §4.2.3
+requires.
+Affects: B12, C02, C05 · Reverses: none · Closes: Q19
+
+### D23 — Pass criteria, judge protocol and the weather reference
+Date: 2026-09-18 · Decided by: author (escalated by agent as Q18)
+Options: 8/8 seeds and ≥ 75 % expanded · uniform ≥ 75 % · rates only
+Chosen: seed cases pass only at 8/8; expanded cases at ≥ 75 %; a structural
+`detected` fails the execution regardless of the judge; pair-wise comparison
+runs in both orderings at temperature 0 and passes only when both say "at
+least as good"; weather questions are judged against the forecast the agent
+actually retrieved (the tool result in the trace), Wikipedia questions against
+the stored section.
+Reason: seeds are minimum functionality (§3.1, P7), so one failure in eight is a
+failure; structural signals do not depend on a baseline and outrank the judge;
+two orderings control position bias; a stored forecast cannot be a reference
+for a run made on another day.
+Affects: B09, B11 · Reverses: none · Closes: Q18
+
+### D22 — Metamorphic relation catalogue
+Date: 2026-09-18 · Decided by: author (escalated by agent as Q17)
+Options: full catalogue · invariance only · full catalogue plus templates
+Chosen: the full catalogue — INV-1 paraphrase, INV-2 typos and casing, INV-3
+irrelevant detail added, INV-4 language switch (German); DIR-1 constraint added
+or changed, DIR-2 day changed, DIR-3 count changed, DIR-4 negation — at most
+one follow-up per relation per seed, chosen by hand in `sim/02_expand`. Venue
+lookup and scheduling take all eight; factual QA takes INV-1..4 and DIR-1 (a
+different fact); advisory takes invariance only.
+Reason: directional relations are where the structural checks earn their keep;
+templates would exceed the D21 budget without cutting n.
+Affects: B05 · Reverses: none · Closes: Q17
+
+### D21 — Suite size, repetitions and the simulator's turn cap
+Date: 2026-09-18 · Decided by: author (escalated by agent as Q16)
+Options: 3 seeds/function, 2 follow-ups, n = 4 expanded, cap 4 · same with
+n = 8 uniform · 2 seeds/function, 2 follow-ups, n = 4 expanded, cap 3
+Chosen: 2 seeds per function (8 seeds at n = 8, per §3.1), 2 follow-ups per
+seed (16 expanded at n = 4), simulator turn cap 3 with an earlier stop when the
+simulator declares the goal reached. 128 executions per run.
+Reason: cost. §3.1 allows n to be reduced outside the minimum-functionality
+cases; the reduction is recorded here so the pass-rate resolution it implies is
+stated rather than discovered.
+Affects: B03, B04, B05, B06, B07 · Reverses: none · Closes: Q16
+
+### D20 — Simulator and judge models
+Date: 2026-09-18 · Decided by: author (escalated by agent as Q15)
+Options: Gemini 3.5 Flash for both · Gemini simulator with a Claude judge ·
+Claude for both
+Chosen: `gemini-3.5-flash` (released 2026-05-19, D04) for both the simulator
+and the judge, through the same Vertex express key.
+Reason: one vendor, one key, one SDK, lowest cost. The agent recommended a
+judge from a different family to avoid self-preference bias; the author chose
+against it. The judge therefore shares a family with the agent it scores, and
+§3.7 / §4.5 must name that as a limitation of the pair-wise comparison.
+Affects: B06, B09, B14, `.env.example` (`SIMULATOR_MODEL`, `JUDGE_MODEL`)
+Reverses: none · Closes: Q15
+
+### D19 — Constraint representation: predicates with a declarative core
+Date: 2026-09-17 · Decided by: author (escalated by agent as Q03, fourth item)
+Options: declarative YAML only · Python predicates only · hybrid
+Chosen: hybrid. Common checks (expected tool sequence, call counts, slot day
+and count, mutation counts per table) are YAML keys the case loader validates;
+anything sequence-dependent (retry, widening, "same venues as the seed") is a
+named predicate in `cases/predicates.py`, referenced from the case by name.
+Reason: declarative alone cannot express a constraint that depends on a
+preceding call's outcome; predicates alone put code where the notebook should
+show a declaration.
+Affects: event-model.md (test case level), B03, B05, B08 · Reverses: none
+
+### D18 — Survey response scales and coding
+Date: 2026-09-17 · Decided by: author (escalated by agent as Q03, first item)
+Options: 7-point UMUX-LITE with 0–10 recommend · 7-point for all three ·
+5-point for all three; banded vs exact age
+Chosen: UMUX-LITE items 1 and 2 on 1..7 (strongly disagree → strongly agree);
+likelihood to recommend on 1..7 as §4.2.2 states; `real_trip` boolean;
+free text optional. Demographics: `age` as an exact integer; `gender` one of
+woman / man / non-binary / prefer not to say; `education_level` one of
+compulsory / apprenticeship or vocational / matura or high school / bachelor /
+master or higher; `llm_familiarity` one of never / rarely / monthly / weekly /
+daily. Stored as integers and text codes.
+Reason: the Sauro–Lewis UMUX-LITE regression is calibrated on 7 points and
+rescaling after collection is impossible; exact age is the author's preference
+over bands, accepting that it is more identifying in a small sample.
+Affects: event-model.md (survey levels), A01, A08, A09, C02 · Reverses: none
+
+### D17 — When `ignored` is written
+Date: 2026-09-17 · Decided by: author (escalated by agent as Q03, "ignored"
+item; the operational half of D05)
+Options: fixed interval via a scheduled job · when the conversation moves on ·
+at session end
+Chosen: a pg_cron job stamps `user_action = 'ignored'` on every
+`study_suggestions` row older than **24 hours** whose `user_action` is still
+null. Only nulls are filled; a non-null value is never overwritten by anything.
+Reason: it fires for abandoned sessions, which the other two options never
+reach; 24 h is past any single sitting. Consequence, accepted: an explicit
+action arriving after 24 h is lost as such.
+Affects: event-model.md (suggestion level), A01, A05 · Reverses: none
+
+### D16 — Study session, enrolment, consent gate and decline
+Date: 2026-09-17 · Decided by: author (escalated by agent as Q05)
+Options: consent row + user_metadata enrolment + loader gate · analytics tab id
+as session · everyone in the window is a participant
+Chosen: `session_id` is one `study_sessions` row created at consent; every
+suggestion the participant produces after `consent_at` attaches to it, the
+analytics tab id recorded beside as `client_session_id`. Enrolment: the study
+link `/study/join?cohort=study|pilot` stamps enrolment into `user_metadata`,
+the mechanism the existing `onboarded` gate uses; `run_type` is the cohort.
+Gate: the `_protected` loader redirects an enrolled user with no consented
+session to `/study/consent` from every protected route. Decline: `declined_at`
+recorded, enrolment cleared, sign-out to a thank-you page. Consent version is a
+constant beside the consent text, bumped by hand.
+Reason: the only combination where a session is a row with a consent on it and
+the gate is server-side. The loader condition is a request-path change for
+enrolled users only; it does not touch how the agent handles a request.
+Affects: event-model.md (session level), A01, A02, A07, A12 · Reverses: none
+Closes: Q05
+
+### D15 — One Supabase project for everything
+Date: 2026-09-17 · Decided by: author (escalated by agent as Q04)
+Options: dedicated study project with local development runs · one project
+for everything · local stack for simulation, prod for participants
+Chosen: the existing project, for the simulation and the participant round
+alike. `run_type` gains the value `simulation`, set on the harness's sessions.
+The simulation API runs with `DEFAULT_SUBSCRIPTION_TIER=pro` so the monthly AI
+cap never refuses a run.
+Reason: participants' trips and chat already live in this project, so a
+second one separates nothing that matters; simulation records must be durable
+and queryable next to participant rows for the Chapter 4 comparison, which a
+local stack cannot give. The agent's recommendation (a dedicated project, for
+a one-sentence retention statement) was rejected on those grounds.
+Affects: event-model.md (session level `run_type`), A01, B01, B02, B07, C04
+Reverses: none · Closes: Q04
+
+### D14 — Erasure cascades everywhere; export split
+Date: 2026-09-17 · Decided by: author (escalated by agent as Q14)
+Options: cascade everywhere · surveys cascade, behavioural rows pseudonymous ·
+no FK to auth.users
+Chosen: every study table references the participant with `ON DELETE CASCADE`.
+An account deletion is a withdrawal and removes the behavioural rows too.
+Export: `study_survey_demographics`, `study_survey_post_task` and
+`study_suggestions` (the verbatim `user_turn`) in `EXPORT_BY_USER_ID`;
+`study_user_actions`, `study_feedback`, `study_mutations`, `study_verdicts`
+in `EXPORT_EXCLUDED` with reasons.
+Reason: the simplest promise to state and keep. Consequence, accepted: a
+participant who deletes their account after the round takes their rows with
+them, and the information sheet must say that deletion is withdrawal.
+Affects: A01, A12, `account.export-tables.ts` · Reverses: none · Closes: Q14
+
+### D13 — Mutation origin taxonomy, scope and mechanism
+Date: 2026-09-17 · Decided by: author (escalated by agent as Q13 and the Q03
+scope item)
+Options: five kinds on the plan tables · five kinds on every trip table · two
+kinds
+Chosen: `origin_kind ∈ {agent_live_edit, agent_draft_accepted,
+agent_place_added, user_manual, system}` on `trip_blocks`, `itinerary_slots`,
+`itinerary_days`, `ai_suggestions` (inserts and verdict updates) and
+`branches`. Mechanism: `AFTER` triggers reading the `x-study-origin` request
+header PostgREST exposes; absent header → `user_manual`; SECURITY DEFINER
+functions and the retention job → `system`. Agent-turn writes go through a
+per-turn client built from the same JWT with that header. Rows carry table,
+row id, op, changed keys and a minimal projection — never the full row.
+Reason: only a trigger fires on all three write paths; the five kinds are what
+Table 12 and P3 need to separate "Tonic did it" from "the member did what Tonic
+proposed"; the plan tables are what §1.4 calls the persistent trip plan.
+Affects: event-model.md (state mutation level), A01, A04 · Reverses: none
+Closes: Q13
+
+### D12 — `user_action` granularity
+Date: 2026-09-17 · Decided by: author (escalated by agent as Q07)
+Options: per-target rows + turn label by rule · same with "not undone =
+accepted" · one aggregate label only
+Chosen: the app appends one `study_user_actions` row per target (`slot:i`,
+`place:<id>`, `edits`) and maintains `study_suggestions.user_action` by the
+rule: any slot accepted → `accepted`; every slot rejected → `rejected`;
+otherwise the `ignored` rule (D17). A live edit is `rejected` on revert and
+otherwise follows the `ignored` rule (Table 12: Neutral). `user_initiated` is
+derived in analysis from `study_mutations` (origin `user_manual` with a
+`google_place_id` matching a place ref on an earlier suggestion in the same
+session) and is never written by the app.
+Reason: the exact record and the field the pilot assertion checks, without
+inventing a reaction the participant did not have.
+Affects: event-model.md (suggestion level), A01, A05, C02 · Reverses: none
+Closes: Q07
+
+### D11 — Execution failure taxonomy
+Date: 2026-09-17 · Decided by: author (escalated by agent as Q11)
+Options: turn level only · turn and tool level · all three levels
+Chosen: `error_code` at turn level from the closed set `timeout |
+llm_call_limit | empty_reply | llm_error | persist_failed | other`; each tool
+call's returned `error` string kept in its trace entry; retries counted into
+`retry_count` by a counter on the model instance in `adk-llm.ts`. P2's
+execution failure = a turn-level error or any tool-level error; recovered
+retries reported as a separate rate.
+Reason: a failed `search_places` the model talks past is a failure while
+computing a suggestion; the retry signal costs one counter and would otherwise
+not exist.
+Affects: event-model.md (suggestion level), A02, C02 · Reverses: none
+Closes: Q11
+
+### D10 — `resulting_state_shape`
+Date: 2026-09-17 · Decided by: author (escalated by agent as Q09)
+Options: compact shape · compact shape plus post-turn counts · full snapshot
+Chosen: `{draft: {suggestion_id, days, slots, slot_types[]} | null, edits:
+{move, unschedule, schedule}, places_surfaced, reply: {chars, place_refs,
+draft_refs}, trip_after: {blocks, slots}}` — the first four from objects the
+service already holds, the last from two count queries after the turn.
+Reason: a check can assert on the database, not only on the agent's own
+journal, for the price of two counts.
+Affects: event-model.md (suggestion level), A02, B08 · Reverses: none
+Closes: Q09
+
+### D09 — `request_type` precedence rule
+Date: 2026-09-17 · Decided by: author (escalated by agent as Q08)
+Options: precedence onto the four functions · composite family label · slash
+intent where present
+Chosen: `scheduling` if any of `propose_plan`, `move_slot`, `unschedule_block`,
+`schedule_block` ran; else `venue_lookup` if `search_places` ran; else
+`factual_qa` if any of `get_weather`, `get_climate_normals`, `read_wikipedia`,
+`get_region_climate` ran; else `advisory`. One pure function,
+`REQUEST_TYPE_RULE_VERSION` stored beside the label; the ordered tool list is
+always stored so the composite label stays derivable.
+Reason: maps onto the four functions of §1.4 and P2's per-type rates; the
+information a precedence hides is recoverable from the trace.
+Affects: A02, A03, B12, C02 · Reverses: none · Closes: Q08
+
+### D08 — Thumbs: a dedicated control, and suggestion = agent turn
+Date: 2026-09-17 · Decided by: author (escalated by agent as Q12 and the Q03
+scope item)
+Options: dedicated control · reuse chat reactions · both
+Chosen: a dedicated up/down control under every Tonic reply, visible to
+participants only, one `study_feedback` row per member per message, changeable.
+A suggestion is defined as one agent turn; every turn writes exactly one reply
+row, so "a control on every agent message" and "feedback at suggestion level"
+(Table 11 vs §4.2.2) are the same statement, keyed by the reply's message id.
+Reason: reactions are social and shared; the definition dissolves the Q03
+tension instead of adding a level to the event model.
+Affects: event-model.md (suggestion level), A01, A06 · Reverses: none
+Closes: Q12
+
+### D07 — An interaction is one agent turn
+Date: 2026-09-17 · Decided by: author (escalated by agent as Q06)
+Options: one agent turn, success or failure · successful replies only · one
+planning run
+Chosen: one completed agent turn, counted whenever a `study_suggestions` row
+was written, whether the agent replied or failed. Requests refused before the
+agent ran (quota, validation, membership) do not count. The client reads the
+count from the study API, not from the chat response.
+Reason: keeps the trigger equal to the number of suggestion rows and the agent
+endpoint's response shape untouched.
+Affects: A02, A09, A12 · Reverses: none · Closes: Q06
+
+### D06 — `user_turn` is copied, and the chat row id is kept
+Date: 2026-09-17 · Decided by: author (escalated by agent as Q10)
+Options: copy and keep the id · copy only · reference only
+Chosen: the suggestion row stores the member's message text verbatim at turn
+start and the `chat_messages.id` beside it.
+Reason: the chat row can be edited and is deleted with the trip; the copy is
+the record, the id is the join.
+Affects: event-model.md (suggestion level), A01, A02 · Reverses: none
+Closes: Q10
+
 ### D05 — `ignored` replaces `left` as the user action
 Date: 2026-09-17 · Decided by: author
 Options: keep both names · standardise on `left` · standardise on `ignored`

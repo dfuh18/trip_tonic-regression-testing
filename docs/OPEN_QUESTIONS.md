@@ -76,7 +76,8 @@ A fourth, Phase B only: **how `declared_constraints` are represented**
 (declarative schema, predicates, or hybrid). Worth settling in `DECISIONS.md`
 before code exists rather than after.
 
-Status: open — see the file for the detail.
+Status: resolved — D17 (`ignored` rule), D18 (scales), D08 (thumbs scope), D13
+(mutation scope), D19 (`declared_constraints`).
 Plan tasks blocked (added 2026-09-17 by the planning session): the `ignored`
 rule blocks A05; thumbs scope blocks A06 (see also Q12); mutation scope blocks
 A04 (see also Q13); the response scales for the survey items block A08, A09 and
@@ -122,7 +123,7 @@ answers that in one sentence — and **(b)-style local runs** for the bulk of th
 simulation during development, with the baseline and regression runs of record
 executed against (c) so the run metadata names the same host the participants
 used. In all cases add `simulation` to `run_type`.
-Status: open
+Status: resolved — D15 (2026-09-17/18)
 
 ### Q05 — What a study session is, and how the app knows a user is a participant
 Raised: 2026-09-17 by agent · Blocks: A01, A02, A07, A12 · Phase: A
@@ -167,7 +168,7 @@ combination where a session is a row with a consent on it.
 Recommendation: (1a), (2a), loader gate for enrolled users, decline as above.
 `run_type` comes from the cohort on the join link and is fixed at session
 creation.
-Status: open
+Status: resolved — D16 (2026-09-17/18)
 
 ### Q06 — What counts as an "interaction" for the post-task trigger
 Raised: 2026-09-17 by agent · Blocks: A02, A09 · Phase: A
@@ -190,7 +191,7 @@ never seeing the survey; (c) undercounts badly — a run absorbs every turn with
 Recommendation: (a). The client learns the count from the study API (a `GET`
 that returns the session's suggestion count) rather than from the chat response,
 so the agent endpoint's response shape stays untouched.
-Status: open
+Status: resolved — D07 (2026-09-17/18)
 
 ### Q07 — `user_action` granularity: multi-slot drafts, live edits, and `user_initiated`
 Raised: 2026-09-17 by agent · Blocks: A01, A05 · Phase: A
@@ -225,7 +226,7 @@ Recommendation: (c) with rule (a); (ii) for live edits; `user_initiated` derived
 in analysis from `study_mutations` (origin `user_manual` + a `google_place_id`
 matching a place ref on an earlier suggestion in the same session), never
 written by the app.
-Status: open
+Status: resolved — D12 (2026-09-17/18)
 
 ### Q08 — The `request_type` bucketing rule
 Raised: 2026-09-17 by agent · Blocks: A02, A03, B12, C02 · Phase: A
@@ -253,7 +254,7 @@ produces sparse cells; (c) mixes what was asked with what happened.
 Recommendation: (a), implemented as one pure function with a
 `request_type_rule_version` stored beside the label, and the ordered tool list
 always stored too — so (b) remains derivable later.
-Status: open
+Status: resolved — D09 (2026-09-17/18)
 
 ### Q09 — What `resulting_state_shape` contains
 Raised: 2026-09-17 by agent · Blocks: A02, B08 · Phase: A, B
@@ -273,7 +274,7 @@ Trade-off: (a) is free and exact but is the agent's account of itself; (b)
 adds two cheap queries and a real state assertion; (c) is expensive per turn
 and copies the participant's whole trip into the study table.
 Recommendation: (b).
-Status: open
+Status: resolved — D10 (2026-09-17/18)
 
 ### Q10 — `user_turn` verbatim: copy or reference
 Raised: 2026-09-17 by agent · Blocks: A02 · Phase: A
@@ -290,7 +291,7 @@ Trade-off: (a) duplicates personal data the app already holds — which Q14 has
 to cover in the export and erasure rules either way; (b) is not verbatim after
 an edit, and is nothing after a trip deletion.
 Recommendation: (c) — the copy is the record, the id is the join.
-Status: open
+Status: resolved — D06 (2026-09-17/18)
 
 ### Q11 — Execution failure taxonomy, and what P2 counts as an execution failure
 Raised: 2026-09-17 by agent · Blocks: A02, C02 · Phase: A, C
@@ -320,7 +321,7 @@ Recommendation: (c). Record `error_code` at turn level from a closed set
 record each tool call's `error` string in the trace entry, and count retries
 into `retry_count` via a counter on the model instance (an additive change to
 `adk-llm.ts`). Report P2 on definition (b) as primary.
-Status: open
+Status: resolved — D11 (2026-09-17/18)
 
 ### Q12 — Thumbs control: dedicated control or the existing reactions
 Raised: 2026-09-17 by agent · Blocks: A06 · Phase: A
@@ -345,7 +346,7 @@ Trade-off: (a) is a new control and one more table; (b) is free but its meaning
 is social and it never fires for members who don't use reactions anyway.
 Recommendation: (a), keyed to the reply's `chat_messages.id`, joined to the
 suggestion through that id; and define suggestion = agent turn.
-Status: open
+Status: resolved — D08 (2026-09-17/18)
 
 ### Q13 — Mutation origin taxonomy and mechanism
 Raised: 2026-09-17 by agent · Blocks: A01, A04 · Phase: A
@@ -378,7 +379,7 @@ Recommendation: (a), scoped to the plan tables, via triggers + header, with the
 `system` value for writes made by SQL functions and cleanup (`reconcileDayConflicts`,
 retention). Store `table, row_id, op, changed_keys, minimal projection` per
 mutation; never the full row.
-Status: open
+Status: resolved — D13 (2026-09-17/18)
 
 ### Q14 — Withdrawal, erasure and export for study rows
 Raised: 2026-09-17 by agent · Blocks: A01 · Phase: A
@@ -403,7 +404,7 @@ is defensible only if the information sheet says pseudonymous behavioural data
 is retained.
 Recommendation: (b), with the export split as above, and the retention statement
 in the information sheet written to match.
-Status: open
+Status: resolved — D14 (2026-09-17/18)
 
 ### Q15 — Which models play the simulator and the judge
 Raised: 2026-09-17 by agent · Blocks: B06, B09, B14 · Phase: B
@@ -424,7 +425,7 @@ Recommendation: (b). The simulator only has to play a persona and the agent's
 own family does that fine. Whichever judge is chosen, its id must be a pinned
 snapshot with a release date the harness can record — verify that for the
 chosen vendor before deciding.
-Status: open
+Status: resolved — D20 (2026-09-17/18)
 
 ### Q16 — Suite size, repetitions for expanded cases, and the simulator's turn cap
 Raised: 2026-09-17 by agent · Blocks: B03, B04, B05, B06 · Phase: B
@@ -447,7 +448,7 @@ Vertex spend, wall clock and the per-minute quota.
 Recommendation: n = 4 for expanded cases, 3 seeds per function, 2 follow-ups
 per seed, turn cap 4 with an earlier stop when the simulator declares the goal
 reached.
-Status: open
+Status: resolved — D21 (2026-09-17/18)
 
 ### Q17 — The metamorphic relation catalogue
 Raised: 2026-09-17 by agent · Blocks: B05 · Phase: B
@@ -476,7 +477,7 @@ Trade-off: directional relations are where the structural checks earn their
 keep, and each one is a case-specific expected delta someone has to write.
 Recommendation: the catalogue above, one follow-up per relation per seed at
 most, chosen by hand in `sim/02_expand`.
-Status: open
+Status: resolved — D22 (2026-09-17/18)
 
 ### Q18 — Pass criteria: case threshold, judge protocol, and the weather reference
 Raised: 2026-09-17 by agent · Blocks: B09, B11 · Phase: B
@@ -502,7 +503,7 @@ Recommendation: 8/8 seeds, ≥ 75 % expanded; structural `detected` fails
 outright; both orderings, pass only on agreement, temperature 0; weather judged
 against the retrieved forecast from the trace, Wikipedia against the stored
 section.
-Status: open
+Status: resolved — D23 (2026-09-17/18)
 
 ### Q19 — The coverage signature and its matching tolerance (P1)
 Raised: 2026-09-17 by agent · Blocks: B12, C02, C05 · Phase: B, C
@@ -523,7 +524,7 @@ lower the coverage; the coarser, the closer P1 comes to being true by
 construction.
 Recommendation: the middle option, versioned (`signature_rule_version`), applied
 identically in Phase B storage and Phase C matching.
-Status: open
+Status: resolved — D24 (2026-09-17/18)
 
 ---
 
@@ -539,3 +540,8 @@ Status: open
 - **State reset confirmation** — resolved by **D03**: a precondition check, not
   a logged field.
 - **`left` vs `Ignored`** — resolved by **D05**: `ignored` throughout.
+- **Q04**–**Q19** — the sixteen questions the planning session raised were
+  ruled on by the author on 2026-09-17/18: Q04→D15, Q05→D16, Q06→D07,
+  Q07→D12, Q08→D09, Q09→D10, Q10→D06, Q11→D11, Q12→D08, Q13→D13, Q14→D14,
+  Q15→D20, Q16→D21, Q17→D22, Q18→D23, Q19→D24. Q03's four items → D17, D18,
+  D08, D13, D19. Full text kept above for the record; only Q02 remains open.

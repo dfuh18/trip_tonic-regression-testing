@@ -45,15 +45,17 @@ that cannot be skipped or reordered.
 
 | Phase | Tasks | Done | Blocked |
 |---|---|---|---|
-| A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 0 | 11 |
-| B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 0 | 10 |
-| C — analysis and pilot | 6 (6 `[FABLE]`, 0 `[STANDARD]`) | 0 | 2 |
+| A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 0 | 0 |
+| B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 0 | 0 |
+| C — analysis and pilot | 6 (6 `[FABLE]`, 0 `[STANDARD]`) | 0 | 1 |
 
 Estimate total: about 152 h (A 51.5 h · B 73.5 h · C 27 h). Vertex compute for
 the simulation runs is not in these numbers.
 
-**Ready now, no decision needed:** A10, A11, B13, B14. Everything else in Phase
-A waits on rulings for Q03–Q14; see the index at the end.
+**Rulings landed 2026-09-17/18 (D06–D24):** every Phase A and Phase B task is
+unblocked; only C02 waits, on Q02 (§4.3). Specs below cite the decision they
+build on. Dispatchable `[STANDARD]` tasks with no open dependency: A03, A10,
+A11, B13, B14 (A08 and B12 once A07/A12 and B14 exist).
 
 ---
 
@@ -125,22 +127,25 @@ Phase: A
 Tier: [FABLE]
 Depends on: —
 Estimate: 4h
-Status: blocked — Q04 (`run_type` value `simulation`), Q05 (session identity),
-Q07 (per-target action rows), Q13 (mutation columns), Q14 (FK behaviour, export
-classification)
+Status: not started
 Spec: One migration under `supabase/migrations/` creating every table the event
 model needs in the live application, `study_`-prefixed in `public`:
-`study_sessions` (session level: `id`, `user_id`, `run_type`, `consent_version`,
-`consent_at`, `declined_at`, `device_type`, `client_session_id`, `created_at`),
+`study_sessions` (session level per D16: `id`, `user_id`, `run_type` ∈ `pilot |
+study | simulation` (D15), `consent_version`, `consent_at`, `declined_at`,
+`device_type`, `client_session_id`, `created_at`),
 `study_survey_demographics` and `study_survey_post_task` (D02; one row per
-session; columns per event-model.md with the scales from the Q03 ruling),
+session; columns and scales per D18 — `age integer`, text codes for the other
+three, UMUX-LITE and recommend as `integer` 1..7),
 `study_suggestions` (suggestion level: every field in event-model.md plus
 `chat_message_id` of the user turn and of the reply, `run_id`, `trip_id`,
 `tool_call_trace jsonb`, `llm_calls`, `tokens_input`, `tokens_output`,
 `latency_ms`, `model_version`, `model_released_on`, `request_type_rule_version`,
 `structural_check_outcome` nullable — set only by the harness/analysis),
-`study_user_actions` (per-target rows per Q07), `study_feedback` (thumbs, per
-Q12), `study_mutations` (per Q13), and, for the harness, `study_runs` and
+`study_user_actions` (per-target rows, D12), `study_feedback` (D08: `session_id`,
+`chat_message_id`, `value up|down`, unique per member and message),
+`study_mutations` (D13: `table, row_id, op, changed_keys, projection,
+origin_suggestion_id, origin_kind, actor_user_id, occurred_at`), and, for the
+harness, `study_runs` and
 `study_case_executions` (run and test-case levels — written by the service key
 only, no `authenticated` grant). `study_verdicts` (structural checker output,
 append-only, `suggestion_id + checker_version` unique) also lands here so the
@@ -148,9 +153,15 @@ app rows are never updated by analysis. RLS: participants insert their own
 session/survey/feedback rows and read nothing back except their own session
 (the post-task trigger needs the count); no member reads another's rows; no
 admin policy — analysis reads with the service key (privacy decision). Grants
-per `CLAUDE.md` "a policy is not a permission". FK `ON DELETE` per Q14;
-`ai_suggestions` references `SET NULL`. Update `account.export-tables.ts` per
-Q14. Add a "Field → writer" column to `docs/event-model.md` naming the table and
+per `CLAUDE.md` "a policy is not a permission". Every reference to the
+participant is `ON DELETE CASCADE` (D14); references to `ai_suggestions` are
+`SET NULL`. `account.export-tables.ts`: the two survey tables and
+`study_suggestions` in `EXPORT_BY_USER_ID`; `study_user_actions`,
+`study_feedback`, `study_mutations`, `study_verdicts` in `EXPORT_EXCLUDED` with
+reasons (D14). Also in this migration: the pg_cron job of D17 (daily, stamps
+`user_action = 'ignored'` on `study_suggestions` rows older than 24 h whose
+`user_action` is null) and a trigger that rejects any update changing a
+non-null `user_action`. Add a "Field → writer" column to `docs/event-model.md` naming the table and
 column for every field (this is what A13 verifies).
 Done when: `pnpm db:push` applies cleanly to the study project; `node --test
 security-audit/permissions.test.ts` and `schema-hardening.test.ts` pass; every
@@ -162,9 +173,7 @@ Phase: A
 Tier: [FABLE]
 Depends on: A01, A03, A10, A11
 Estimate: 6h
-Status: blocked — Q05 (which session a turn attaches to), Q06 (what a turn
-counts as), Q08 (label), Q09 (state shape), Q10 (copy vs reference), Q11
-(error codes, retry counter)
+Status: not started
 Spec: A `StudyTracePlugin` (second ADK `BasePlugin`, registered beside
 `AgentObservabilityPlugin`, never replacing it) that accumulates an ordered
 `tool_call_trace`: for each tool call `{seq, tool, args, started_at,
@@ -172,18 +181,23 @@ duration_ms, result_error: string | null, result_chars}` — args verbatim (P1
 needs the parameters), results summarised to `error` and size — and for each LLM
 call `{seq, model, tokens_in, tokens_out, duration_ms}`. A `StudyTurnLogger`
 (`apps/api/src/routes/ai/agent/agent.study-log.ts`) that (1) at turn start,
-after the run is resolved, looks up the caller's active `study_sessions` row
-(per Q05 — none → the logger is a no-op for this turn, nothing else changes),
+after the run is resolved, looks up the caller's latest consented, undeclined
+`study_sessions` row (D16 — none → the logger is a no-op for this turn, nothing
+else changes),
 generates the `study_suggestions` id and inserts the row with `user_turn`,
 `turn_index` (count of the caller's prior turns in this run + 1),
 `conversation_id = run.id`, `device_type` from the `X-Device-Type` header (A11),
 `occurred_at`; (2) at turn end — success or the catch block — updates it with
 the trace, counts, `model_version` and `model_released_on` (from `lib/env.ts`
 when the reported model equals `DEFAULT_VERTEX_MODEL`, else the reported id and
-null), `latency_ms`, `error_code` (closed set per Q11), `retry_count` (from a
-counter added to `VertexExpressGemini` and read after the run),
-`resulting_state_shape` (per Q09), `request_type` via A03 with its rule
-version, and the reply's `chat_message_id`. Both writes use the admin client
+null), `latency_ms`, `error_code` from `timeout | llm_call_limit | empty_reply | llm_error |
+persist_failed | other` (D11), `retry_count` (from a counter added to
+`VertexExpressGemini` and read after the run, D11), `resulting_state_shape`
+per D10 — `{draft: {suggestion_id, days, slots, slot_types[]} | null, edits:
+{move, unschedule, schedule}, places_surfaced, reply: {chars, place_refs,
+draft_refs}, trip_after: {blocks, slots}}`, the last from two count queries —
+`request_type` via A03 with its rule version (D09), `user_turn` copied verbatim
+with its `chat_messages.id` (D06), and the reply's `chat_message_id`. Both writes use the admin client
 (the row is not the member's to read), are awaited nowhere on the response
 path (`void … .then(log error)`), and are wrapped so an exception can never
 reach the request. No existing log line, response field or ordering changes.
@@ -198,13 +212,17 @@ Phase: A
 Tier: [STANDARD]
 Depends on: —
 Estimate: 2h
-Status: blocked — Q08
+Status: not started
 Spec: Create `apps/api/src/routes/ai/agent/agent.request-type.ts` exporting
 `REQUEST_TYPE_RULE_VERSION` (a string constant, `'1'`) and
 `classifyRequestType(toolNames: ReadonlyArray<string>): RequestType` where
-`RequestType` is the closed union the Q08 ruling names, applying the precedence
-the ruling states verbatim (the spec is completed by copying the rule from
-`DECISIONS.md` into this task before dispatch). Pure function, no imports from
+`RequestType = 'scheduling' | 'venue_lookup' | 'factual_qa' | 'advisory'`,
+by this precedence (D09): `'scheduling'` if `toolNames` contains any of
+`propose_plan`, `move_slot`, `unschedule_block`, `schedule_block`; else
+`'venue_lookup'` if it contains `search_places`; else `'factual_qa'` if it
+contains any of `get_weather`, `get_climate_normals`, `read_wikipedia`,
+`get_region_climate`; else `'advisory'` (this covers the empty list and lists
+holding only `get_trip_details`, `list_trip_blocks`, `get_itinerary`). Pure function, no imports from
 `@google/adk`. Add `agent.request-type.test.ts` beside it (node test runner,
 same style as `agent.tool-policy` tests in `agent.e2e.test.ts`) with one case
 per label, one mixed-family case per precedence step, and the empty list.
@@ -216,13 +234,14 @@ Phase: A
 Tier: [FABLE]
 Depends on: A01
 Estimate: 6h
-Status: blocked — Q03 (scope), Q13 (taxonomy and mechanism)
-Spec: Per the Q13 ruling: `AFTER INSERT OR UPDATE OR DELETE` triggers on the
-in-scope tables writing `study_mutations` rows `{id, table, row_id, op,
+Status: not started
+Spec: Per D13: `AFTER INSERT OR UPDATE OR DELETE` triggers on `trip_blocks`,
+`itinerary_slots`, `itinerary_days`, `ai_suggestions`, `branches` writing `study_mutations` rows `{id, table, row_id, op,
 changed_keys, projection, origin_suggestion_id, origin_kind, actor_user_id,
 occurred_at}`; origin read from the PostgREST request header
 `x-study-origin` (`current_setting('request.headers', true)`), value
-`<suggestion_id>:<origin_kind>`; absent header → `user_manual`; writes by
+`<suggestion_id>:<origin_kind>` with `origin_kind ∈ {agent_live_edit,
+agent_draft_accepted, agent_place_added}`; absent header → `user_manual`; writes by
 SECURITY DEFINER functions and the retention job → `system`. Header senders: the
 per-turn client the agent tools use (built in `AgentService.chat` from the same
 JWT with the extra header, passed to `buildAgentTools` in place of
@@ -245,22 +264,23 @@ Phase: A
 Tier: [FABLE]
 Depends on: A01, A02
 Estimate: 5h
-Status: blocked — Q03 (`ignored` rule), Q07 (granularity, live edits)
-Spec: Append `study_user_actions` rows and maintain `study_suggestions.user_action`
-by the Q07 rule at: slot verdict (`drafts.service.ts applySlotVerdict`, only when
+Status: not started
+Spec: Append `study_user_actions` rows (`suggestion_id`, `target` ∈ `slot:<i>` |
+`place:<google_place_id>` | `edits`, `action`, `actor_user_id`, `at`) and
+maintain `study_suggestions.user_action` by the D12 rule — any slot accepted →
+`accepted`; every slot rejected → `rejected`; a reverted live edit → `rejected`;
+otherwise left null for the D17 job — at: slot verdict (`drafts.service.ts applySlotVerdict`, only when
 `applied === true`), whole-draft accept/reject (`ai.service.ts
 handleSuggestionAction`), add-place-from-reply and from the suggestion pool
 (the `POST /trips/:tripId/blocks` handler when the body carries `source =
 'ai_suggestion'` and an `x-study-origin` header names a suggestion), and revert
 (`agent.service.ts revert` → `rejected` for the suggestion whose reply carries
-the edits). The `ignored` finalisation runs wherever the Q03 ruling puts it
-(session end via the study API, a fixed interval via a pg_cron job in the
-migration, or conversation-moved-on in the turn logger) and only ever fills a
-null. Every write is admin-client, fire-and-forget, never on the response path.
+the edits). The `ignored` finalisation is the pg_cron job from A01 (D17) and only ever
+fills a null. `user_initiated` is never written here (D12). Every write is admin-client, fire-and-forget, never on the response path.
 Done when: each trigger path above produces the expected action row and column
-value on the dev server; a suggestion left alone acquires `ignored` by the
-ruled mechanism and nothing else ever overwrites a non-null `user_action`
-(asserted by a DB check constraint or trigger); `pnpm --filter api test`
+value on the dev server; a suggestion left alone acquires `ignored` from the job (run it by hand with
+a shortened interval on the dev database) and nothing else ever overwrites a
+non-null `user_action` (the A01 trigger); `pnpm --filter api test`
 passes.
 
 ### A06 — Thumbs control on agent replies
@@ -268,8 +288,8 @@ Phase: A
 Tier: [FABLE]
 Depends on: A01, A12
 Estimate: 3h
-Status: blocked — Q03 (scope), Q12 (mechanism)
-Spec: Per the Q12 ruling. If dedicated: a two-button control rendered under every
+Status: not started
+Spec: Per D08: a two-button control rendered under every
 `message_type = 'ai'` bubble in `chat-message-item.tsx` (extracted into
 `chat-thumb-feedback.tsx` to keep the file under 250 lines), visible only when
 the viewer has an active study session (from a `useStudySession()` hook, A07),
@@ -287,9 +307,8 @@ Phase: A
 Tier: [FABLE]
 Depends on: A01, A12
 Estimate: 8h
-Status: blocked — Q05 (all four sub-questions), Q03 (scales, for the
-demographics step's placement)
-Spec: Per the Q05 ruling. Routes under `apps/web/src/routes/`: a public
+Status: not started
+Spec: Per D16. Routes under `apps/web/src/routes/`: a public
 `/study/join` (reads `cohort`, stores enrolment, sends the visitor to login or
 sign-up with `redirect` preserved), and under `_protected`: `/study/consent`
 (the university template text with a `CONSENT_VERSION` constant beside it, an
@@ -315,12 +334,18 @@ Phase: A
 Tier: [STANDARD]
 Depends on: A07, A12
 Estimate: 3h
-Status: blocked — Q03 (response scales and coding for age, gender, education
-level, LLM familiarity)
+Status: not started
 Spec: Create `apps/web/src/components/study/demographics-form.tsx` rendered by
-the `/study/demographics` route (A07). Fields and their options are exactly the
-items and codes recorded in the `DECISIONS.md` entry that resolves the Q03
-scales (copy them into this spec before dispatch). Use `@workspace/ui` form
+the `/study/demographics` route (A07). Fields, in order (D18): `age` — a number input, integer 18..120, required;
+`gender` — radio group, stored codes `woman`, `man`, `non_binary`,
+`prefer_not_to_say`, labels "Woman", "Man", "Non-binary", "Prefer not to say";
+`education_level` — radio group, codes `compulsory`, `vocational`,
+`high_school`, `bachelor`, `master_or_higher`, labels "Compulsory school",
+"Apprenticeship / vocational", "Matura / high school", "Bachelor", "Master or
+higher"; `llm_familiarity` — radio group, codes `never`, `rarely`, `monthly`,
+`weekly`, `daily`, labels "Never", "Rarely", "About monthly", "About weekly",
+"Daily", under the prompt "How often do you use LLM chatbots such as ChatGPT
+or Gemini?". All four required. Use `@workspace/ui` form
 primitives, one submit button `variant="cta"` labelled "Continue", client-side
 required-field validation, submit via the study API wrapper
 `lib/study-api.ts submitDemographics()` (A12), then navigate to `/home` with
@@ -335,19 +360,21 @@ Phase: A
 Tier: [FABLE]
 Depends on: A02, A07, A12
 Estimate: 4h
-Status: blocked — Q06 (interaction definition), Q03 (UMUX-LITE and
-likelihood-to-recommend scales)
+Status: not started
 Spec: A `Dialog` (overlays are modals, per `CLAUDE.md`) mounted on the trip page
 shell for participants only, opened once per session when the session's
 suggestion count (from `GET /api/study/session`, polled after each agent turn
 the participant sends, or pushed through the existing realtime chat arrival)
-reaches three. Items: UMUX-LITE 1 and 2, `real_trip` yes/no,
-`likelihood_to_recommend` 1–7, optional free text. Submit writes
+reaches three (D07: one row in `study_suggestions` per turn, failed turns
+included). Items (D18): UMUX-LITE 1 "Trip Tonic's capabilities meet my
+requirements" and 2 "Trip Tonic is easy to use", each 1..7 strongly disagree →
+strongly agree; `real_trip` yes/no "Were you planning an actual upcoming
+trip?"; `likelihood_to_recommend` 1..7; optional free text. Submit writes
 `study_survey_post_task` with `submitted_at`; dismiss writes the row with
 `dismissed_at` and whatever was filled; the dialog never reopens (server-side:
 a row exists). Partial rows are legal (event-model.md).
 Done when: on the dev server the dialog opens exactly once after the third
-interaction as defined by the Q06 ruling, not before, not on the fourth; submit
+interaction as defined by D07, not before, not on the fourth; submit
 and dismiss each produce the documented row; a reload after either does not
 reopen it.
 
@@ -405,11 +432,10 @@ Phase: A
 Tier: [FABLE]
 Depends on: A01, A10
 Estimate: 4h
-Status: blocked — Q05 (session semantics), Q14 (what the participant may read)
+Status: not started
 Spec: `apps/api/src/routes/study/` in the three-file pattern: `POST /session`
 (consent: creates `study_sessions` from `{cohort, consent_version}`, `user_id`
-from the JWT, `device_type` from the header, rejects a second active session
-per the Q05 rule), `POST /session/decline`, `GET /session` (the caller's active
+from the JWT, `device_type` from the header, rejects a second consented, undeclined session for the same user — D16), `POST /session/decline`, `GET /session` (the caller's active
 session with its suggestion count — the post-task trigger's source of truth),
 `POST /survey/demographics`, `POST /survey/post-task` (submit or dismiss),
 `PUT /feedback` (thumbs upsert). Zod at the boundary; service throws
@@ -427,7 +453,7 @@ Phase: A
 Tier: [FABLE]
 Depends on: A02, A04, A05, A06, A07, A08, A09, A12
 Estimate: 3h
-Status: blocked — inherits every block above
+Status: not started
 Spec: Walk the whole participant flow on the dev server against the showcase
 trip with a pilot-cohort link: join → consent → demographics → three agent turns
 covering venue lookup, a draft with a slot accepted and one rejected, a live
@@ -462,16 +488,17 @@ Phase: B
 Tier: [FABLE]
 Depends on: B14, A13
 Estimate: 4h
-Status: blocked — Q04 (environment), Q15 (which SDKs the config must hold keys
-for)
-Spec: `src/config.py` (from B14) extended with the study project's URL/keys,
-the API base URL, the simulated users' credentials source and the three model
-ids. `src/auth.py`: create N simulated users with the admin API
+Status: not started
+Spec: D15 — the existing Supabase project and its deployed API serve both the
+simulation and the participant round; there is no separate study project and
+no local stack for runs of record. `src/config.py` (from B14) extended with
+the API base URL and the simulated users' credentials source; the three model
+ids are all `gemini-3.5-flash` (D20). `src/auth.py`: create N simulated users with the admin API
 (`auth.admin.create_user`, deterministic emails under a reserved domain, password
 from env), sign one in with the publishable key to obtain a JWT, and enrol each
 in a `study_sessions` row with `run_type = 'simulation'` (so every turn is
-logged by A02). `DEFAULT_SUBSCRIPTION_TIER=pro` on the simulation API so the
-monthly AI cap never refuses a run. Document the environment in
+logged by A02). `DEFAULT_SUBSCRIPTION_TIER=pro` on the API for the duration of the runs so
+the monthly AI cap never refuses a simulated user (D15). Document the environment in
 `src/README.md`.
 Done when: `python -m src.auth --check` signs in as each simulated user, prints
 only pseudonymous ids, and a hand-sent turn from that JWT produces a
@@ -507,13 +534,14 @@ Phase: B
 Tier: [FABLE]
 Depends on: B14
 Estimate: 5h
-Status: blocked — Q03 (`declared_constraints` representation), Q16 (`n`)
+Status: not started
 Spec: `cases/<case_id>.yaml` with: `case_id`, `base_case_id`, `provenance`,
 `run_priority`, `function` (`venue_lookup | scheduling | factual_qa | advisory`),
 `user_profile` (persona text), `goal` (what the simulator wants), `opening_turn`
-(verbatim), `expected_tool_sequence`, `declared_constraints` (in the ruled
-representation — if predicates, a Python module path + function name;
-if declarative, the schema fixed in the ruling), `scoring_criteria` (the
+(verbatim), `expected_tool_sequence`, `declared_constraints` (D19: a `checks:` mapping of declarative keys —
+`tool_sequence`, `tool_counts`, `slot_days`, `slot_count`, `mutation_counts`
+— validated by the loader, plus an optional `predicates:` list of function
+names resolved in `cases/predicates.py`), `scoring_criteria` (the
 point-wise rubric, ten-point), `references` (for factual QA: Wikipedia title +
 section + the stored text), `repetitions_n`, `metamorphic_relation` for
 follow-ups. `src/cases.py`: load, validate (pydantic), and compute
@@ -528,8 +556,8 @@ Phase: B
 Tier: [FABLE]
 Depends on: B03
 Estimate: 6h
-Status: blocked — Q16 (seeds per function)
-Spec: Author the seed set: the ruled number of cases per function, each a
+Status: not started
+Spec: Author the seed set: two cases per function, eight in all (D21), each a
 minimum-functionality scenario generated with LLM help and reviewed by hand
 (§3.1), with constraints, expected tool sequence, criteria and — for factual
 QA — the retrieved Wikipedia sections stored under `cases/references/`.
@@ -543,15 +571,17 @@ Phase: B
 Tier: [FABLE]
 Depends on: B04
 Estimate: 6h
-Status: blocked — Q17 (relation catalogue), Q16 (follow-ups per seed)
-Spec: `src/metamorphic.py`: one function per ruled relation, taking a seed case
+Status: not started
+Spec: `src/metamorphic.py`: one function per relation in D22 (INV-1..4,
+DIR-1..4), taking a seed case
 and returning a follow-up with `base_case_id`, `provenance = metamorphic`,
 inherited criteria, the perturbed `opening_turn`, and the relation's expected
 delta expressed in the same constraint representation as B03 (invariance: same
 `request_type`, same tool sequence, same structural outcome as the seed's
 recorded run; directional: the stated change). `notebooks/sim/02_expand.ipynb`
-applies the catalogue, shows each derived case beside its seed, and records
-hand edits. Outputs committed.
+applies the catalogue — two follow-ups per seed chosen by hand (D21), the
+per-function eligibility of D22 — shows each derived case beside its seed, and
+records hand edits. Outputs committed.
 Done when: the expanded set loads; every follow-up names its relation and its
 base; the notebook runs top to bottom.
 
@@ -560,10 +590,13 @@ Phase: B
 Tier: [FABLE]
 Depends on: B01
 Estimate: 8h
-Status: blocked — Q15 (simulator model), Q16 (turn cap)
+Status: not started
 Spec: `src/simulator.py`: an LLM persona (`SIMULATOR_MODEL`, dated) given the
 case's profile and goal, which reads the agent's reply from `chat_messages` and
-produces the next member turn or declares `done`, up to the ruled cap; sends
+produces the next member turn or declares `done`, up to three turns per
+case (D21); `SIMULATOR_MODEL = gemini-3.5-flash` via the `google-genai` SDK
+against the Vertex express endpoint with the same key (D20) — add the SDK to
+`requirements.txt` here; sends
 each turn exactly as the browser does (insert message row → call
 `/api/ai/agent/chat` with `message_id`; slash commands only when the case says
 so). The simulator prompt is a versioned file under `src/prompts/`. It never
@@ -577,13 +610,13 @@ Phase: B
 Tier: [FABLE]
 Depends on: B02, B03, B06
 Estimate: 8h
-Status: blocked — Q04 (host of record)
+Status: not started
 Spec: `src/runner.py run(suite, n_override=None, priority_only=False)`: opens
 a `study_runs` row (run level per event-model.md: `model_version`,
 `model_released_on`, `prompt_version`, `tool_version` from
 `GET /api/study/versions`; `suite_version` from B03; `baseline_ref`; simulator
 and judge model ids; `started_at`), then for each case in priority order and
-each repetition: `reset` → `assert_clean` (refusal aborts the run and is
+each repetition (seeds n = 8, expanded n = 4, D21): `reset` → `assert_clean` (refusal aborts the run and is
 logged) → simulate → collect the case execution's suggestion ids, traces,
 mutations, cost (sum of `tokens_*` × `lib/pricing.ts` rates, mirrored in
 `src/pricing.py` with the same `PRICING_VERSION`), latency → write a
@@ -600,7 +633,7 @@ Phase: B
 Tier: [FABLE]
 Depends on: B03, B07
 Estimate: 8h
-Status: blocked — Q03 (constraint representation), Q09 (state shape)
+Status: not started
 Spec: `src/checker.py check(case, execution) -> Verdict{outcome: none |
 detected, findings: [...], checker_version}` evaluating `declared_constraints`
 and `expected_tool_sequence` against the execution's traces,
@@ -618,13 +651,17 @@ Phase: B
 Tier: [FABLE]
 Depends on: B03
 Estimate: 6h
-Status: blocked — Q15 (judge model), Q18 (protocol, weather reference)
+Status: not started
 Spec: `src/judge.py`: `score_pointwise(case, reply, references) -> {score
 1..10, rationale}` and `compare_pairwise(case, baseline_reply, candidate_reply)
 -> {at_least_as_good: bool, rationale}`, both with explicit prompts stored as
 versioned files under `src/prompts/` (invariant 6 — no managed evaluation
-service), temperature 0, the case's criteria and references inlined, position
-handling per the Q18 ruling. The judge sees the user request and the agent's
+service), `JUDGE_MODEL = gemini-3.5-flash` (D20 — the judge shares a family
+with the agent; §3.7 names it), temperature 0, the case's criteria and
+references inlined; `compare_pairwise` calls the model in both orderings and
+returns `at_least_as_good` only when both agree (D23); for weather cases the
+reference passed is the forecast tool result taken from the execution's trace,
+for Wikipedia cases the stored section (D23). The judge sees the user request and the agent's
 reply only (P3: blind to user reaction). Judge tokens metered into the run's
 cost.
 Done when: the two functions run against B07's dry-run replies and return
@@ -638,7 +675,7 @@ Depends on: B05, B07, B08, B09
 Estimate: 6h (plus compute)
 Status: not started
 Spec: Execute the full suite once (`run_priority` order, seeds at n = 8,
-expanded at the ruled n). `notebooks/sim/03_baseline.ipynb`: per case, the
+expanded at n = 4 — D21). `notebooks/sim/03_baseline.ipynb`: per case, the
 structural outcomes across repetitions, the point-wise scores, cost and latency;
 the top-scoring reply per case shown for review; the author marks the adopted
 baseline reply per case in `cases/baseline.json` (`case_id → execution_id`,
@@ -653,11 +690,11 @@ Phase: B
 Tier: [FABLE]
 Depends on: B10
 Estimate: 6h (plus compute)
-Status: blocked — Q18 (pass threshold, combination rule)
+Status: not started
 Spec: Execute the suite a second time with no configuration change, `baseline_ref`
 set. `notebooks/sim/04_regress.ipynb`: pair-wise verdicts against the baseline
-per repetition, structural outcomes, the pass rate per case, pass/fail against
-the ruled threshold, variance discussion per §3.1 ("where variability is high,
+per repetition, structural outcomes, the pass rate per case, pass/fail per D23 (seed cases pass only at 8/8,
+expanded at ≥ 75 %; a structural `detected` fails the execution outright), variance discussion per §3.1 ("where variability is high,
 measures to reduce it are explored"), cost and latency per run. Outputs
 committed. Where a finding would change how someone else built this, an
 `IMPLEMENTATION_LOG.md` entry.
@@ -669,16 +706,25 @@ Phase: B
 Tier: [STANDARD]
 Depends on: B14
 Estimate: 3h
-Status: blocked — Q19
+Status: not started
 Spec: Create `src/signature.py` exporting `SIGNATURE_RULE_VERSION = '1'` and
 `signature(trace: list[dict], turns: int, request_type: str) -> tuple` where
 `trace` is the `tool_call_trace` array from `study_suggestions` (entries with
-keys `seq`, `tool`, `args`) and the tuple is built exactly as the Q19 ruling
-states (copy the ruled definition into this spec before dispatch). Pure,
+keys `seq`, `tool`, `args`) and the tuple is `(request_type, sequence, counts, turn_bucket, params)`
+where (D24): `sequence` = the tuple of `entry['tool']` in `seq` order with
+consecutive duplicates collapsed (`a a b a` → `a b a`); `counts` = a sorted
+tuple of `(tool, bucket)` for every distinct tool, bucket `'1'`, `'2'` or
+`'3+'` from its number of calls; `turn_bucket` = `'1'`, `'2'` or `'3+'` from
+`turns`; `params` = a tuple of four booleans over all `args` values
+concatenated as lower-case text — `has_location` (any call has both `lat` and
+`lng` args, or a `day_date`-free `address` arg), `has_date` (any arg matches
+`\d{4}-\d{2}-\d{2}`), `has_price_term` (matches `cheap|budget|expensive|
+€|\$|price|affordable|luxury`), `has_dietary_term` (matches `vegan|vegetarian|
+gluten|halal|kosher|dairy|allerg`). Pure,
 deterministic, no I/O. `tests/test_signature.py` (pytest): identical traces →
 equal signatures; a reordered sequence → different; the bucketing boundaries
-(1, 2, 3, 4 calls) as the ruling defines them; the parameter booleans from
-sample `args`.
+(1 → '1', 2 → '2', 3 and 4 → '3+'); consecutive-duplicate collapsing; each of
+the four parameter booleans from a sample `args` that sets exactly one.
 Done when: `pytest tests/test_signature.py` passes; the function is imported by
 nothing yet (C02 uses it).
 
@@ -712,8 +758,8 @@ Estimate: 1.5h
 Status: not started
 Spec: Append to `research/regression-testing/requirements.txt`, each pinned to
 a major version: `supabase`, `httpx`, `pydantic`, `python-dotenv`, `pyyaml`,
-`pandas`, `matplotlib`, `pytest`. Do not add any LLM SDK (B06 and B09 add the
-one the Q15 ruling names). Create `src/__init__.py` (empty) and `src/config.py`
+`pandas`, `matplotlib`, `pytest`. Do not add any LLM SDK (B06 adds `google-genai`,
+per D20). Create `src/__init__.py` (empty) and `src/config.py`
 exporting a `Settings` pydantic model with exactly the variables named in
 `.env.example` (`SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY`,
 `VERTEX_API_KEY`, `VERTEX_MODEL`, `SIMULATOR_MODEL`, `JUDGE_MODEL`, optional
@@ -772,8 +818,8 @@ covered, and the shapes where uncovered concentrates; (4) outcome agreement on
 covered shapes — contingency table of suite-detected against participant
 labels; P3 — judge scores (B09, run blind over participant replies with
 criteria by `request_type`) split by thumbs and by accept/reject, the two
-signals never pooled; (5) UMUX-LITE via the Sauro–Lewis curved grading scale
-and the recommend item; (6) every inferential statistic with assumptions
+signals never pooled; (5) UMUX-LITE (1..7, D18) via the Sauro–Lewis curved grading scale and the
+recommend item; (6) every inferential statistic with assumptions
 checked and n stated. Structural verdicts for participant suggestions are
 written to `study_verdicts` by B08, never onto the app rows.
 Done when: the notebook runs end to end **on simulated data only**
@@ -788,12 +834,12 @@ Estimate: 4h
 Status: not started
 Spec: The one task that cannot be skipped or reordered. Run `05_pilot` against
 the pilot sessions and `06_analysis` against simulated data, on the deployment
-the participants will use (Q04), at the commit that will be live. Check: every
+the participants will use (the existing project and API, D15), at the commit that will be live. Check: every
 event-model field populated; every §4.3 output produced; the signature rule,
 `request_type` rule, judge prompts and checker version recorded and frozen
 (C05); the retention and access statement in `docs/event-model.md` confirmed
-against the project's region and grants; `check_notebooks.py` clean; the
-information sheet's data statements match Q14's ruling. Record the check as a
+against the project's region and grants; `check_notebooks.py` clean; the information sheet's data statements match D14 (deletion is withdrawal)
+and D15 (where the data lives). Record the check as a
 `DECISIONS.md` entry by the author ("participant round opened on <date> at
 <sha>") and a `REVIEW_LOG.md` entry naming what was and was not covered.
 Done when: the author's entry exists and every item above is ticked in it.
@@ -804,9 +850,9 @@ Phase: C
 Tier: [FABLE]
 Depends on: A13, C01
 Estimate: 3h
-Status: blocked — Q04 (deployment)
-Spec: Author and one colleague run the full flow on the study deployment with
-the `pilot` link: sign-up, consent, demographics, at least three interactions
+Status: not started
+Spec: Author and one colleague run the full flow on the deployed app with the
+`pilot` link (D15): sign-up, consent, demographics, at least three interactions
 spanning the four functions, thumbs, accept and reject, the post-task screen
 (one submits, one dismisses — event-model.md asks for one of each), and one
 decline on a throwaway account. Then `05_pilot`. Findings become fixes on the
@@ -846,32 +892,34 @@ if it found something, otherwise as a one-line note under this task's status.
 
 ## Order of work
 
-Phase A cannot start in earnest until Q03 (the `ignored` rule and the scales),
-Q05 and Q07 are ruled on; A10, A11 and the two Phase B setup tasks (B13, B14)
-can be dispatched today. Critical path: A01 → A02 → A05/A04 → A13 → B01 → B02 →
-B07 → B10 → B11 → C02 → C03. B03–B06, B08, B09 run in parallel with Phase A
-once their questions are ruled on; they need Phase A only to execute, not to be
-written.
+Every Phase A and Phase B task is unblocked as of 2026-09-18. Critical path:
+A01 → A02 → A04/A05 → A13 → B01 → B02 → B07 → B10 → B11 → C02 → C03. B03–B06,
+B08 and B09 can be written in parallel with Phase A; they need Phase A only to
+execute. A10, A11, B13 and B14 are `[STANDARD]` and dispatchable now; A03 as
+soon as it is wanted.
 
-## Blocked-on index
+## Decisions the tasks build on
 
-| Question | Tasks it blocks |
-|---|---|
-| Q02 | C02 |
-| Q03 | A04, A05, A06, A08, A09, A13, B03, B08, C02 |
-| Q04 | A01, B01, B07, C04 |
-| Q05 | A01, A02, A07, A12 |
-| Q06 | A02, A09 |
-| Q07 | A01, A05 |
-| Q08 | A02, A03 |
-| Q09 | A02, B08 |
-| Q10 | A02 |
-| Q11 | A02 |
-| Q12 | A06 |
-| Q13 | A01, A04 |
-| Q14 | A01, A12 |
-| Q15 | B01, B06, B09 |
-| Q16 | B03, B04, B05, B06 |
-| Q17 | B05 |
-| Q18 | B09, B11 |
-| Q19 | B12, C02 |
+| Decision | Settles | Tasks |
+|---|---|---|
+| D06 | `user_turn` copy + id | A01, A02 |
+| D07 | interaction = agent turn | A02, A09, A12 |
+| D08 | thumbs control; suggestion = turn | A01, A06 |
+| D09 | `request_type` precedence | A02, A03, B12, C02 |
+| D10 | `resulting_state_shape` | A02, B08 |
+| D11 | failure taxonomy, `retry_count` | A02, C02 |
+| D12 | `user_action` granularity | A01, A05, C02 |
+| D13 | origin kinds, scope, header mechanism | A01, A04 |
+| D14 | cascade erasure, export split | A01, A12 |
+| D15 | one project; `run_type = simulation` | A01, B01, B02, B07, C03, C04 |
+| D16 | session, enrolment, gate, decline | A01, A02, A07, A12 |
+| D17 | `ignored` after 24 h by job | A01, A05 |
+| D18 | survey scales | A01, A08, A09, C02 |
+| D19 | constraints: hybrid | B03, B05, B08 |
+| D20 | Gemini 3.5 Flash simulator and judge | B01, B06, B09 |
+| D21 | 2 seeds/function, 2 follow-ups, n = 4, cap 3 | B03–B07 |
+| D22 | metamorphic catalogue | B05 |
+| D23 | pass criteria, judge protocol, weather reference | B09, B11 |
+| D24 | coverage signature | B12, C02, C05 |
+
+Still open: Q02 (§4.3), blocking C02.
