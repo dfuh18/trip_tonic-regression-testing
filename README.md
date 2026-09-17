@@ -88,6 +88,8 @@ here cannot reach `apps/`.
 
 ## Status
 
-Environment set up 2026-09-17. No implementation yet — `/thesis-plan` has not
-been run. Three open questions are already recorded in `docs/OPEN_QUESTIONS.md`,
-and `docs/event-model.md` is an extracted draft awaiting the author's correction.
+Environment set up 2026-09-17. `docs/event-model.md` was reviewed and corrected
+by the author the same day, and `/thesis-plan` has been run: the plan in
+`docs/IMPLEMENTATION_PLAN.md` holds 33 tasks across the three phases, and
+`docs/OPEN_QUESTIONS.md` lists the questions that need the author's ruling
+before most of Phase A can start. No implementation yet.
