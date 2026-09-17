@@ -1,0 +1,12 @@
+# Tooling only. Pipeline dependencies (the Supabase client, the analysis stack,
+# whatever drives the agent) are added in Phase B, by the task that first needs
+# one — deciding them now would be guessing at an implementation that has not
+# been planned yet.
+#
+#   python -m venv .venv
+#   .venv/Scripts/activate        # Windows
+#   pip install -r requirements.txt
+#   nbstripout --install --attributes notebooks/study/.gitattributes
+
+jupyterlab>=4.0
+nbstripout>=0.7

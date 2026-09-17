@@ -1,0 +1,46 @@
+# Implementation log
+
+Where the difficulty and the effort actually went. Feeds §3.7 (learnings and
+limitations) and the appendix.
+
+**The risk this file exists to avoid is becoming a development diary**, which is
+worth nothing in a thesis. One filter keeps it useful:
+
+> Record an entry only if it would change how someone else built this, or if it
+> bears on a claim made in Chapter 2. Debugging an async call does not qualify.
+> Discovering that constraints cannot be expressed declaratively does.
+
+**Only the Fable tier writes here.** A cheaper session lacks the context to
+judge what is noteworthy, and its entries would be noise to filter out later.
+
+**Omit an entry rather than padding one.** If stages 1 to 3.2 build without
+substantial friction, the honest §3.7 says so — and that supports the
+specifiability argument more strongly than a list of struggles would.
+
+## Format
+
+```markdown
+### L03 — Structural checker: constraints resisted declarative form
+Phase: B · Related tasks: T07
+Effort: roughly three times the estimate
+What happened: the expected-state constraints for venue lookup (minimum result
+count, radius widening after an insufficient result) could not be expressed as
+a static schema, because they depend on the outcome of the preceding call.
+Why it matters: §2.6.1 treats structural verification as comparatively cheap.
+For sequence-dependent constraints it is not.
+Design consequence: D04. Constraints are predicates, not schemas.
+Generalises: any agent whose tool policy includes retry or widening behaviour
+will hit this.
+```
+
+**`Why it matters` and `Generalises` are what make an entry citable.** An entry
+without them is a diary line — omit it instead.
+
+`Effort` is recorded relative to the estimate carried in
+`IMPLEMENTATION_PLAN.md`. This is why every task carries one: "three times the
+estimate" is a finding about the approach and cannot be reconstructed after the
+fact. Rough is fine; absent is not.
+
+---
+
+<!-- TEMPLATE-END — entries below, newest first. -->

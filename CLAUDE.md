@@ -1,0 +1,194 @@
+# Regression testing instantiation — Trip Tonic
+
+## What this is
+
+The implementation of a conversational regression testing artifact for the Trip
+Tonic LLM agent, built for a Master's thesis. The design is specified in the
+manuscript; this subtree is the instantiation of stages 1 to 3.2 of the
+evaluation pipeline described there, plus the analysis of the participant round.
+
+This file inherits the repository root `CLAUDE.md`. The four repo-wide rules
+there (no participant data in version control, dated model release, complete
+logging, additive application changes) apply here too and are not repeated.
+
+## Manuscript access — read only
+
+The manuscript is a `.docx`, which **cannot be opened with the Read tool**. Use
+the extractor:
+
+```bash
+python tools/manuscript.py --outline          # every heading
+python tools/manuscript.py --section 3.4      # one numbered section
+python tools/manuscript.py --table 11         # one table as markdown
+python tools/manuscript.py --search "pass rate"
+python tools/manuscript.py --which            # which revision is being read
+```
+
+Design requirements are split across two chapters and **both are needed**:
+
+- Chapter 3 (1.4, 3.1, 3.3, 3.4) — the pipeline and its components
+- Chapter 4 (4.2.1, 4.2.2, 4.2.3, 4.3) — the participant round, the instruments,
+  the propositions and the analysis
+
+Read the sections they reference as needed, one at a time — the manuscript is
+around two hundred pages and reading it whole wastes the context you need for
+the work. **Never edit the manuscript. Never write into the thesis folder.**
+
+## Hard invariants — violating these invalidates the study
+
+1. **State reset between repetitions.** Each test case runs n times. Every
+   repetition must begin from a clean application state. A repetition that
+   inherits state from the previous one makes the pass rate measure
+   accumulation rather than consistency. Assert on this; do not assume it.
+2. **Model version pinned to a dated release.** Never an alias that tracks
+   "latest". The pinned identifier is recorded in every run's metadata.
+3. **Logging is append-only and complete.** A field that is not logged is data
+   that does not exist. If an implementation choice would drop a field listed in
+   `docs/event-model.md`, stop and ask.
+4. **No participant data in version control, ever.** Study data lives in
+   Supabase and stays there. The exposure is therefore not a data directory but
+   notebook output cells, which store query results inside the `.ipynb` file.
+   See the notebook rules below.
+5. **Credentials come from the environment.** Never inline in a notebook or
+   module, and never printed into an output cell. A committed service key
+   exposes the whole dataset.
+6. **The judge is not a managed evaluation service.** It is prompted explicitly
+   so that its criteria are inspectable, versionable and reportable.
+
+## Phases
+
+Work is phased by **where it touches**, not only by tier.
+
+| Phase | Where | What | Requirements in |
+|---|---|---|---|
+| **A** | Application (`apps/`) | Logging, mutation origin, thumbs control, the in-app post-task prompt | 3.3, 4.2.2 |
+| **B** | This subtree | Pipeline stages 1 to 3.2 — cases, expansion, baseline, regression run | 3.1, 3.4 |
+| **C** | This subtree | The analysis notebook, and the pilot of the participant flow | 4.2, 4.3 |
+
+Phase B consumes what Phase A emits, so A comes first. Phase C is written last
+but **must be validated before the participant round**, because participant data
+is collected once.
+
+**The gate before the participant round:** the analysis notebook runs end to end
+against simulated data and produces the coverage and failure-rate outputs
+described in 4.3. Anything discoverable on data you generated yourself is
+discovered there. A bug found afterwards cannot be fixed by re-running.
+
+**The pilot.** The author and one colleague run the full flow, including the
+consent form and the end questions. These are technical tests, not participant
+data, and the sessions are excluded from analysis. Two requirements follow:
+
+- **The event model carries a session-level run type** (`pilot` or `study`), set
+  at session creation. Pilot sessions land in the same Supabase tables as real
+  ones, and filtering them out later by timestamp or email is unreliable.
+- **The pilot notebook asserts that every event model field is populated in at
+  least one record**, and fails loudly if not. A field that exists but is always
+  null looks correct in the schema and is discovered empty during analysis, too
+  late to fix. Keep this assertion for the real round and run it after the
+  **first** session, not the last.
+
+The pilot also verifies that consent cannot be bypassed by URL or back button,
+that consent is recorded with a version identifier, that declining exits
+cleanly, and that the post-task prompt fires once at the right point.
+
+## Repository layout
+
+```
+  src/              implementation
+  cases/            test case definitions
+  notebooks/sim/    stages 1 to 3.2 — outputs committed
+  notebooks/study/  analysis and pilot — outputs stripped
+  tools/            manuscript extractor, repo checks
+  docs/             event model, plan, decisions, open questions, logs
+  appendix/         the setup as submitted with the thesis
+```
+
+## Notebooks, one per stage
+
+```
+  sim/01_cases      seeding and curation, baseline handpicking
+  sim/02_expand     metamorphic derivation
+  sim/03_baseline   reference run, point-wise scoring
+  sim/04_regress    comparison run, pair-wise scoring, pass rates
+  study/05_pilot    end-to-end check of the participant flow
+  study/06_analysis coverage and failure-rate comparison (4.3)
+```
+
+`study/06_analysis` is written in Phase C and **first run against simulated
+data**, before any participant data exists. Its outputs are stripped from the
+start regardless, since it later reads study data.
+
+## Notebook rules
+
+Study data is queried from Supabase, not read from files, so the leak is in
+output cells rather than in a data folder. Notebook code looks clean while
+participant rows sit in the stored output.
+
+- `notebooks/sim/` may keep its outputs. These are the worked examples published
+  alongside the thesis.
+- `notebooks/study/` has outputs stripped on commit — `nbstripout` is configured
+  as a git filter scoped to that directory rather than relying on discipline.
+  One `df.head()` while debugging is enough. Run `python tools/check_notebooks.py`
+  to verify; it is not a substitute for the filter, it is the alarm for when the
+  filter is not installed.
+- Never print a config or connection object in any notebook.
+
+## Workflow
+
+- Work through `docs/IMPLEMENTATION_PLAN.md` in order, respecting dependencies.
+- Update task status in that file as you go. Do not keep status in your head.
+- Every pipeline stage produces a notebook in `notebooks/` that shows its
+  inputs, its outputs and the decisions taken. The notebooks are published
+  alongside the thesis, so they are written to be read, not as scratch.
+- Record every decision in `docs/DECISIONS.md`: what, when, why, and whether it
+  was taken by the agent or by the author.
+- Record entries in `docs/IMPLEMENTATION_LOG.md` where a task proved
+  substantially harder than expected, required a design change, or bears on a
+  claim in the manuscript. Only record what would change how someone else built
+  this. A debugging session does not qualify. Include the effort relative to
+  estimate, why it matters, and whether it generalises. Omit an entry rather
+  than padding one. **Only the Fable tier writes to this log.**
+- Unresolved questions go in `docs/OPEN_QUESTIONS.md` until the author rules on
+  them, at which point they move to `docs/DECISIONS.md`.
+
+## Tiers
+
+Every task in the plan carries one:
+
+- `[FABLE]` — architecture, component fusion, anything touching an invariant,
+  review of completed work
+- `[STANDARD]` — routine implementation against a specification precise enough
+  to execute without design judgement
+
+**The rule that makes tiering work:** a `[STANDARD]` task must be specified so
+completely that a session starting with **no prior context at all** can execute
+it without making a decision. Subagents start cold; they do not inherit the
+parent's context. If a task cannot be specified that tightly, it is `[FABLE]`.
+
+Every task also carries an **effort estimate**. `docs/IMPLEMENTATION_LOG.md`
+records effort *relative to estimate*, which cannot be recovered after the fact.
+
+## When to stop and ask
+
+Stop and ask before proceeding if a choice would:
+
+- change what is logged, or the structure of the event model
+- change what counts as a pass or a failure
+- set or change a threshold (n per case, pass rate, retry limits, similarity or
+  score cut-offs)
+- select or change the model used for the agent, the simulator or the judge
+- require re-running the simulation to undo
+- resolve something the manuscript leaves unspecified
+- alter how the application handles a request (root `CLAUDE.md`, rule 4)
+
+Present the options, state the trade-off, recommend one, and wait.
+
+## Do not ask about
+
+Code style, library choice, file naming, test framework, directory organisation
+within the layout above, or anything reversible by editing a file. Decide and
+proceed.
+
+## Tone
+
+Concise. No progress narration. Report what changed and what needs a decision.

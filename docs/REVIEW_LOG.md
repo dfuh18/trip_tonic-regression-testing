@@ -1,0 +1,35 @@
+# Review log
+
+What was reviewed, and what was accepted.
+
+`DECISIONS.md` gives the escalation record for free — it shows what was referred
+upward. What it cannot show is **what was checked and found sound**, which is
+the specific answer to the transparency caveat in §3.4: work produced by an
+agent was verified, and here is the record of the verification.
+
+This cannot be reconstructed afterwards. A review that happened but was not
+recorded is, for the purposes of the thesis, a review that did not happen.
+
+One entry per `[FABLE]` review pass. Written by the reviewing session, which is
+always Fable tier.
+
+## Format
+
+```markdown
+### R02 — 2026-10-04
+Reviewed: T08, T09, T10 ([STANDARD], completed since 2026-09-28)
+Checked against: task specs in IMPLEMENTATION_PLAN.md; hard invariants 1, 3, 5
+Findings:
+  - T09 wrote the repetition loop without asserting state reset (invariant 1).
+    Fixed in this pass; task reopened and re-verified.
+  - T08, T10 conform to spec. No divergence.
+Accepted: T08, T10 as delivered; T09 after the fix above.
+Not covered: the Supabase round trip in T10 was read, not executed.
+```
+
+`Not covered` matters as much as `Findings`. A review that states its own limits
+is evidence; one that implies it checked everything is not.
+
+---
+
+<!-- TEMPLATE-END — entries below, newest first. -->
