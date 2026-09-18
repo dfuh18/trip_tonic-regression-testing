@@ -82,7 +82,7 @@ begin
     order by s.consent_at desc
     limit 1;
   end if;
-  if v_session is null then
+  if v_session is null or not exists (select 1 from public.study_sessions z where z.id = v_session) then
     return null;
   end if;
 
@@ -154,12 +154,20 @@ begin
     else '{}'::jsonb
   end;
 
+  -- A cascade fires this trigger while its parent rows are already gone: a
+  -- trip being deleted, a participant's account being erased. A reference to
+  -- a row that no longer exists would fail the foreign key and abort the
+  -- member's own delete, so each reference is kept only while its target is.
   insert into public.study_mutations
     (table_name, row_id, op, changed_keys, projection, origin_suggestion_id, origin_kind,
      actor_user_id, session_id, trip_id)
   values
-    (tg_table_name, v_row_id, tg_op, v_keys, v_proj, v_suggestion, v_kind,
-     v_actor, v_session, v_trip);
+    (tg_table_name, v_row_id, tg_op, v_keys, v_proj,
+     case when exists (select 1 from public.study_suggestions x where x.id = v_suggestion) then v_suggestion end,
+     v_kind,
+     case when exists (select 1 from public.profiles p where p.id = v_actor) then v_actor end,
+     v_session,
+     case when exists (select 1 from public.trips t where t.id = v_trip) then v_trip end);
   return null;
 end;
 $$;

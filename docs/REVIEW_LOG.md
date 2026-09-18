@@ -34,6 +34,64 @@ is evidence; one that implies it checked everything is not.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### R04 — 2026-09-18
+Reviewed: the Phase A `[FABLE]` work landed since R03 — A01, A02, A04, A05,
+A06, A07, A09, A12, A13 (commits 009ebd5 … 01ae095) — plus a re-read of the
+`[STANDARD]` deliverables already accepted in R01–R03. **Caveat stated up
+front:** the reviewing session is the session that wrote this work. It is a
+second look, not an independent one; `/thesis-review` from a fresh session
+after Phase B is where independence is recovered.
+Checked against: each task's spec and Done-when in IMPLEMENTATION_PLAN.md;
+the six hard invariants; the additive-changes guardrail over the whole
+`apps/` diff since 48cedff; the stop-and-ask list for choices made in code
+without a `D` entry; `python tools/check_notebooks.py`; a scan of the
+committed diff for keys or tokens; the live database for leftover rows from
+the verification scripts.
+Findings:
+  - **Cascade risk in the mutation trigger (A04), fixed.** The trigger fires
+    inside a trip deletion and an account erasure, when the rows its foreign
+    keys point at may already be gone; the insert would then have aborted the
+    member's own delete. Found by reading, not by an observed failure. A
+    guard keeps each reference only while its target exists
+    (20260918123000, pushed with the author's go); a participant's own
+    trip-delete (204, rows kept, `trip_id` nulled) and an account erasure
+    (sessions cascade, D14) were then exercised live.
+  - **Gate cost (A07), fixed.** `fetchStudyGate` re-fetched the user on every
+    protected navigation for every account. The loader now consults the
+    enrolment flag it already holds and calls the server function for
+    enrolled accounts only. Behaviour unchanged; one auth round trip fewer.
+  - Invariant 2 holds: `model_version` and `model_released_on` are written on
+    every suggestion row and served by `/api/study/versions`; observed live.
+  - Invariant 3 holds: all 56 event-model fields map to a column (scripted
+    check), and A13's walk found every app-set column populated.
+  - Invariant 4: `check_notebooks.py` clean; no exported rows in any commit;
+    the verification scripts print ids to the terminal only and delete what
+    they create (confirmed: zero leftover trips, profiles or study rows).
+  - Invariant 5: no key in the diff; the one hit is a test's monkeypatched
+    placeholder.
+  - Rule 4: the full `apps/` diff contains four request-path changes, all
+    documented — the `/api/study` registration, the optional header on the
+    client factory, `X-Device-Type` on web requests, and the enrolled-only
+    loader gate. The agent's handling of a turn is untouched; a
+    participant's turn differs only in the plugin that records it and the
+    header its tool client carries.
+  - Quiet decisions: none found. Every threshold in code (three
+    interactions, 24 h, 15 s poll) traces to a ruling or is a UI cadence.
+    Two readings the session made itself are recorded on the tasks: the
+    `slot:<day>:<index>` target format and the header grammar.
+  - A participant can send a forged `x-study-origin` on a manual write and
+    mislabel their own mutation rows. Bounded to their own study data;
+    noted, not fixed.
+Accepted: A01, A02, A05, A06, A09, A12, A13 as delivered; A04 and A07 after
+the fixes above.
+Not covered: invariants 1 and 6 are Phase B concerns and have no code yet.
+No browser was available, so every click path — join, consent buttons, the
+form, the thumbs, the post-task dialog — is verified only through the calls
+it makes. The hourly `ignored` job's existence in `cron.job` was not
+inspected (no SQL access from the harness). The Docker image was not rebuilt
+for D25. The cascade guard was not shown to be necessary, only sufficient.
+
+
 ### R03 — 2026-09-18
 Reviewed: A08 ([STANDARD], dispatched and reviewed inside the second
 `/thesis-resume` session)
