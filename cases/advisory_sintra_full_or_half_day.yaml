@@ -18,6 +18,6 @@ scoring_criteria:
 - Refers to what is already planned for that day (Pena Palace).
 - Does not claim to have changed the trip.
 fixture_depends_on:
-- pena
+- Pena Palace
 - '2026-11-08'
 notes: 'Advisory function: a decision the member has to make, helped along.'

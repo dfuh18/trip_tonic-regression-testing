@@ -647,7 +647,13 @@ Depends on: B03, B07
 Estimate: 8h
 Status: not started
 Spec: `src/checker.py check(case, execution) -> Verdict{outcome: none |
-detected, findings: [...], checker_version}` evaluating `declared_constraints`
+detected, findings: [...], checker_version}`. The execution object it builds
+and passes to the predicates carries: `trace` (every turn's tool-call entries
+in order), `mutations` (the study_mutations rows), `drafts`, `place_ids` (the
+Google ids the replies named, from the reply messages' refs), `blocks` (the
+trip's block ids mapped to titles, so a mutation row can be read back to the
+stop it touched) and `base` for a metamorphic follow-up — see the docstring of
+`cases/predicates.py`, which is the contract. evaluating `declared_constraints`
 and `expected_tool_sequence` against the execution's traces,
 `resulting_state_shape`s and `study_mutations`, plus the metamorphic delta for
 follow-ups (which needs the seed's recorded execution — pass both). Writes

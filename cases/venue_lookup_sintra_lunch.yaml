@@ -31,7 +31,7 @@ scoring_criteria:
 - Answers the 'local food' cue with something specific.
 - Does not claim to have added or scheduled anything.
 fixture_depends_on:
-- pena
+- Pena Palace
 - '2026-11-08'
 notes: 'Second venue-lookup seed: the search must land in the trip''s other region, which is where the
   wrong-region guard matters.'

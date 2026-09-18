@@ -9,8 +9,9 @@ The execution object is the checker's view of one case run: its ordered
 ``trace`` (the tool-call entries of every turn, in order), its ``mutations``
 (study_mutations rows), its ``drafts`` (the resulting_state_shape ``draft``
 objects), its ``place_ids`` (the Google ids of every place the replies named,
-from the reply messages' refs) and, for metamorphic follow-ups, the ``base``
-execution it is compared against. Keep predicates small and named for what they assert.
+from the reply messages' refs), its ``blocks`` (the trip's block ids mapped to
+titles, so a mutation can be read back to the stop it touched) and, for
+metamorphic follow-ups, the ``base`` execution it is compared against. Keep predicates small and named for what they assert.
 """
 
 from __future__ import annotations
@@ -71,13 +72,26 @@ def used_a_reference_tool(execution: Mapping[str, Any]) -> Optional[str]:
 
 
 def tram_landed_on_saturday_afternoon(execution: Mapping[str, Any]) -> Optional[str]:
-    """scheduling_move_tram: the moved slot sits on 2026-11-07 starting 16:00."""
+    """scheduling_move_tram: the tram's own slot sits on 2026-11-07 at 16:00.
+
+    The stop is checked, not only the window: an update that moved *something*
+    to Saturday afternoon is not this case passing. ``blocks`` maps the trip's
+    block ids to titles and is assembled by the checker (B08); without it this
+    predicate says so rather than passing on the weaker test.
+    """
+    blocks = execution.get("blocks")
+    if not blocks:
+        return "cannot tell which stop moved: the execution carries no block titles"
     for m in execution.get("mutations", []):
         proj = m.get("projection") or {}
-        if (m.get("table_name") == "itinerary_slots" and m.get("op") == "UPDATE"
-                and proj.get("day_date") == "2026-11-07" and str(proj.get("start_time", "")).startswith("16:00")):
+        if m.get("table_name") != "itinerary_slots" or m.get("op") != "UPDATE":
+            continue
+        title = blocks.get(proj.get("trip_block_id"))
+        if (title == "Tram 28 ride through Alfama"
+                and proj.get("day_date") == "2026-11-07"
+                and str(proj.get("start_time", "")).startswith("16:00")):
             return None
-    return "no itinerary_slots update landed on 2026-11-07 at 16:00"
+    return "the Tram 28 ride did not land on 2026-11-07 at 16:00"
 
 
 def _place_ids(execution: Mapping[str, Any]) -> set[str]:

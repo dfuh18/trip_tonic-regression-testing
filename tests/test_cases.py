@@ -110,8 +110,8 @@ def test_fixture_dependency_must_name_something_the_fixture_has(tmp_path):
     from src.cases import fixture_anchors
 
     anchors = fixture_anchors()
-    ok = load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "fixture_depends_on": ["tram", "2026-11-07"]}), known_anchors=anchors)
-    assert ok.fixture_depends_on == ["tram", "2026-11-07"]
+    ok = load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "fixture_depends_on": ["Tram 28 ride through Alfama", "2026-11-07"]}), known_anchors=anchors)
+    assert ok.fixture_depends_on == ["Tram 28 ride through Alfama", "2026-11-07"]
     for bad in ("no_such_block", "2027-01-01"):
         with pytest.raises(CaseFileError) as exc:
             load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "fixture_depends_on": [bad]}), known_anchors=anchors)
@@ -123,7 +123,7 @@ def test_fixture_anchors_are_the_block_keys_and_the_trip_days():
 
     fx = fixture()
     anchors = fixture_anchors(fx)
-    assert {b["key"] for b in fx["blocks"]} <= anchors
+    assert {b["title"] for b in fx["blocks"]} <= anchors
     assert fx["trip"]["start_date"] in anchors and fx["trip"]["end_date"] in anchors
     assert "2026-11-10" not in anchors  # the day after the trip ends
 
@@ -133,13 +133,13 @@ def test_every_seed_case_declares_what_it_leans_on():
     protect it when the fixture changes."""
     from src.cases import CASES_DIR, fixture, load_cases
 
-    titles = {b["key"]: b["title"] for b in fixture()["blocks"]}
+    titles = [b["title"] for b in fixture()["blocks"]]
     for case in load_cases(CASES_DIR):
         text = f"{case.opening_turn} {case.goal}".lower()
-        for key, title in titles.items():
+        for title in titles:
             first_words = " ".join(title.lower().split()[:2])
             if first_words in text:
-                assert key in case.fixture_depends_on, f"{case.case_id} names {title!r} but does not declare {key!r}"
+                assert title in case.fixture_depends_on, f"{case.case_id} names {title!r} but does not declare it"
 
 
 def test_suite_version_follows_the_files(tmp_path):

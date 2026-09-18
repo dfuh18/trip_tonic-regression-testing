@@ -18,7 +18,7 @@ scoring_criteria:
 - 'Concrete and short: items, not paragraphs.'
 - Does not claim to have changed the trip.
 fixture_depends_on:
-- pena
-- tram
-- timeout
+- Pena Palace
+- Tram 28 ride through Alfama
+- Time Out Market lunch
 notes: 'Advisory function: no structural trace (P4); judged on the criteria only.'

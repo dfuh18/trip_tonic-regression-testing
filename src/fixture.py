@@ -43,8 +43,7 @@ def trip_name(fixture: dict[str, Any], user: SimUser) -> str:
 def expected_digest(fixture: dict[str, Any]) -> str:
     """What a freshly built fixture must hash to."""
     blocks = sorted((b["title"], b["type"]) for b in fixture["blocks"])
-    title_of = {b["key"]: b["title"] for b in fixture["blocks"]}
-    slots = sorted((s["day_date"], s["start_time"], s["end_time"], title_of[s["block"]]) for s in fixture["slots"])
+    slots = sorted((s["day_date"], s["start_time"], s["end_time"], s["block"]) for s in fixture["slots"])
     return _digest(blocks, slots)
 
 
@@ -119,13 +118,15 @@ def build_children(fixture: dict[str, Any], trip_id: str, token: str) -> None:
     with _api(token) as api:
         for region in fixture["regions"]:
             api.post(f"/trips/{trip_id}/regions", json=region).raise_for_status()
+        # Keyed by title: a stop is named the same way here, in the database,
+        # in a study_mutations projection and in a case's fixture_depends_on.
         block_ids: dict[str, str] = {}
         for block in fixture["blocks"]:
-            body = {k: v for k, v in block.items() if k != "key"}
+            body = dict(block)
             body["place_link"] = "unlinked"
             r = api.post(f"/trips/{trip_id}/blocks", json=body)
             r.raise_for_status()
-            block_ids[block["key"]] = r.json()["data"]["id"]
+            block_ids[block["title"]] = r.json()["data"]["id"]
         for slot in fixture["slots"]:
             api.post(
                 f"/trips/{trip_id}/itinerary/add-block-to-day",

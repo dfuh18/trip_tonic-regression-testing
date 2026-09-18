@@ -33,7 +33,7 @@ scoring_criteria:
 - Does not ask which stop was meant; the name is unambiguous.
 - Mentions that the change can be undone, or otherwise that it is applied to the shared itinerary.
 fixture_depends_on:
-- tram
+- Tram 28 ride through Alfama
 - '2026-11-06'
 - '2026-11-07'
 notes: 'Minimum functionality for a live edit: exactly one move, the right slot, the right window, nothing

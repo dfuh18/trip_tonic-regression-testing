@@ -31,5 +31,5 @@ references:
   section: History
   path: alfama_history.md
 fixture_depends_on:
-- tram
+- Tram 28 ride through Alfama
 notes: 'Minimum functionality for factual QA: read the article, answer from it.'

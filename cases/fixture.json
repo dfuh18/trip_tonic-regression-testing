@@ -10,27 +10,105 @@
       "name": "Lisbon",
       "region_type": "city",
       "description": "Base for three days; old town, riverfront, Belém.",
-      "bounding_box": { "ne": { "lat": 38.7955, "lng": -9.0910 }, "sw": { "lat": 38.6913, "lng": -9.2298 } },
+      "bounding_box": {
+        "ne": {
+          "lat": 38.7955,
+          "lng": -9.091
+        },
+        "sw": {
+          "lat": 38.6913,
+          "lng": -9.2298
+        }
+      },
       "sort_order": 1
     },
     {
       "name": "Sintra",
       "region_type": "area",
       "description": "Day trip: palaces and the hills.",
-      "bounding_box": { "ne": { "lat": 38.8100, "lng": -9.3600 }, "sw": { "lat": 38.7700, "lng": -9.4300 } },
+      "bounding_box": {
+        "ne": {
+          "lat": 38.81,
+          "lng": -9.36
+        },
+        "sw": {
+          "lat": 38.77,
+          "lng": -9.43
+        }
+      },
       "sort_order": 2
     }
   ],
   "blocks": [
-    { "key": "hotel", "type": "hotel", "title": "Hotel near Baixa", "address": "Rua Augusta, Lisbon", "coordinates": { "lat": 38.7106, "lng": -9.1378 }, "duration_minutes": 60 },
-    { "key": "tram", "type": "sightseeing", "title": "Tram 28 ride through Alfama", "address": "Praça Martim Moniz, Lisbon", "coordinates": { "lat": 38.7164, "lng": -9.1355 }, "duration_minutes": 60 },
-    { "key": "belem", "type": "sightseeing", "title": "Jerónimos Monastery", "address": "Praça do Império, Lisbon", "coordinates": { "lat": 38.6979, "lng": -9.2067 }, "duration_minutes": 120 },
-    { "key": "timeout", "type": "restaurant", "title": "Time Out Market lunch", "address": "Av. 24 de Julho, Lisbon", "coordinates": { "lat": 38.7071, "lng": -9.1458 }, "duration_minutes": 90 },
-    { "key": "pena", "type": "sightseeing", "title": "Pena Palace", "address": "Estrada da Pena, Sintra", "coordinates": { "lat": 38.7876, "lng": -9.3906 }, "duration_minutes": 180 }
+    {
+      "type": "hotel",
+      "title": "Hotel near Baixa",
+      "address": "Rua Augusta, Lisbon",
+      "coordinates": {
+        "lat": 38.7106,
+        "lng": -9.1378
+      },
+      "duration_minutes": 60
+    },
+    {
+      "type": "sightseeing",
+      "title": "Tram 28 ride through Alfama",
+      "address": "Praça Martim Moniz, Lisbon",
+      "coordinates": {
+        "lat": 38.7164,
+        "lng": -9.1355
+      },
+      "duration_minutes": 60
+    },
+    {
+      "type": "sightseeing",
+      "title": "Jerónimos Monastery",
+      "address": "Praça do Império, Lisbon",
+      "coordinates": {
+        "lat": 38.6979,
+        "lng": -9.2067
+      },
+      "duration_minutes": 120
+    },
+    {
+      "type": "restaurant",
+      "title": "Time Out Market lunch",
+      "address": "Av. 24 de Julho, Lisbon",
+      "coordinates": {
+        "lat": 38.7071,
+        "lng": -9.1458
+      },
+      "duration_minutes": 90
+    },
+    {
+      "type": "sightseeing",
+      "title": "Pena Palace",
+      "address": "Estrada da Pena, Sintra",
+      "coordinates": {
+        "lat": 38.7876,
+        "lng": -9.3906
+      },
+      "duration_minutes": 180
+    }
   ],
   "slots": [
-    { "block": "tram", "day_date": "2026-11-06", "start_time": "10:00", "end_time": "11:00" },
-    { "block": "timeout", "day_date": "2026-11-06", "start_time": "12:30", "end_time": "14:00" },
-    { "block": "pena", "day_date": "2026-11-08", "start_time": "10:00", "end_time": "13:00" }
+    {
+      "block": "Tram 28 ride through Alfama",
+      "day_date": "2026-11-06",
+      "start_time": "10:00",
+      "end_time": "11:00"
+    },
+    {
+      "block": "Time Out Market lunch",
+      "day_date": "2026-11-06",
+      "start_time": "12:30",
+      "end_time": "14:00"
+    },
+    {
+      "block": "Pena Palace",
+      "day_date": "2026-11-08",
+      "start_time": "10:00",
+      "end_time": "13:00"
+    }
   ]
 }

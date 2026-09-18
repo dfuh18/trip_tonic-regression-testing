@@ -30,7 +30,9 @@ scoring_criteria:                             # the ten-point rubric, one line e
 references: []                                # factual_qa only: title, section, path
 repetitions_n: 8                              # 8 for seeds (§3.1), 4 for follow-ups (D21)
 metamorphic_relation: null                    # INV-1..4 / DIR-1..4 for follow-ups (D22)
-fixture_depends_on: [tram, '2026-11-07']      # block keys / days in fixture.json the case assumes
+fixture_depends_on:                           # stop titles / days in fixture.json the case assumes
+  - Tram 28 ride through Alfama
+  - '2026-11-07'
 notes: Minimum-functionality case for the venue lookup function.
 ```
 
@@ -43,10 +45,12 @@ notes: Minimum-functionality case for the venue lookup function.
   carry at least one reference; the stored text lives under `references/`.
 - `repetitions_n` and the relation catalogue are rulings (D21, D22), not
   choices a case makes on its own.
-- `fixture_depends_on` names what the case reads off the starting trip: block
-  keys from `fixture.json` and day dates inside the trip's range. The loader
-  rejects a name the fixture does not have, so editing the fixture out from
-  under a case fails loudly instead of changing what the case tests.
+- `fixture_depends_on` names what the case reads off the starting trip: stop
+  titles from `fixture.json` and day dates inside the trip's range. Titles,
+  because that is what the trip, the mutation rows and the case's own opening
+  turn call a stop — there is no second vocabulary to translate. The loader
+  rejects a name the fixture does not have, so renaming a stop out from under
+  a case fails loudly instead of changing what the case tests.
 
 ## The fixture
 

@@ -127,10 +127,10 @@ class Case(BaseModel):
     references: list[Reference] = Field(default_factory=list)
     repetitions_n: int = Field(ge=1)
     metamorphic_relation: Optional[str] = None
-    #: What the case leans on in the fixture trip: block keys from
+    #: What the case leans on in the fixture trip: stop titles from
     #: cases/fixture.json and/or day dates inside the trip's range. The loader
     #: checks them, so a case cannot quietly outlive the state it assumes —
-    #: "move the Tram 28 ride" is only a case while that block is in the
+    #: "move the Tram 28 ride" is only a case while that stop is in the
     #: fixture. Empty means the case reads nothing off the trip.
     fixture_depends_on: list[str] = Field(default_factory=list)
     #: Free text for the notebook: why this case exists, what it exercises.
@@ -164,9 +164,16 @@ def fixture() -> dict:
 
 
 def fixture_anchors(data: Optional[dict] = None) -> set[str]:
-    """What a case may declare a dependency on: block keys and trip days."""
+    """What a case may declare a dependency on: stop titles and trip days.
+
+    Titles, not an alias invented for the fixture file: a stop is called the
+    same thing here, in the trip the harness builds, in a ``study_mutations``
+    projection and in the case's own opening turn. One vocabulary means a
+    declaration can be checked against the case's prose, and a reader of a
+    failed run does not have to translate.
+    """
     data = data or fixture()
-    anchors = {block["key"] for block in data["blocks"]}
+    anchors = {block["title"] for block in data["blocks"]}
     start = date.fromisoformat(data["trip"]["start_date"])
     end = date.fromisoformat(data["trip"]["end_date"])
     day = start
@@ -223,7 +230,7 @@ def load_case(
     if unknown_anchors:
         raise CaseFileError(
             f"{path.name}: fixture_depends_on names {unknown_anchors}, which the fixture does not "
-            f"have — a block key from cases/fixture.json or a day inside the trip's range"
+            f"have — a stop title from cases/fixture.json or a day inside the trip's range"
         )
     return case
 
