@@ -647,19 +647,28 @@ Depends on: B03, B07
 Estimate: 8h
 Status: not started
 Spec: `src/checker.py check(case, execution) -> Verdict{outcome: none |
-detected, findings: [...], checker_version}`. The execution object it builds
-and passes to the predicates carries: `trace` (every turn's tool-call entries
-in order), `mutations` (the study_mutations rows), `drafts`, `place_ids` (the
-Google ids the replies named, from the reply messages' refs), `blocks` (the
-trip's block ids mapped to titles, so a mutation row can be read back to the
-stop it touched) and `base` for a metamorphic follow-up — see the docstring of
-`cases/predicates.py`, which is the contract. evaluating `declared_constraints`
-and `expected_tool_sequence` against the execution's traces,
-`resulting_state_shape`s and `study_mutations`, plus the metamorphic delta for
-follow-ups (which needs the seed's recorded execution — pass both). Writes
-`study_verdicts` (append-only; never updates `study_suggestions`). Findings are
-strings a reader can act on ("expected search_places before propose_plan; got
-propose_plan first").
+detected, findings: [...], checker_version}`.
+
+Evaluates three things, all of which must hold for `none`:
+(1) every key of `declared_constraints.checks` — `tool_counts`, `tools_any_of`,
+`no_tool_errors`, `places_surfaced`, `slot_days`, `slot_count`,
+`slot_moved {block, day, start_time?}`, `mutation_counts` (`table.OP`) — the
+closed vocabulary of D27, each one declarative and validated by the loader;
+(2) `expected_tool_sequence` as an ordered subsequence of the tools called;
+(3) the named `predicates`, which by D27 are only the comparisons with another
+execution, so a metamorphic follow-up is passed its seed's execution as `base`.
+
+The execution object the checker assembles and passes to the predicates
+carries: `trace` (every turn's tool-call entries in order), `mutations` (the
+study_mutations rows), `drafts` (the `resulting_state_shape` draft objects),
+`place_ids` (the Google ids the replies named), `blocks` (the ids that
+repetition's fixture rebuild produced, mapped to titles, read from
+`study_case_executions.fixture_ids` — D26) and `base`. The docstring of
+`cases/predicates.py` is the contract for it.
+
+Writes `study_verdicts` (append-only; never updates `study_suggestions`).
+Findings are strings a reader can act on ("expected search_places before
+propose_plan; got propose_plan first").
 Done when: a hand-constructed passing execution and a failing one (a slot on
 the wrong day; a missing tool call) produce `none` and `detected` with the
 finding named; the checker runs over B07's dry run without error.

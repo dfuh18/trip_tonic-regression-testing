@@ -1,9 +1,7 @@
+case_id: advisory_packing_list
 base_case_id: null
 provenance: seeded
 run_priority: 1
-repetitions_n: 8
-metamorphic_relation: null
-case_id: advisory_packing_list
 function: advisory
 user_profile: Marta, 34, packing this week, wants a checklist she can act on.
 goal: A sensible packing list for four days in Lisbon and Sintra in November.
@@ -17,8 +15,12 @@ scoring_criteria:
 - 'Fits the trip on the itinerary: November, city walking, a Sintra hill day.'
 - 'Concrete and short: items, not paragraphs.'
 - Does not claim to have changed the trip.
+repetitions_n: 8
+metamorphic_relation: null
 fixture_depends_on:
 - Pena Palace
 - Tram 28 ride through Alfama
 - Time Out Market lunch
-notes: 'Advisory function: no structural trace (P4); judged on the criteria only.'
+notes: 'Advisory leaves no structural trace (P4), so there is nothing to assert and the judge carries
+  the whole case. The fixture dependency is real even so: ''fits the trip on the itinerary'' is only scorable
+  against these stops.'

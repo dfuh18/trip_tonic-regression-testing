@@ -1,9 +1,7 @@
+case_id: factual_qa_alfama_history
 base_case_id: null
 provenance: seeded
 run_priority: 1
-repetitions_n: 8
-metamorphic_relation: null
-case_id: factual_qa_alfama_history
 function: factual_qa
 user_profile: Tom, 41, curious, asks one clear question and wants the answer, not a plan.
 goal: Learn the short version of Alfama's history before the tram ride.
@@ -13,14 +11,13 @@ expected_tool_sequence:
 - read_wikipedia
 declared_constraints:
   checks:
-    tool_sequence:
+    tools_any_of:
     - read_wikipedia
+    no_tool_errors: true
     mutation_counts:
       trip_blocks.INSERT: 0
       ai_suggestions.INSERT: 0
-  predicates:
-  - no_tool_errors
-  - used_a_reference_tool
+  predicates: []
 scoring_criteria:
 - 'Facts agree with the reference: Moorish origin of the name and the district, survival of the 1755 earthquake,
   its character as the oldest district.'
@@ -30,6 +27,10 @@ references:
 - title: Alfama
   section: History
   path: alfama_history.md
+repetitions_n: 8
+metamorphic_relation: null
 fixture_depends_on:
 - Tram 28 ride through Alfama
-notes: 'Minimum functionality for factual QA: read the article, answer from it.'
+notes: 'Minimum functionality for factual QA: read the article, answer from it. tools_any_of rather than
+  a count, because how many times the agent reads to answer well is not the case''s business — that it
+  read at all is.'

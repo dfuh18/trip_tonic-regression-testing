@@ -1,40 +1,39 @@
+case_id: scheduling_move_tram
 base_case_id: null
 provenance: seeded
 run_priority: 1
-repetitions_n: 8
-metamorphic_relation: null
-case_id: scheduling_move_tram
 function: scheduling
-user_profile: 'Ines, 29, the organiser. Direct: names the stop and the new time, expects it done.'
-goal: Move the Tram 28 ride from Friday morning to Saturday 7 November at 16:00.
-opening_turn: /reschedule move the Tram 28 ride to 2026-11-07 at 16:00
+user_profile: 'Ines, 29, the organiser. Direct, and says when she means the way people do: a weekday and
+  a rough time.'
+goal: Move the Tram 28 ride off Friday morning to Saturday afternoon, around four.
+opening_turn: /reschedule can you move the tram ride to Saturday afternoon instead? around 4
 intent: reschedule
 expected_tool_sequence:
 - move_slot
 declared_constraints:
   checks:
-    tool_sequence:
-    - move_slot
     tool_counts:
       move_slot: 1
-      propose_plan: 0
-      search_places: 0
+    no_tool_errors: true
+    slot_moved:
+      block: Tram 28 ride through Alfama
+      day: '2026-11-07'
+      start_time: '16:00'
     mutation_counts:
-      itinerary_slots.UPDATE:
-        min: 1
-        max: 2
       itinerary_slots.INSERT: 0
       trip_blocks.INSERT: 0
-  predicates:
-  - no_tool_errors
-  - tram_landed_on_saturday_afternoon
+  predicates: []
 scoring_criteria:
 - 'States exactly what changed: the stop, the new day and the new time.'
-- Does not ask which stop was meant; the name is unambiguous.
+- Does not ask which stop or which Saturday was meant; the trip has one of each.
 - Mentions that the change can be undone, or otherwise that it is applied to the shared itinerary.
+repetitions_n: 8
+metamorphic_relation: null
 fixture_depends_on:
 - Tram 28 ride through Alfama
 - '2026-11-06'
 - '2026-11-07'
-notes: 'Minimum functionality for a live edit: exactly one move, the right slot, the right window, nothing
-  drafted.'
+notes: 'Minimum functionality for a live edit. The member says ''Saturday'' and ''around 4''; resolving
+  those to 2026-11-07 and 16:00 is part of what is being tested, so slot_moved asserts the resolved values.
+  propose_plan and search_places are not asserted at zero: /reschedule cannot reach them, and asserting
+  it would test agent.tool-policy.ts rather than the agent.'

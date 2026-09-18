@@ -1,37 +1,39 @@
+case_id: venue_lookup_sintra_lunch
 base_case_id: null
 provenance: seeded
 run_priority: 1
-repetitions_n: 8
-metamorphic_relation: null
-case_id: venue_lookup_sintra_lunch
 function: venue_lookup
-user_profile: Tom, 41, travelling with his partner. Likes a proper sit-down lunch, asks precise questions,
-  mentions the day he means.
-goal: Find a lunch spot near Pena Palace for the Sintra day, 8 November, that is not a tourist trap.
-opening_turn: /find somewhere for lunch near Pena Palace on the 8th, ideally with local food
+user_profile: Tom, 41, travelling with his partner. Likes a proper sit-down lunch, says which day he means
+  the way people do — by what is on it.
+goal: Find a lunch spot near Pena Palace for the Sintra day that is not a tourist trap.
+opening_turn: /find where should we eat lunch on the Sintra day? somewhere near the palace, proper local
+  food
 intent: find
 expected_tool_sequence:
 - search_places
 declared_constraints:
   checks:
-    tool_sequence:
-    - search_places
     tool_counts:
       search_places:
         min: 1
         max: 3
+    no_tool_errors: true
+    places_surfaced:
+      min: 1
     mutation_counts:
       trip_blocks.INSERT: 0
-  predicates:
-  - no_tool_errors
-  - surfaced_real_places
+      ai_suggestions.INSERT: 0
+  predicates: []
 scoring_criteria:
 - Names one to three real places in or near Sintra, not Lisbon.
-- Connects the suggestion to the Pena Palace visit already on the itinerary for that day.
+- Works out that the Sintra day is the one with Pena Palace on it, without asking which day is meant.
 - Answers the 'local food' cue with something specific.
 - Does not claim to have added or scheduled anything.
+repetitions_n: 8
+metamorphic_relation: null
 fixture_depends_on:
 - Pena Palace
 - '2026-11-08'
-notes: 'Second venue-lookup seed: the search must land in the trip''s other region, which is where the
-  wrong-region guard matters.'
+notes: 'The same shape as the seafood case, deliberately: same function, same bounds. What differs is
+  the resolution the member leaves implicit — ''the Sintra day'' is only a day because of what the itinerary
+  holds — and the region, which is where the wrong-region guard earns its keep.'

@@ -19,8 +19,8 @@ VALID = {
     "intent": "find",
     "expected_tool_sequence": ["search_places"],
     "declared_constraints": {
-        "checks": {"tool_sequence": ["search_places"], "tool_counts": {"search_places": {"min": 1, "max": 2}}},
-        "predicates": ["no_tool_errors"],
+        "checks": {"tool_counts": {"search_places": {"min": 1, "max": 2}}, "no_tool_errors": True},
+        "predicates": [],
     },
     "scoring_criteria": ["Names real places.", "Stays in the area."],
     "references": [],
@@ -89,7 +89,7 @@ def test_advisory_carries_no_constraints(tmp_path):
             "expected_tool_sequence": [], "declared_constraints": {"checks": {}, "predicates": []}}
     assert load_case(write(tmp_path, "advice", data)).declared_constraints.is_empty()
     with pytest.raises(CaseFileError):
-        load_case(write(tmp_path, "advice", {**data, "declared_constraints": {"predicates": ["no_tool_errors"]}}))
+        load_case(write(tmp_path, "advice", {**data, "declared_constraints": {"checks": {"no_tool_errors": True}}}))
 
 
 def test_factual_qa_needs_a_reference(tmp_path):
@@ -97,6 +97,37 @@ def test_factual_qa_needs_a_reference(tmp_path):
     with pytest.raises(CaseFileError) as exc:
         load_case(write(tmp_path, "fact", data))
     assert "reference" in str(exc.value)
+
+
+def test_unknown_check_key_is_refused(tmp_path):
+    """A constraint nothing evaluates is worse than no constraint."""
+    data = {**VALID, "declared_constraints": {"checks": {"tool_sequence": ["search_places"]}, "predicates": []}}
+    with pytest.raises(CaseFileError) as exc:
+        load_case(write(tmp_path, "venue_lookup_seafood", data))
+    assert "tool_sequence" in str(exc.value)
+
+
+def test_slot_moved_names_a_stop_a_day_and_optionally_a_time(tmp_path):
+    moved = {"block": "Tram 28 ride through Alfama", "day": "2026-11-07", "start_time": "16:00"}
+    case = load_case(write(tmp_path, "venue_lookup_seafood",
+                           {**VALID, "declared_constraints": {"checks": {"slot_moved": moved}, "predicates": []}}))
+    assert case.declared_constraints.checks.slot_moved.start_time == "16:00"
+    without_time = {k: v for k, v in moved.items() if k != "start_time"}
+    case = load_case(write(tmp_path, "venue_lookup_seafood",
+                           {**VALID, "declared_constraints": {"checks": {"slot_moved": without_time}, "predicates": []}}))
+    assert case.declared_constraints.checks.slot_moved.start_time is None
+    with pytest.raises(CaseFileError) as exc:
+        load_case(write(tmp_path, "venue_lookup_seafood",
+                        {**VALID, "declared_constraints": {"checks": {"slot_moved": {"day": "2026-11-07"}}, "predicates": []}}))
+    assert "block" in str(exc.value)
+
+
+def test_predicates_are_only_the_comparative_ones():
+    """D27: a predicate exists to compare two executions. Anything describing
+    one execution belongs in Checks, where the loader can validate it."""
+    from src.cases import _predicate_names
+
+    assert _predicate_names() == {"same_venues_as_base", "different_venues_from_base", "same_tool_sequence_as_base"}
 
 
 def test_unknown_predicate_is_refused(tmp_path):

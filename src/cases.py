@@ -5,11 +5,12 @@ shape is defined, so a case a notebook shows, a case the runner executes and a
 case the checker evaluates are the same object. Validation errors name the
 file and the key: a case that loads is a case that can run.
 
-``declared_constraints`` follows D19 — a ``checks`` mapping of declarative keys
-the loader validates, plus an optional ``predicates`` list naming functions in
-``cases/predicates.py`` for anything sequence-dependent. Advisory cases carry
-scoring criteria and no constraints, because the advisory function leaves no
-structural trace (P4).
+``declared_constraints`` follows D19 as refined by D27: a ``checks`` mapping of
+declarative keys carries everything that can be stated about **one** execution,
+and the ``predicates`` list names functions in ``cases/predicates.py`` for the
+one thing a schema cannot state — a comparison with **another** execution, which
+is what every metamorphic relation is. Advisory cases carry scoring criteria and
+no constraints, because the advisory function leaves no structural trace (P4).
 
 Every case is written against the fixture trip in ``cases/fixture.json`` (built
 and reset by ``src/reset.py``), and ``fixture_depends_on`` names the parts of it
@@ -24,6 +25,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import inspect
 import json
 from datetime import date, timedelta
 from pathlib import Path
@@ -67,19 +69,54 @@ def as_bound(value: BoundLike) -> Bound:
     return Bound(min=value, max=value) if isinstance(value, int) else value
 
 
-class Checks(BaseModel):
-    """The declarative half of D19. Every key is optional; an absent key is not
-    a constraint. Keys are the ones the structural checker (B08) knows."""
+class SlotMoved(BaseModel):
+    """One stop ends up in one window. Named, not hardcoded: the same check
+    serves every rescheduling case."""
 
     model_config = ConfigDict(extra="forbid")
-    #: Tools that must appear in this order (as a subsequence of the trace).
-    tool_sequence: Optional[list[str]] = None
-    #: Calls per tool, exact or bounded.
+    #: The stop's title, as the fixture and the trip call it.
+    block: str
+    #: YYYY-MM-DD.
+    day: str
+    #: HH:MM. Omit where the case asks for a day and not a time.
+    start_time: Optional[str] = None
+
+
+class Checks(BaseModel):
+    """What a case asserts about an execution, declaratively (D19, D27).
+
+    Every key is optional and an absent key is not a constraint. The checker
+    (B08) knows exactly these; a case cannot invent one, because a constraint
+    nothing evaluates is worse than no constraint.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    # --- what the agent called ---
+    #: Calls per tool, exact or bounded. 0 forbids a tool the agent could
+    #: otherwise have reached; a tool the intent already forbids is not worth
+    #: asserting (that is agent.tool-policy.ts's own test).
     tool_counts: Optional[dict[str, BoundLike]] = None
+    #: At least one of these ran — "answered from a source", not from memory.
+    tools_any_of: Optional[list[str]] = None
+    #: No tool returned or threw an error (D11's tool-level failure).
+    no_tool_errors: Optional[bool] = None
+
+    # --- what it surfaced ---
+    #: Google places the replies named, bounded.
+    places_surfaced: Optional[BoundLike] = None
+
+    # --- the draft it proposed ---
     #: Every draft slot's day must be one of these (YYYY-MM-DD).
     slot_days: Optional[list[str]] = None
     #: Number of slots the draft holds.
     slot_count: Optional[BoundLike] = None
+
+    # --- what it changed on the live itinerary ---
+    #: A named stop ends up in a named window.
+    slot_moved: Optional[SlotMoved] = None
+
+    # --- what the database recorded ---
     #: study_mutations rows per (table, op) — e.g. ``itinerary_slots.INSERT: 1``.
     mutation_counts: Optional[dict[str, BoundLike]] = None
 
@@ -120,6 +157,11 @@ class Case(BaseModel):
     opening_turn: str = Field(min_length=1)
     #: The slash command the simulator opens with, if the case says so.
     intent: Optional[Intent] = None
+    #: The tools the case expects, in order (Table 11). This is the ordering
+    #: constraint itself, not a description of one: the checker requires them
+    #: to appear in the trace in this order, as a subsequence, so a case that
+    #: expects a grounded plan writes [search_places, propose_plan] and gets
+    #: both the presence and the order from one field. Empty constrains nothing.
     expected_tool_sequence: list[str] = Field(default_factory=list)
     declared_constraints: Constraints = Field(default_factory=Constraints)
     #: The point-wise rubric, one criterion per line, scored 1..10 (§3.1).
@@ -190,7 +232,14 @@ def _predicate_names() -> set[str]:
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
-    return {name for name, value in vars(module).items() if callable(value) and not name.startswith("_")}
+    # Functions DEFINED there, not everything callable in its namespace: the
+    # module imports Mapping and Optional, and a case naming one of those as a
+    # predicate would have passed validation and then failed at check time.
+    return {
+        name
+        for name, value in vars(module).items()
+        if inspect.isfunction(value) and value.__module__ == module.__name__ and not name.startswith("_")
+    }
 
 
 def case_files(directory: Path = CASES_DIR) -> list[Path]:

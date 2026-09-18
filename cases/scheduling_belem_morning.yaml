@@ -1,26 +1,26 @@
+case_id: scheduling_belem_morning
 base_case_id: null
 provenance: seeded
 run_priority: 1
-repetitions_n: 8
-metamorphic_relation: null
-case_id: scheduling_belem_morning
 function: scheduling
-user_profile: Ines, 29, the organiser of the group. Wants a plan she can accept slot by slot, writes full
-  sentences, gives the date.
-goal: Get a draft for the morning of 7 November in Belém with two or three stops, so the group can settle
+user_profile: Ines, 29, the organiser of the group. Wants a plan she can accept stop by stop, writes full
+  sentences, names a day by its date the way people do — "the 7th", never a full calendar string.
+goal: Get a draft for the morning of the 7th in Belém with two or three stops, so the group can settle
   them one by one.
-opening_turn: /plan a morning in Belém on 2026-11-07 with two or three stops, we already have the monastery
-  saved
+opening_turn: /plan can you put together a Belém morning for the 7th? two or three stops, we already have
+  the monastery saved
 intent: plan
 expected_tool_sequence:
 - search_places
 - propose_plan
 declared_constraints:
   checks:
-    tool_sequence:
-    - propose_plan
     tool_counts:
+      search_places:
+        min: 1
+        max: 3
       propose_plan: 1
+    no_tool_errors: true
     slot_days:
     - '2026-11-07'
     slot_count:
@@ -29,15 +29,21 @@ declared_constraints:
     mutation_counts:
       ai_suggestions.INSERT: 1
       itinerary_slots.INSERT: 0
-  predicates:
-  - no_tool_errors
-  - search_before_draft
+      itinerary_slots.UPDATE: 0
+  predicates: []
 scoring_criteria:
 - Summarises the draft in a few sentences instead of repeating every slot.
-- Every stop is in Belém and on 7 November.
-- Reuses the saved Jerónimos Monastery block rather than proposing it as a new place.
+- Every stop is in Belém and on Saturday 7 November.
+- Reuses the saved Jerónimos Monastery rather than proposing it as a new place.
 - Says the group can accept or discard the stops, not that they are scheduled.
+repetitions_n: 8
+metamorphic_relation: null
 fixture_depends_on:
 - Jerónimos Monastery
 - '2026-11-07'
-notes: 'Minimum functionality for drafting: one draft, on the day asked, saved-block reuse, no live writes.'
+notes: 'Minimum functionality for drafting. The member says "the 7th" and the case for the tram says "Saturday":
+  members name a day both ways and both have to resolve, so the seeds carry one of each rather than a
+  format the product never sees. expected_tool_sequence carries both the grounding and the order: search
+  before propose, which is what makes the plan real venues rather than recalled ones (P5). The itinerary
+  mutation counts are the assertion that a draft is a proposal — nothing reaches the live itinerary until
+  a member accepts.'

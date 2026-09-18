@@ -1,57 +1,45 @@
-"""Sequence-dependent constraints (D19): the half that cannot be declared.
+"""Predicates: the constraints a schema cannot state (D19, D27).
 
-Each public function is a predicate a case may name under
-``declared_constraints.predicates``. It receives the recorded execution and
-returns ``None`` when satisfied or a short finding string when not — the
-structural checker (B08) turns a finding into ``detected``.
+A declarative check describes **one** execution — which tools ran, how often,
+what the draft looked like, what the database recorded — and
+``src/cases.py``'s ``Checks`` carries all of those. What it cannot describe is
+a relation **between** executions, which is exactly what a metamorphic
+follow-up asserts: the same venues as its seed, or deliberately different ones.
+Those live here, as named functions a case references by name.
 
-The execution object is the checker's view of one case run: its ordered
-``trace`` (the tool-call entries of every turn, in order), its ``mutations``
-(study_mutations rows), its ``drafts`` (the resulting_state_shape ``draft``
-objects), its ``place_ids`` (the Google ids of every place the replies named,
-from the reply messages' refs), its ``blocks`` (the ids the fixture rebuild
-produced for this repetition, mapped to titles, so a mutation can be read back
-to the stop it touched — D26; a row the case itself created is not in the map
-and is identified by its own projection) and, for metamorphic follow-ups, the
-``base`` execution it is compared against. Keep predicates small and named for what they assert.
+That is the whole of the split. It is not about where the data comes from —
+checks and predicates read the same recorded execution — but about arity: one
+execution can be described, two must be compared, and a comparison needs the
+other execution in hand.
+
+Each function takes the checker's execution object and returns ``None`` when
+satisfied or a short finding when not. The execution carries: ``trace`` (every
+turn's tool-call entries in order), ``mutations`` (the study_mutations rows),
+``drafts`` (the ``resulting_state_shape`` draft objects), ``place_ids`` (the
+Google ids the replies named), ``blocks`` (the ids this repetition's fixture
+rebuild produced, mapped to titles — D26; a row the case itself created is not
+in the map and is identified by its own projection) and ``base`` (the seed's
+execution, for a metamorphic follow-up).
 """
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Optional, Sequence
-
-
-def search_before_draft(execution: Mapping[str, Any]) -> Optional[str]:
-    """A plan grounded in real venues searches before it drafts (P5)."""
-    tools = [e["tool"] for e in execution["trace"] if e.get("kind") == "tool"]
-    if "propose_plan" not in tools:
-        return None
-    first_draft = tools.index("propose_plan")
-    if "search_places" not in tools[:first_draft]:
-        return "propose_plan was called before any search_places"
-    return None
-
-
-def no_tool_errors(execution: Mapping[str, Any]) -> Optional[str]:
-    """Every tool the turn relied on returned without an error (D11)."""
-    failed = [e["tool"] for e in execution["trace"] if e.get("kind") == "tool" and e.get("result_error")]
-    return f"tool errors: {', '.join(failed)}" if failed else None
+from typing import Any, Mapping, Optional
 
 
 def same_venues_as_base(execution: Mapping[str, Any]) -> Optional[str]:
-    """INV relations: the follow-up surfaces the same places as its seed."""
+    """INV relations: rewording the request does not change what is found."""
     base = execution.get("base")
     if not base:
         return "no base execution to compare against"
-    mine = _place_ids(execution)
-    theirs = _place_ids(base)
+    mine, theirs = _place_ids(execution), _place_ids(base)
     if mine != theirs:
         return f"venues differ from the base case ({len(mine ^ theirs)} not shared)"
     return None
 
 
 def different_venues_from_base(execution: Mapping[str, Any]) -> Optional[str]:
-    """DIR-1 / DIR-4: a changed constraint changes what is found."""
+    """DIR relations: changing a constraint changes what is found."""
     base = execution.get("base")
     if not base:
         return "no base execution to compare against"
@@ -60,43 +48,25 @@ def different_venues_from_base(execution: Mapping[str, Any]) -> Optional[str]:
     return None
 
 
-def surfaced_real_places(execution: Mapping[str, Any]) -> Optional[str]:
-    """A venue lookup returned at least one Google place (P4: grounded, not recalled)."""
-    return None if _place_ids(execution) else "no search_places result carried a Google place id"
-
-
-def used_a_reference_tool(execution: Mapping[str, Any]) -> Optional[str]:
-    """A factual answer came from a reference tool, not from the model's memory."""
-    tools = {e["tool"] for e in execution["trace"] if e.get("kind") == "tool"}
-    if tools & {"read_wikipedia", "get_region_climate", "get_climate_normals", "get_weather"}:
-        return None
-    return "no reference tool was called"
-
-
-def tram_landed_on_saturday_afternoon(execution: Mapping[str, Any]) -> Optional[str]:
-    """scheduling_move_tram: the tram's own slot sits on 2026-11-07 at 16:00.
-
-    The stop is checked, not only the window: an update that moved *something*
-    to Saturday afternoon is not this case passing. ``blocks`` maps the trip's
-    block ids to titles and is assembled by the checker (B08); without it this
-    predicate says so rather than passing on the weaker test.
-    """
-    blocks = execution.get("blocks")
-    if not blocks:
-        return "cannot tell which stop moved: the execution carries no block titles"
-    for m in execution.get("mutations", []):
-        proj = m.get("projection") or {}
-        if m.get("table_name") != "itinerary_slots" or m.get("op") != "UPDATE":
-            continue
-        title = blocks.get(proj.get("trip_block_id"))
-        if (title == "Tram 28 ride through Alfama"
-                and proj.get("day_date") == "2026-11-07"
-                and str(proj.get("start_time", "")).startswith("16:00")):
-            return None
-    return "the Tram 28 ride did not land on 2026-11-07 at 16:00"
+def same_tool_sequence_as_base(execution: Mapping[str, Any]) -> Optional[str]:
+    """INV relations: the execution path is the same shape as the seed's."""
+    base = execution.get("base")
+    if not base:
+        return "no base execution to compare against"
+    mine, theirs = _tools(execution), _tools(base)
+    if mine != theirs:
+        return f"tool sequence {mine} differs from the base case's {theirs}"
+    return None
 
 
 def _place_ids(execution: Mapping[str, Any]) -> set[str]:
-    """Google place ids the replies named, from the place refs on the reply
-    messages (the trace keeps tool results as size and error only)."""
     return set(execution.get("place_ids") or [])
+
+
+def _tools(execution: Mapping[str, Any]) -> list[str]:
+    ordered = [e["tool"] for e in execution.get("trace", []) if e.get("kind") == "tool"]
+    collapsed: list[str] = []
+    for tool in ordered:
+        if not collapsed or collapsed[-1] != tool:
+            collapsed.append(tool)
+    return collapsed

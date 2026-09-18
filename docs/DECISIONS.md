@@ -31,6 +31,28 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D27 - checks describe one execution, predicates compare two
+Date: 2026-09-18 - Decided by: author (raised on reviewing the seed cases)
+Options: keep D19's line as written (declarative where possible, predicates for
+"sequence-dependent" constraints) - move everything statable into checks and
+reserve predicates for comparisons - drop predicates and invent a mini-language
+Chosen: the declarative `Checks` vocabulary carries everything that describes
+**one** execution, including `slot_moved {block, day, start_time}`,
+`tools_any_of`, `no_tool_errors` and `places_surfaced`. `predicates` are only
+for constraints that compare an execution with **another** one, which is what
+every metamorphic relation is and what no schema can state.
+Reason: D19 drew the line at "can it be expressed declaratively", and the first
+eight cases misapplied it. Five of the seven predicates written described a
+single execution - `no_tool_errors`, `surfaced_real_places`,
+`used_a_reference_tool`, `search_before_draft` (already covered by the ordering
+field) and `tram_landed_on_saturday_afternoon`, which was hardcoded to one stop
+and one window and so could not have served a second rescheduling case. Arity is
+the line that holds: one execution can be described, two must be compared.
+Consequence: every constraint a case declares is now a schema key the loader
+validates, so a case can no longer smuggle an unevaluated assertion past it as a
+predicate name.
+Affects: B03, B04, B05, B08 - Reverses: none - Refines: D19
+
 ### D26 — A case execution records the ids its fixture rebuild produced
 Date: 2026-09-18 · Decided by: author
 Options: record the ids per execution · resolve them afterwards from the trip ·
