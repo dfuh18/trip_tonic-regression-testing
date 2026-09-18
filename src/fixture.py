@@ -33,7 +33,20 @@ FIXTURE_FILE = Path(__file__).resolve().parent.parent / "cases" / "fixture.json"
 
 
 def load_fixture(path: Path = FIXTURE_FILE) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    data = json.loads(path.read_text(encoding="utf-8"))
+    # A stop is identified by its title everywhere — in the trip, in a case's
+    # fixture_depends_on, in the id map below — so two stops sharing one would
+    # make every reference to it ambiguous and silently drop a block from the
+    # build. Refuse the fixture rather than build something unresolvable.
+    titles = [block["title"] for block in data["blocks"]]
+    duplicates = sorted({t for t in titles if titles.count(t) > 1})
+    if duplicates:
+        raise ValueError(f"fixture has stops sharing a title: {duplicates}; titles identify a stop")
+    slot_titles = {slot["block"] for slot in data["slots"]}
+    unknown = sorted(slot_titles - set(titles))
+    if unknown:
+        raise ValueError(f"fixture schedules stops it does not define: {unknown}")
+    return data
 
 
 def trip_name(fixture: dict[str, Any], user: SimUser) -> str:
@@ -113,11 +126,21 @@ def create_trip(fixture: dict[str, Any], user: SimUser, token: str) -> str:
         return r.json()["data"]["id"]
 
 
-def build_children(fixture: dict[str, Any], trip_id: str, token: str) -> None:
-    """Regions, blocks and slots, through the member's own API calls."""
+def build_children(fixture: dict[str, Any], trip_id: str, token: str) -> dict[str, Any]:
+    """Regions, blocks and slots, through the member's own API calls.
+
+    Returns the ids this build produced. They are new every time — the rebuild
+    deletes the previous rows — so an execution that does not record them
+    cannot afterwards say which stop a mutation touched (D26).
+    """
+    ids: dict[str, Any] = {"trip": trip_id, "regions": {}, "blocks": {}, "days": {}, "slots": {}}
     with _api(token) as api:
         for region in fixture["regions"]:
-            api.post(f"/trips/{trip_id}/regions", json=region).raise_for_status()
+            r = api.post(f"/trips/{trip_id}/regions", json=region)
+            r.raise_for_status()
+            body = r.json().get("data") or {}
+            if body.get("id"):
+                ids["regions"][region["name"]] = body["id"]
         # Keyed by title: a stop is named the same way here, in the database,
         # in a study_mutations projection and in a case's fixture_depends_on.
         block_ids: dict[str, str] = {}
@@ -127,8 +150,9 @@ def build_children(fixture: dict[str, Any], trip_id: str, token: str) -> None:
             r = api.post(f"/trips/{trip_id}/blocks", json=body)
             r.raise_for_status()
             block_ids[block["title"]] = r.json()["data"]["id"]
+        ids["blocks"] = dict(block_ids)
         for slot in fixture["slots"]:
-            api.post(
+            r = api.post(
                 f"/trips/{trip_id}/itinerary/add-block-to-day",
                 json={
                     "block_id": block_ids[slot["block"]],
@@ -137,4 +161,11 @@ def build_children(fixture: dict[str, Any], trip_id: str, token: str) -> None:
                     "end_time": slot["end_time"],
                     "time_precision": "exact",
                 },
-            ).raise_for_status()
+            )
+            r.raise_for_status()
+            created = r.json().get("data") or {}
+            if created.get("day", {}).get("id"):
+                ids["days"][slot["day_date"]] = created["day"]["id"]
+            if created.get("slot", {}).get("id"):
+                ids["slots"][slot["block"]] = created["slot"]["id"]
+    return ids

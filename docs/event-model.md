@@ -153,7 +153,8 @@ enough; this is not a schema question.
 | `expected_tool_sequence` | jsonb | Table 11 | |
 | `scoring_criteria` | — | Table 11 | Point-wise for baseline, pair-wise for regression (§3.4) |
 | `provenance` | enum `seeded` \| `metamorphic` \| `retained` | Table 11 | |
-| `repetitions_n` | integer | extension | **Threshold — requires a decision** |
+| `repetitions_n` | integer | extension | 8 for seeds, 4 for expanded (D21) |
+| `fixture_ids` | jsonb | extension (D26) | The ids the fixture rebuild produced for this repetition — trip, blocks, days, slots, regions by name. New every repetition, and the only way to resolve a `study_mutations` `row_id` or a slot id in `resulting_state_shape` back to the stop it names |
 
 **Representation (D19):** hybrid — declarative YAML keys for the common checks,
 named Python predicates in `cases/predicates.py` for sequence-dependent ones.
@@ -272,7 +273,7 @@ task. A13 verifies each writer actually wrote.
 | `mutation_id`, `origin_suggestion_id`, `origin_kind` | `study_mutations.id / origin_suggestion_id / origin_kind` (+ `table_name`, `row_id`, `op`, `changed_keys`, `projection`, `actor_user_id`, `session_id`) | triggers on the plan tables reading `x-study-origin` (A04) |
 | `occurred_at`, `device_type` (general) | `study_suggestions.occurred_at / device_type` (device also on the session) | turn logger (A02), from the `X-Device-Type` header (A11) |
 | run level | `study_runs.*` (`baseline_ref` is a run id; cost as `cost_usd`) | runner (B07), versions from `GET /api/study/versions` (A10) |
-| test case level | `study_case_executions.*` (`repetitions_n`, `provenance`, constraints, criteria, `suggestion_ids`) | runner (B07) from the case loader (B03) |
+| test case level | `study_case_executions.*` (`repetitions_n`, `provenance`, constraints, criteria, `suggestion_ids`, `fixture_ids`) | runner (B07) from the case loader (B03) and the fixture rebuild (B02) |
 
 ## Changes to this file
 

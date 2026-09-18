@@ -105,7 +105,7 @@ def collect(trip_id: str, suggestion_ids: list[str]) -> dict:
 
 def execute_case(handle: RunHandle, case: Case, repetition: int, simulator: Simulator, log: Callable[[str], None]) -> dict:
     """One repetition: gate, simulate, collect, record. Returns the row written."""
-    reset.reset(handle.trip_id, handle.token)
+    rebuilt = reset.reset(handle.trip_id, handle.token)
     try:
         reset.assert_clean(handle.trip_id)
     except reset.DirtyState as exc:
@@ -132,6 +132,9 @@ def execute_case(handle: RunHandle, case: Case, repetition: int, simulator: Simu
         "expected_tool_sequence": case.expected_tool_sequence,
         "scoring_criteria": case.scoring_criteria,
         "suggestion_ids": result.suggestion_ids,
+        # The ids this repetition built. New every time, and the only way to
+        # read a study_mutations row_id back to the stop it touched (D26).
+        "fixture_ids": rebuilt.ids,
         "cost_usd": cost,
         "latency_ms": int((time.time() - started) * 1000),
         "token_count": agent_in + agent_out + result.simulator_tokens_input + result.simulator_tokens_output,

@@ -31,6 +31,25 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D26 — A case execution records the ids its fixture rebuild produced
+Date: 2026-09-18 · Decided by: author
+Options: record the ids per execution · resolve them afterwards from the trip ·
+identify fixture rows by title alone
+Chosen: `study_case_executions.fixture_ids` — trip, blocks, days, slots and
+regions, by name, as the rebuild created them for that repetition.
+Reason: the author's instruction, "everything needs to be exactly traceable".
+The fixture is deleted and rebuilt before every repetition, so a stop's id is
+new each time; a `study_mutations` row carries `row_id` and a
+`resulting_state_shape` carries slot ids, neither of which can be read back to
+a stop once the next repetition has replaced it. Resolving afterwards is
+impossible for the same reason, and titles alone are ambiguous the moment two
+stops share one — which the fixture loader now refuses outright, but which the
+ids make moot.
+Affects: event-model.md (test case level), B02, B07, B08, C02
+Reverses: none
+Note: additive — a nullable column and a field the harness fills. No existing
+field changes meaning.
+
 ### D25 — The API image carries `src`, so version hashes resolve in the container
 Date: 2026-09-18 · Decided by: agent
 Options: copy `src` into the runtime image · bake the hashes at build time ·

@@ -9,9 +9,11 @@ The execution object is the checker's view of one case run: its ordered
 ``trace`` (the tool-call entries of every turn, in order), its ``mutations``
 (study_mutations rows), its ``drafts`` (the resulting_state_shape ``draft``
 objects), its ``place_ids`` (the Google ids of every place the replies named,
-from the reply messages' refs), its ``blocks`` (the trip's block ids mapped to
-titles, so a mutation can be read back to the stop it touched) and, for
-metamorphic follow-ups, the ``base`` execution it is compared against. Keep predicates small and named for what they assert.
+from the reply messages' refs), its ``blocks`` (the ids the fixture rebuild
+produced for this repetition, mapped to titles, so a mutation can be read back
+to the stop it touched — D26; a row the case itself created is not in the map
+and is identified by its own projection) and, for metamorphic follow-ups, the
+``base`` execution it is compared against. Keep predicates small and named for what they assert.
 """
 
 from __future__ import annotations

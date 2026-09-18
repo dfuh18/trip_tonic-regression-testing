@@ -16,6 +16,7 @@ rebuild itself produces: the reset is not part of the case.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -36,6 +37,17 @@ MUST_BE_EMPTY = (
     "study_suggestions",
     "study_mutations",
 )
+
+
+@dataclass(frozen=True)
+class ResetResult:
+    """What one rebuild produced: the state digest the gate compares, and the
+    ids it created. The ids are new every time and are recorded on the
+    execution row, because nothing else can resolve a mutation's ``row_id``
+    back to a stop once the next repetition has replaced it (D26)."""
+
+    digest: str
+    ids: dict = field(default_factory=dict)
 
 
 class DirtyState(RuntimeError):
@@ -81,14 +93,15 @@ def _delete_study_rows(trip_id: str) -> None:
     a.table("study_mutations").delete().eq("trip_id", trip_id).execute()
 
 
-def reset(trip_id: str, token: str, fixture: dict[str, Any] | None = None) -> str:
-    """Wipe the trip's children and rebuild the fixture. Returns the digest."""
+def reset(trip_id: str, token: str, fixture: dict[str, Any] | None = None) -> ResetResult:
+    """Wipe the trip's children and rebuild the fixture, returning the digest
+    and the ids the rebuild produced."""
     fixture = fixture or load_fixture()
     _delete_children(trip_id)
     _delete_study_rows(trip_id)
-    build_children(fixture, trip_id, token)
+    ids = build_children(fixture, trip_id, token)
     _delete_study_rows(trip_id)  # the rebuild's own mutation rows are not data
-    return observed_digest(trip_id)
+    return ResetResult(digest=observed_digest(trip_id), ids=ids)
 
 
 def assert_clean(trip_id: str, fixture: dict[str, Any] | None = None) -> None:
