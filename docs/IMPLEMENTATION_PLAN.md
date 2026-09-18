@@ -46,7 +46,7 @@ that cannot be skipped or reordered.
 | Phase | Tasks | Done | Blocked |
 |---|---|---|---|
 | A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 13 | 0 |
-| B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 6 | 0 |
+| B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 8 | 0 |
 | C — analysis and pilot | 6 (6 `[FABLE]`, 0 `[STANDARD]`) | 0 | 1 |
 
 Estimate total: about 152 h (A 51.5 h · B 73.5 h · C 27 h). Vertex compute for
@@ -602,7 +602,7 @@ Phase: B
 Tier: [FABLE]
 Depends on: B01
 Estimate: 8h
-Status: not started
+Status: done (2026-09-18; live: a seed-shaped venue-lookup case ran against the fixture trip through the member's path, one study_suggestions row per turn, transcript readable in chat_messages, simulator model and prompt version simulator/1 and tokens recorded on the result; the persona stopped `done` after one satisfying reply, which D21 permits. 3 offline loop tests with a scripted API)
 Spec: `src/simulator.py`: an LLM persona (`SIMULATOR_MODEL`, dated) given the
 case's profile and goal, which reads the agent's reply from `chat_messages` and
 produces the next member turn or declares `done`, up to three turns per
@@ -663,7 +663,7 @@ Phase: B
 Tier: [FABLE]
 Depends on: B03
 Estimate: 6h
-Status: not started
+Status: done (2026-09-18; explicit prompts judge-pointwise/1 and judge-pairwise/1; pair-wise asks a three-way verdict in both orderings and passes only when both hold — the spec's binary question could not distinguish a tie from a loss in the swapped ordering, so the verdict is A | B | tie (agent reading of D23, recorded here). Live: 10 point-wise on a real reply, a reply against itself is a tie both ways, a worse candidate loses both ways; 7 offline tests)
 Spec: `src/judge.py`: `score_pointwise(case, reply, references) -> {score
 1..10, rationale}` and `compare_pairwise(case, baseline_reply, candidate_reply)
 -> {at_least_as_good: bool, rationale}`, both with explicit prompts stored as
