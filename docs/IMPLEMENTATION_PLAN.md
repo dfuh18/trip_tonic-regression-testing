@@ -45,7 +45,7 @@ that cannot be skipped or reordered.
 
 | Phase | Tasks | Done | Blocked |
 |---|---|---|---|
-| A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 11 | 0 |
+| A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 12 | 0 |
 | B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 3 | 0 |
 | C — analysis and pilot | 6 (6 `[FABLE]`, 0 `[STANDARD]`) | 0 | 1 |
 
@@ -234,7 +234,7 @@ Phase: A
 Tier: [FABLE]
 Depends on: A01
 Estimate: 6h
-Status: not started
+Status: done (2026-09-18; two migrations pushed; every origin kind observed live — agent_live_edit with the turn id, agent_draft_accepted across the whole accept chain, agent_place_added, user_manual for a bare or forged header, system for a service-key write, nothing for a non-participant. Found and fixed in the live run: the API's per-request client did not forward the header to PostgREST, and a no-op day upsert logged an UPDATE)
 Spec: Per D13: `AFTER INSERT OR UPDATE OR DELETE` triggers on `trip_blocks`,
 `itinerary_slots`, `itinerary_days`, `ai_suggestions`, `branches` writing `study_mutations` rows `{id, table, row_id, op,
 changed_keys, projection, origin_suggestion_id, origin_kind, actor_user_id,
