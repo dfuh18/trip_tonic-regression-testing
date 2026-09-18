@@ -45,7 +45,7 @@ that cannot be skipped or reordered.
 
 | Phase | Tasks | Done | Blocked |
 |---|---|---|---|
-| A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 6 | 0 |
+| A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 7 | 0 |
 | B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 3 | 0 |
 | C — analysis and pilot | 6 (6 `[FABLE]`, 0 `[STANDARD]`) | 0 | 1 |
 
@@ -307,7 +307,7 @@ Phase: A
 Tier: [FABLE]
 Depends on: A01, A12
 Estimate: 8h
-Status: not started
+Status: done (2026-09-18; every gate transition observed as an SSR redirect over HTTP for an enrolled, a consented, a finished and a declined throwaway account; the browser-side handlers were not exercised — no browser available; consent text is a placeholder marked TODO(author))
 Spec: Per D16. Routes under `apps/web/src/routes/`: a public
 `/study/join` (reads `cohort`, stores enrolment, sends the visitor to login or
 sign-up with `redirect` preserved), and under `_protected`: `/study/consent`
@@ -335,8 +335,9 @@ Tier: [STANDARD]
 Depends on: A07, A12
 Estimate: 3h
 Status: not started
-Spec: Create `apps/web/src/components/study/demographics-form.tsx` rendered by
-the `/study/demographics` route (A07). Fields, in order (D18): `age` — a number input, integer 18..120, required;
+Spec: Replace the stub at `apps/web/src/components/study/demographics-form.tsx`
+(created by A07 so the `/study/demographics` route compiles; keep the export
+name `DemographicsForm`, no props). Fields, in order (D18): `age` — a number input, integer 18..120, required;
 `gender` — radio group, stored codes `woman`, `man`, `non_binary`,
 `prefer_not_to_say`, labels "Woman", "Man", "Non-binary", "Prefer not to say";
 `education_level` — radio group, codes `compulsory`, `vocational`,
@@ -347,13 +348,20 @@ higher"; `llm_familiarity` — radio group, codes `never`, `rarely`, `monthly`,
 "Daily", under the prompt "How often do you use LLM chatbots such as ChatGPT
 or Gemini?". All four required. Use `@workspace/ui` form
 primitives, one submit button `variant="cta"` labelled "Continue", client-side
-required-field validation, submit via the study API wrapper
-`lib/study-api.ts submitDemographics()` (A12), then navigate to `/home` with
-`replace: true`. No skip: §4.2.2 makes the questionnaire part of the flow. Under
-250 lines.
+required-field validation, submit via `submitDemographics()` from
+`@/lib/study-api` (A12), then `await router.invalidate()` (the `_protected`
+loader re-reads the gate) and navigate to `/home` with `replace: true`
+(`useRouter()` from `@tanstack/react-router`). Show the API's error message
+with `toast.error` from `@/lib/toast` on failure and re-enable the button. No
+skip: §4.2.2 makes the questionnaire part of the flow. Use `Field` and
+`FieldLabel` from `@workspace/ui/components/field`, `Input` from
+`@workspace/ui/components/input`, native `<input type="radio">` groups (there
+is no radio primitive in `packages/ui`), and `Button` from
+`@workspace/ui/components/button`. Under 250 lines.
 Done when: submitting writes one `study_survey_demographics` row with every
-column populated and navigates on; a second visit to the route with a row
-already present redirects to `/home`; `pnpm typecheck` and `lint` pass.
+column populated and navigates on (the route's own loader already redirects a
+second visit — A07 — so the form need not); `pnpm typecheck` and `pnpm lint`
+pass from the repo root; the file is under 250 lines (`wc -l`).
 
 ### A09 — Post-task prompt
 Phase: A
