@@ -526,6 +526,33 @@ Recommendation: the middle option, versioned (`signature_rule_version`), applied
 identically in Phase B storage and Phase C matching.
 Status: resolved — D24 (2026-09-17/18)
 
+### Q20 — `prompt_version` / `tool_version` in the deployed container
+Raised: 2026-09-18 by agent · Blocks: nothing yet (A10 is done; bites only if a
+run is recorded against the Docker image) · Phase: A
+
+A10's spec states that "the esbuild bundle is `--packages=external` and keeps
+`src` on disk in the image". It does not: `apps/api/Dockerfile`'s runtime stage
+copies only `/repo/apps/api/dist`, so the agent sources `study-versions.ts`
+hashes are absent in the image. Run from source (`tsx`, the dev server, the
+test suite) the hashes resolve correctly; run from the container,
+`getStudyVersions()` throws and `GET /api/study/versions` returns 500 — so a
+run recorded against a deployed API would carry no `prompt_version` or
+`tool_version`, two fields the event model lists (invariant 3).
+
+Options: (a) add `COPY --from=build /repo/apps/api/src ./src` to the runtime
+stage — one line, ships source into the image; (b) compute the two hashes at
+build time and bake them in as build args / a generated module — image stays
+source-free, but the build must not be skippable or the hash goes stale;
+(c) leave it, and require that every recorded run be produced by an API running
+from source.
+Trade-off: (a) is trivial and always correct but puts the agent's prompt and
+toolset in the shipped image; (b) keeps the image clean at the cost of a build
+step that can silently drift; (c) costs nothing now but makes an unannounced
+container deploy silently drop two fields.
+Recommendation: (a) if any study traffic will hit the deployed API; (c) plus a
+line in the run book if the study only ever runs against a local server.
+Status: resolved — D25 (agent, 2026-09-18)
+
 ---
 
 ## Resolved
@@ -545,3 +572,5 @@ Status: resolved — D24 (2026-09-17/18)
   Q07→D12, Q08→D09, Q09→D10, Q10→D06, Q11→D11, Q12→D08, Q13→D13, Q14→D14,
   Q15→D20, Q16→D21, Q17→D22, Q18→D23, Q19→D24. Q03's four items → D17, D18,
   D08, D13, D19. Full text kept above for the record; only Q02 remains open.
+- **Q20** — source hashes in the container. Resolved by **D25** (agent): the
+  runtime image copies `src`.

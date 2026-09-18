@@ -45,8 +45,8 @@ that cannot be skipped or reordered.
 
 | Phase | Tasks | Done | Blocked |
 |---|---|---|---|
-| A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 0 | 0 |
-| B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 0 | 0 |
+| A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 5 | 0 |
+| B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 1 | 0 |
 | C — analysis and pilot | 6 (6 `[FABLE]`, 0 `[STANDARD]`) | 0 | 1 |
 
 Estimate total: about 152 h (A 51.5 h · B 73.5 h · C 27 h). Vertex compute for
@@ -127,7 +127,7 @@ Phase: A
 Tier: [FABLE]
 Depends on: —
 Estimate: 4h
-Status: not started
+Status: done (2026-09-18; pushed to the linked project after repairing the unrecorded 20260915074919 history entry; both DB-free suites pass)
 Spec: One migration under `supabase/migrations/` creating every table the event
 model needs in the live application, `study_`-prefixed in `public`:
 `study_sessions` (session level per D16: `id`, `user_id`, `run_type` ∈ `pilot |
@@ -173,7 +173,7 @@ Phase: A
 Tier: [FABLE]
 Depends on: A01, A03, A10, A11
 Estimate: 6h
-Status: not started
+Status: done (2026-09-18; offline tests pass; live turn from a consented throwaway user produced one row with every app-set field populated, a non-participant's turn produced none)
 Spec: A `StudyTracePlugin` (second ADK `BasePlugin`, registered beside
 `AgentObservabilityPlugin`, never replacing it) that accumulates an ordered
 `tool_call_trace`: for each tool call `{seq, tool, args, started_at,
@@ -212,7 +212,7 @@ Phase: A
 Tier: [STANDARD]
 Depends on: —
 Estimate: 2h
-Status: not started
+Status: done (2026-09-18, standard subagent; reviewed R01)
 Spec: Create `apps/api/src/routes/ai/agent/agent.request-type.ts` exporting
 `REQUEST_TYPE_RULE_VERSION` (a string constant, `'1'`) and
 `classifyRequestType(toolNames: ReadonlyArray<string>): RequestType` where
@@ -383,7 +383,7 @@ Phase: A
 Tier: [STANDARD]
 Depends on: —
 Estimate: 2h
-Status: not started
+Status: done (2026-09-18, standard subagent; reviewed R01; live curl pending a running dev server)
 Spec: Create `apps/api/src/lib/study-versions.ts` exporting `getStudyVersions()`
 returning `{ model_version, model_released_on, git_sha, prompt_version,
 tool_version, computed_at }` where: `model_version = env.VERTEX_MODEL ??
@@ -412,7 +412,7 @@ Phase: A
 Tier: [STANDARD]
 Depends on: —
 Estimate: 1.5h
-Status: not started
+Status: done (2026-09-18, standard subagent; reviewed R01; API-log observation pending a running dev server)
 Spec: Create `apps/web/src/lib/device-type.ts` exporting `getDeviceType(): 'desktop'
 | 'tablet' | 'mobile' | 'unknown'`: SSR (`typeof window === 'undefined'`) →
 `'unknown'`; if `navigator.userAgentData?.mobile === true` → `'mobile'`; else
@@ -733,23 +733,22 @@ Phase: B
 Tier: [STANDARD]
 Depends on: —
 Estimate: 1h
-Status: not started
+Status: done
 Spec: Add a job `research-notebooks` to `.github/workflows/security-checks.yml`
 after `schema-invariants`: `actions/checkout@v4`, `actions/setup-python@v5` with
-`python-version: '3.11'`, then `run: python research/regression-testing/tools/
-check_notebooks.py` with `working-directory: research/regression-testing`. No
-dependencies to install (the script is stdlib only). Also add
-`research/regression-testing/.gitattributes` containing
-`notebooks/study/*.ipynb filter=nbstripout` and `notebooks/study/*.ipynb
-diff=ipynb` **only if** no such file exists yet at that path — the root
-`.gitattributes` already applies the filter to every `*.ipynb`, so the
-subtree-scoped one is documentation, not a second mechanism; note that in a
-comment line at its top.
-Done when: the workflow file parses (`act -l` or a push to the thesis branch
-shows the job listed); the job passes with the current empty `notebooks/study`;
+`python-version: '3.11'`, then a step with `working-directory:
+research/regression-testing` and `run: python tools/check_notebooks.py`. No
+dependencies to install (the script is stdlib only). The nbstripout filter
+already exists at `research/regression-testing/notebooks/study/.gitattributes`
+(the path `nbstripout --install --attributes` writes); add no second attributes
+file.
+Done when: the workflow file parses (`act -l`, or `yaml.safe_load` when `act`
+is not installed); the job passes with the current empty `notebooks/study`;
 adding a temporary notebook with an output cell under `notebooks/study` makes
 the script exit 1 locally.
-
+Executed 2026-09-18 by the standard subagent; the spec as first written had a
+false premise (a root-level ipynb filter) and a self-contradictory `run` path —
+both caught by the subagent, corrected here, and recorded in `REVIEW_LOG.md`.
 ### B14 — Python dependencies and configuration module
 Phase: B
 Tier: [STANDARD]

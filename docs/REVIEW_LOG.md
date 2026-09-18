@@ -33,3 +33,48 @@ is evidence; one that implies it checked everything is not.
 ---
 
 <!-- TEMPLATE-END — entries below, newest first. -->
+
+### R01 — 2026-09-18
+Reviewed: A03, A10, A11, B13 ([STANDARD], dispatched in one batch by the
+`/thesis-resume` session and reviewed inside it; B14 reviewed in the same
+session once it returned — see the addendum below)
+Checked against: each task's spec in IMPLEMENTATION_PLAN.md; D09 (A03); the
+additive-changes guardrail (root CLAUDE.md rule 4) for every file under
+`apps/`; hard invariants 2 (A10) and 3 (A10, A11); the repo gates
+(`pnpm typecheck`, `pnpm lint`, `pnpm --filter api test`,
+`pnpm --filter web test`, both DB-free security-audit suites) run by the
+reviewing session after all four landed.
+Findings:
+  - A03 conforms to D09 exactly. One test beyond the spec (the three families
+    plus the read tools partition `ALL_TOOL_NAMES`) was kept: it forces the
+    rule-version question when a tool is added rather than letting a new tool
+    be silently labelled `advisory`. Tool names are written out rather than
+    imported, deliberately, so a rename in `agent.tool-policy.ts` cannot
+    reclassify collected rows without a visible change.
+  - A10 conforms. The subagent found the spec's premise false — the runtime
+    image copies only `dist`, so the source hashes would fail in the container
+    — and raised Q20 instead of guessing. Resolved as D25 (agent: one `COPY`
+    line in the Dockerfile). The endpoint was exercised in-process with
+    `app.inject()`; the curl against a running dev server was not.
+  - A11 conforms. Header added before the caller's own headers so a caller
+    keeps precedence; `window.navigator` read instead of the bare global so
+    SSR and tests share one guard. The API-log observation was not executed
+    (no dev server was running).
+  - B13: two errors in the spec, both the reviewing session's own. The root
+    `.gitattributes` does not carry an ipynb filter (the operative one is
+    `notebooks/study/.gitattributes`), and the `run`/`working-directory` pair
+    resolved to a path that does not exist. The subagent flagged both, kept
+    `working-directory` and made the command relative, and added a redundant
+    subtree-root attributes file because the spec's literal condition held.
+    Spec corrected in the plan; the redundant file removed in this pass. The
+    job itself is correct and was verified locally with a dirty temporary
+    notebook (exit 1) and the clean directory (exit 0).
+  - Rule 4: the only changes to existing request paths are one header on every
+    web request (A11) and one route registration (A10). No existing response
+    shape changed; the agent's handling of a request is untouched.
+Accepted: A03, A10, A11 as delivered; B13 after the file removal above.
+Not covered: no dev server was started by any of the five sessions, so the
+two live observations (A10 curl, A11 header in the API log) remain unexecuted
+and are noted on the tasks' status lines. The Docker image was not rebuilt to
+confirm D25 resolves the hashing in the container.
+

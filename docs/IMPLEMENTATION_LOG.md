@@ -44,3 +44,32 @@ fact. Rough is fine; absent is not.
 ---
 
 <!-- TEMPLATE-END — entries below, newest first. -->
+
+### L01 — Cold subagents caught two false premises the planning session wrote into its own specs
+Phase: A, B · Related tasks: A10, B13 (and B14 for the pattern)
+Effort: the five `[STANDARD]` tasks of the first batch ran three to eight
+minutes each against estimates of one to three hours; A01 and A02 took about
+ninety minutes each against four and six.
+What happened: two of the five `[STANDARD]` specs asserted facts about the
+environment that were false — that the API image kept `src` on disk (A10) and
+that the repository root carried an ipynb filter (B13) — and a third contained
+a self-contradictory path. All were written by the Fable planning session
+from a code survey it had actually performed; the errors were misreadings of
+what it read, not gaps in what it read. In every case the cold subagent
+noticed the premise did not hold, said so, and either stopped (A10 raised
+Q20) or made the mechanical fix and reported it (B13). None guessed.
+Why it matters: §3.4 rests on the claim that a tightly specified task can be
+executed by a session with no context without design decisions leaking in.
+The first batch supports the claim, but not in the way the plan assumed: the
+value of the cold start was not only that the subagent could not make a
+decision, it was that it could not share the planner's misreading. A spec
+premise is checked twice for free.
+Design consequence: D25. And a rule for the reviewer, applied from R01 on:
+a `[STANDARD]` spec's statements about the environment (paths, files that
+exist, what a build copies) are checked by the reviewing session before
+dispatch when cheap, and their failure is expected, not treated as a
+subagent fault.
+Generalises: any tiered agent workflow where a higher-context session writes
+specs for lower-context executors. The executor's ignorance is a check on the
+planner's confidence, which is a stronger argument for tiering than cost.
+

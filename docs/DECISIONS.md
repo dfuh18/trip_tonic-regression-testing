@@ -31,6 +31,22 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D25 — The API image carries `src`, so version hashes resolve in the container
+Date: 2026-09-18 · Decided by: agent
+Options: copy `src` into the runtime image · bake the hashes at build time ·
+require every recorded run to hit a source-run API
+Chosen: `COPY --from=build /repo/apps/api/src ./src` in the runtime stage of
+`apps/api/Dockerfile`.
+Reason: A10's spec assumed the image kept `src`; it did not (raised as Q20 by
+the standard subagent). Without the sources, `GET /api/study/versions` fails
+in the container and a run recorded against the deployed API carries no
+`prompt_version` or `tool_version` — two event-model fields, so invariant 3.
+One line, always correct, and reversible by editing a file, which is why this
+is an agent decision under "do not ask about" rather than an escalation. The
+cost is the agent's prompt and tool sources shipping in the image; the
+bundle already contains both in compiled form.
+Affects: apps/api/Dockerfile, A10 · Reverses: none · Closes: Q20
+
 ### D24 — Coverage signature and matching tolerance (P1)
 Date: 2026-09-18 · Decided by: author (escalated by agent as Q19)
 Options: exact on everything · exact sequence + request_type with bucketed

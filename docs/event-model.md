@@ -251,6 +251,29 @@ writing the participant information sheet:
   safeguard if access is actually restricted. State who can read participant
   rows.
 
+## Field → writer
+
+Added by task A01 (2026-09-18) with the migration
+`supabase/migrations/20260918090000_study_instrumentation.sql`. Every field
+above maps to a column; "writer" names the code path that fills it, by plan
+task. A13 verifies each writer actually wrote.
+
+| Field (level) | Column | Writer |
+|---|---|---|
+| `session_id`, `user_id`, `run_type`, `consent_version`, `consent_at`, `device_type` (session) | `study_sessions.id / user_id / run_type / consent_version / consent_at / device_type` | study API on consent (A12); `declined_at` on decline; `client_session_id` from the `X-Session-Id` header |
+| `survey_demographics.*` | `study_survey_demographics.*` | study API on submit (A12), from the form (A08) |
+| `survey_post_task.*` | `study_survey_post_task.*` | study API on submit or dismiss (A12), from the dialog (A09) |
+| `suggestion_id`, `conversation_id`, `turn_index`, `user_turn` | `study_suggestions.id / run_id / turn_index / user_turn` (+ `user_message_id`) | turn logger at turn start (A02) |
+| `resulting_state_shape`, `request_type`, `retry_count`, `error_code`, tokens, latency, model, trace | `study_suggestions.resulting_state_shape / request_type (+ _rule_version) / retry_count / error_code / tokens_* / latency_ms / model_version / model_released_on / tool_call_trace / llm_calls / tool_calls / completed_at / reply_message_id` | turn logger at turn end (A02); `request_type` via A03 |
+| `session_id` (suggestion) | `study_suggestions.session_id` | turn logger, from the caller's consented session (A02) |
+| `structural_check_outcome` | `study_suggestions.structural_check_outcome` for simulation rows (harness, B07/B08); `study_verdicts` for every post-hoc verdict (B08, C02) | harness / analysis — never the app |
+| `user_action` | `study_suggestions.user_action`, with the per-target record in `study_user_actions` | A05 on accept/reject/revert; the `study-finalize-ignored` job after 24 h (D17) |
+| `thumb_feedback` | `study_feedback.value`, keyed by `chat_message_id` = the reply row | thumbs control via the study API (A06, A12) |
+| `mutation_id`, `origin_suggestion_id`, `origin_kind` | `study_mutations.id / origin_suggestion_id / origin_kind` (+ `table_name`, `row_id`, `op`, `changed_keys`, `projection`, `actor_user_id`, `session_id`) | triggers on the plan tables reading `x-study-origin` (A04) |
+| `occurred_at`, `device_type` (general) | `study_suggestions.occurred_at / device_type` (device also on the session) | turn logger (A02), from the `X-Device-Type` header (A11) |
+| run level | `study_runs.*` (`baseline_ref` is a run id; cost as `cost_usd`) | runner (B07), versions from `GET /api/study/versions` (A10) |
+| test case level | `study_case_executions.*` (`repetitions_n`, `provenance`, constraints, criteria, `suggestion_ids`) | runner (B07) from the case loader (B03) |
+
 ## Changes to this file
 
 Adding a field is additive and cheap. **Removing or renaming one after the
