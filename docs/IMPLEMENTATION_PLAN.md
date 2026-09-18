@@ -45,7 +45,7 @@ that cannot be skipped or reordered.
 
 | Phase | Tasks | Done | Blocked |
 |---|---|---|---|
-| A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 7 | 0 |
+| A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 9 | 0 |
 | B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 3 | 0 |
 | C — analysis and pilot | 6 (6 `[FABLE]`, 0 `[STANDARD]`) | 0 | 1 |
 
@@ -288,7 +288,7 @@ Phase: A
 Tier: [FABLE]
 Depends on: A01, A12
 Estimate: 3h
-Status: not started
+Status: done (2026-09-18; control rendered under every Tonic reply in the chat and the run view for participants only, via an `aiFooter` slot on the message list; the endpoint side was verified live in A12; the click path was not exercised in a browser)
 Spec: Per D08: a two-button control rendered under every
 `message_type = 'ai'` bubble in `chat-message-item.tsx` (extracted into
 `chat-thumb-feedback.tsx` to keep the file under 250 lines), visible only when
@@ -334,7 +334,7 @@ Phase: A
 Tier: [STANDARD]
 Depends on: A07, A12
 Estimate: 3h
-Status: not started
+Status: done (2026-09-18, standard subagent; reviewed R03; live submit not exercised — no browser)
 Spec: Replace the stub at `apps/web/src/components/study/demographics-form.tsx`
 (created by A07 so the `/study/demographics` route compiles; keep the export
 name `DemographicsForm`, no props). Fields, in order (D18): `age` — a number input, integer 18..120, required;

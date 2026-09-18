@@ -34,6 +34,26 @@ is evidence; one that implies it checked everything is not.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### R03 — 2026-09-18
+Reviewed: A08 ([STANDARD], dispatched and reviewed inside the second
+`/thesis-resume` session)
+Checked against: the A08 spec as amended for the A07 stub; D18 (codes and
+labels compared item by item); the 250-line limit (198); `pnpm typecheck`,
+`pnpm lint` and prettier run by the reviewing session with the file present.
+Findings:
+  - Conforms. Codes are the stored values and the labels are separate
+    constants, with a comment saying why — a label edit later cannot re-code
+    collected answers. Client-side validation mirrors the API schema (18..120,
+    integer, every item required). Submit calls `submitDemographics`, then
+    `router.invalidate()` so the `_protected` gate re-reads the row, then
+    navigates to `/home` with `replace`. Native radio groups, since
+    `packages/ui` has no radio primitive; 44 px rows under `coarse:`.
+  - Nothing beyond the spec was added.
+Accepted: A08 as delivered.
+Not covered: no browser was available to any session, so the form was not
+submitted through the UI; the API path it calls was verified in A12.
+
+
 ### R02 — 2026-09-18
 Reviewed: B12 ([STANDARD], dispatched and reviewed inside the second
 `/thesis-resume` session)
