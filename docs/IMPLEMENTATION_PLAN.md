@@ -46,7 +46,7 @@ that cannot be skipped or reordered.
 | Phase | Tasks | Done | Blocked |
 |---|---|---|---|
 | A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 5 | 0 |
-| B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 1 | 0 |
+| B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 2 | 0 |
 | C — analysis and pilot | 6 (6 `[FABLE]`, 0 `[STANDARD]`) | 0 | 1 |
 
 Estimate total: about 152 h (A 51.5 h · B 73.5 h · C 27 h). Vertex compute for
@@ -754,7 +754,7 @@ Phase: B
 Tier: [STANDARD]
 Depends on: —
 Estimate: 1.5h
-Status: not started
+Status: done (2026-09-18, standard subagent; reviewed R01)
 Spec: Append to `research/regression-testing/requirements.txt`, each pinned to
 a major version: `supabase`, `httpx`, `pydantic`, `python-dotenv`, `pyyaml`,
 `pandas`, `matplotlib`, `pytest`. Do not add any LLM SDK (B06 adds `google-genai`,

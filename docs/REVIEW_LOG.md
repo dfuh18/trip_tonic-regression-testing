@@ -78,3 +78,17 @@ two live observations (A10 curl, A11 header in the API log) remain unexecuted
 and are noted on the tasks' status lines. The Docker image was not rebuilt to
 confirm D25 resolves the hashing in the container.
 
+Addendum, B14 (returned after the entry above was written): conforms. The
+spec said `settings` raises "at import"; the subagent bound it lazily through
+a module `__getattr__` so that importing `load_settings` or `REQUIRED_VARS`
+does not itself demand a filled `.env` — the behaviour at the specified
+access path is unchanged, and the test file could not have imported the
+module otherwise. Verified by the reviewing session: 18 tests pass in the
+subtree venv; `print(settings)`, an f-string and a containing list all render
+`Settings(<redacted>)`; `.venv` is already ignored by the root `.gitignore`.
+One finding against the reviewing session, not the subagent: its own
+`git add -A` for the Phase A commit swept B14's `conftest.py` into `009ebd5`
+while the task was still running. Content identical, nothing lost; the lesson
+is to stage by path while a subagent is live.
+Accepted: B14 as delivered.
+
