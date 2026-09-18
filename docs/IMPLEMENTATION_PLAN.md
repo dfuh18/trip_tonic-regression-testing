@@ -45,7 +45,7 @@ that cannot be skipped or reordered.
 
 | Phase | Tasks | Done | Blocked |
 |---|---|---|---|
-| A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 9 | 0 |
+| A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 11 | 0 |
 | B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 3 | 0 |
 | C — analysis and pilot | 6 (6 `[FABLE]`, 0 `[STANDARD]`) | 0 | 1 |
 
@@ -264,16 +264,20 @@ Phase: A
 Tier: [FABLE]
 Depends on: A01, A02
 Estimate: 5h
-Status: not started
-Spec: Append `study_user_actions` rows (`suggestion_id`, `target` ∈ `slot:<i>` |
-`place:<google_place_id>` | `edits`, `action`, `actor_user_id`, `at`) and
+Status: done (2026-09-18; all four paths verified live from a consented throwaway user across four Tonic turns — place added, slot verdicts, whole-draft discard, revert — and the immutability trigger refused a label flip; the hourly `ignored` job was not run by hand — no SQL access from the harness yet)
+Spec: Append `study_user_actions` rows (`suggestion_id`, `target` ∈
+`slot:<day_date>:<index>` | `place:<google_place_id>` | `edits`, `action`,
+`actor_user_id`, `at`) and
 maintain `study_suggestions.user_action` by the D12 rule — any slot accepted →
 `accepted`; every slot rejected → `rejected`; a reverted live edit → `rejected`;
 otherwise left null for the D17 job — at: slot verdict (`drafts.service.ts applySlotVerdict`, only when
 `applied === true`), whole-draft accept/reject (`ai.service.ts
 handleSuggestionAction`), add-place-from-reply and from the suggestion pool
-(the `POST /trips/:tripId/blocks` handler when the body carries `source =
-'ai_suggestion'` and an `x-study-origin` header names a suggestion), and revert
+(the `POST /trips/:tripId/blocks` handler whenever the body carries a
+`google_place_id`: the place counts as a reaction when a logged Tonic reply in
+the trip named it in its refs, or when an `x-study-origin` header names the
+suggestion outright — so the chat card and the map pool are one path and a
+place the member found alone matches nothing), and revert
 (`agent.service.ts revert` → `rejected` for the suggestion whose reply carries
 the edits). The `ignored` finalisation is the pg_cron job from A01 (D17) and only ever
 fills a null. `user_initiated` is never written here (D12). Every write is admin-client, fire-and-forget, never on the response path.
@@ -368,7 +372,7 @@ Phase: A
 Tier: [FABLE]
 Depends on: A02, A07, A12
 Estimate: 4h
-Status: not started
+Status: done (2026-09-18; compiles and lints, mounted on the trip layout; the dialog's open/submit/dismiss path was not exercised in a browser — the endpoints it calls were verified in A12)
 Spec: A `Dialog` (overlays are modals, per `CLAUDE.md`) mounted on the trip page
 shell for participants only, opened once per session when the session's
 suggestion count (from `GET /api/study/session`, polled after each agent turn
