@@ -1,0 +1,125 @@
+"""The case loader: what it accepts, what it names when it refuses, and that
+the suite version follows the files."""
+from pathlib import Path
+
+import pytest
+import yaml
+
+from src.cases import CaseFileError, by_priority, load_case, load_cases, suite_version
+
+VALID = {
+    "case_id": "venue_lookup_seafood",
+    "base_case_id": None,
+    "provenance": "seeded",
+    "run_priority": 1,
+    "function": "venue_lookup",
+    "user_profile": "Marta, 34, weekend in Lisbon.",
+    "goal": "Two seafood places near Cais do Sodré.",
+    "opening_turn": "/find seafood near Cais do Sodré",
+    "intent": "find",
+    "expected_tool_sequence": ["search_places"],
+    "declared_constraints": {
+        "checks": {"tool_sequence": ["search_places"], "tool_counts": {"search_places": {"min": 1, "max": 2}}},
+        "predicates": ["no_tool_errors"],
+    },
+    "scoring_criteria": ["Names real places.", "Stays in the area."],
+    "references": [],
+    "repetitions_n": 8,
+    "metamorphic_relation": None,
+}
+
+
+def write(tmp_path: Path, name: str, data: dict) -> Path:
+    path = tmp_path / f"{name}.yaml"
+    path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    return path
+
+
+def test_valid_case_loads(tmp_path):
+    case = load_case(write(tmp_path, "venue_lookup_seafood", VALID))
+    assert case.function == "venue_lookup"
+    assert case.declared_constraints.checks.tool_counts["search_places"].min == 1
+
+
+@pytest.mark.parametrize("key", ["case_id", "provenance", "run_priority", "function", "user_profile",
+                                 "goal", "opening_turn", "scoring_criteria", "repetitions_n"])
+def test_missing_required_key_is_named(tmp_path, key):
+    data = {k: v for k, v in VALID.items() if k != key}
+    with pytest.raises(CaseFileError) as exc:
+        load_case(write(tmp_path, "venue_lookup_seafood", data))
+    assert key in str(exc.value) or key == "case_id"
+    assert "venue_lookup_seafood.yaml" in str(exc.value)
+
+
+def test_unknown_key_is_refused(tmp_path):
+    with pytest.raises(CaseFileError) as exc:
+        load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "threshold": 3}))
+    assert "threshold" in str(exc.value)
+
+
+def test_file_name_must_match_case_id(tmp_path):
+    with pytest.raises(CaseFileError) as exc:
+        load_case(write(tmp_path, "other_name", VALID))
+    assert "must equal the file name" in str(exc.value)
+
+
+def test_metamorphic_needs_base_and_relation(tmp_path):
+    data = {**VALID, "case_id": "follow", "provenance": "metamorphic"}
+    with pytest.raises(CaseFileError) as exc:
+        load_case(write(tmp_path, "follow", data))
+    assert "base_case_id" in str(exc.value)
+    data.update(base_case_id="venue_lookup_seafood", metamorphic_relation="INV-9")
+    with pytest.raises(CaseFileError) as exc:
+        load_case(write(tmp_path, "follow", data))
+    assert "metamorphic_relation" in str(exc.value)
+    data["metamorphic_relation"] = "INV-1"
+    assert load_case(write(tmp_path, "follow", data)).metamorphic_relation == "INV-1"
+
+
+def test_base_case_must_exist_in_suite(tmp_path):
+    write(tmp_path, "follow", {**VALID, "case_id": "follow", "provenance": "metamorphic",
+                               "base_case_id": "nope", "metamorphic_relation": "INV-2"})
+    with pytest.raises(CaseFileError) as exc:
+        load_cases(tmp_path)
+    assert "nope" in str(exc.value)
+
+
+def test_advisory_carries_no_constraints(tmp_path):
+    data = {**VALID, "case_id": "advice", "function": "advisory", "intent": None,
+            "expected_tool_sequence": [], "declared_constraints": {"checks": {}, "predicates": []}}
+    assert load_case(write(tmp_path, "advice", data)).declared_constraints.is_empty()
+    with pytest.raises(CaseFileError):
+        load_case(write(tmp_path, "advice", {**data, "declared_constraints": {"predicates": ["no_tool_errors"]}}))
+
+
+def test_factual_qa_needs_a_reference(tmp_path):
+    data = {**VALID, "case_id": "fact", "function": "factual_qa", "intent": None}
+    with pytest.raises(CaseFileError) as exc:
+        load_case(write(tmp_path, "fact", data))
+    assert "reference" in str(exc.value)
+
+
+def test_unknown_predicate_is_refused(tmp_path):
+    data = {**VALID, "declared_constraints": {"checks": {}, "predicates": ["does_not_exist"]}}
+    with pytest.raises(CaseFileError) as exc:
+        load_case(write(tmp_path, "venue_lookup_seafood", data))
+    assert "does_not_exist" in str(exc.value)
+
+
+def test_suite_version_follows_the_files(tmp_path):
+    write(tmp_path, "venue_lookup_seafood", VALID)
+    first = suite_version(tmp_path)
+    assert len(first) == 64 and suite_version(tmp_path) == first
+    write(tmp_path, "venue_lookup_seafood", {**VALID, "goal": "Three places."})
+    assert suite_version(tmp_path) != first
+    (tmp_path / "_draft.yaml").write_text("x: 1", encoding="utf-8")
+    assert suite_version(tmp_path) != first  # unchanged by drafts
+    assert len(load_cases(tmp_path)) == 1
+
+
+def test_priority_order(tmp_path):
+    write(tmp_path, "b_seed", {**VALID, "case_id": "b_seed", "run_priority": 2})
+    write(tmp_path, "a_seed", {**VALID, "case_id": "a_seed", "run_priority": 1})
+    write(tmp_path, "a_follow", {**VALID, "case_id": "a_follow", "run_priority": 1, "provenance": "metamorphic",
+                                 "base_case_id": "a_seed", "metamorphic_relation": "INV-1", "repetitions_n": 4})
+    assert [c.case_id for c in by_priority(load_cases(tmp_path))] == ["a_seed", "a_follow", "b_seed"]

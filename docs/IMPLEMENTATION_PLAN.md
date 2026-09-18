@@ -46,7 +46,7 @@ that cannot be skipped or reordered.
 | Phase | Tasks | Done | Blocked |
 |---|---|---|---|
 | A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 13 | 0 |
-| B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 3 | 0 |
+| B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 6 | 0 |
 | C — analysis and pilot | 6 (6 `[FABLE]`, 0 `[STANDARD]`) | 0 | 1 |
 
 Estimate total: about 152 h (A 51.5 h · B 73.5 h · C 27 h). Vertex compute for
@@ -500,7 +500,7 @@ Phase: B
 Tier: [FABLE]
 Depends on: B14, A13
 Estimate: 4h
-Status: not started
+Status: done (2026-09-18; `python -m src.auth --check` creates sim-01 and sim-02 with simulation sessions and signs both in printing pseudonymous ids only; a hand-sent turn from sim-01 produced a study_suggestions row on a run_type=simulation session; the dev API ran with DEFAULT_SUBSCRIPTION_TIER=pro)
 Spec: D15 — the existing Supabase project and its deployed API serve both the
 simulation and the participant round; there is no separate study project and
 no local stack for runs of record. `src/config.py` (from B14) extended with
@@ -521,7 +521,7 @@ Phase: B
 Tier: [FABLE]
 Depends on: B01
 Estimate: 5h
-Status: not started
+Status: done (2026-09-18; live: reset then assert_clean passes, a turn makes assert_clean refuse naming chat_messages and writes the refusal to runs/harness.log, a second reset reproduces the digest; 4 offline digest tests. The fixture is built through the member's own API calls and the rebuild's mutation rows are removed as part of the reset)
 Spec: `src/fixture.py`: one fixture trip per simulated user (owner + trip +
 regions + a small set of saved blocks + itinerary days, dates in the future so
 weather and scheduling cases resolve), defined as data in `cases/fixture.json`
@@ -546,7 +546,7 @@ Phase: B
 Tier: [FABLE]
 Depends on: B14
 Estimate: 5h
-Status: not started
+Status: done (2026-09-18; 19 loader tests: every required key named on refusal, unknown keys refused, metamorphic coherence, advisory carries no constraints, factual_qa needs a reference, unknown predicates refused, suite_version follows the files; cases/README.md documents the format and cases/predicates.py holds the first four predicates)
 Spec: `cases/<case_id>.yaml` with: `case_id`, `base_case_id`, `provenance`,
 `run_priority`, `function` (`venue_lookup | scheduling | factual_qa | advisory`),
 `user_profile` (persona text), `goal` (what the simulator wants), `opening_turn`

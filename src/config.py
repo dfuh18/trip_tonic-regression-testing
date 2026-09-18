@@ -41,6 +41,16 @@ OPTIONAL_VARS = (
     "MA_MANUSCRIPT_DIR",
 )
 
+#: Harness settings with a sensible default (B01). ``SIM_USER_PASSWORD`` has
+#: none: without it the simulated users cannot be created or signed in, and
+#: ``src.auth`` says so at the point of use rather than at import.
+HARNESS_VARS = (
+    "API_BASE_URL",
+    "SIM_USER_PASSWORD",
+    "SIM_USER_COUNT",
+    "SIM_USER_DOMAIN",
+)
+
 _REDACTED = "Settings(<redacted>)"
 
 
@@ -58,6 +68,14 @@ class Settings(BaseModel):
     JUDGE_MODEL: str
     MA_MANUSCRIPT: Optional[str] = None
     MA_MANUSCRIPT_DIR: Optional[str] = None
+    #: The Fastify API the simulator drives — the same one members use (D15).
+    API_BASE_URL: str = "http://localhost:3001/api"
+    SIM_USER_PASSWORD: Optional[str] = None
+    #: How many simulated accounts the harness keeps. One is enough to run
+    #: serially; more only matters if runs are ever parallelised.
+    SIM_USER_COUNT: int = 2
+    #: A reserved, undeliverable domain: these accounts never receive mail.
+    SIM_USER_DOMAIN: str = "sim.triptonic.invalid"
 
     def __repr__(self) -> str:  # noqa: D105 - see module docstring
         return _REDACTED
@@ -87,7 +105,7 @@ def load_settings(env: Optional[Mapping[str, str]] = None) -> Settings:
         raw = raw.strip()
         return raw or None
 
-    present = {name: value_of(name) for name in REQUIRED_VARS + OPTIONAL_VARS}
+    present = {name: value_of(name) for name in REQUIRED_VARS + OPTIONAL_VARS + HARNESS_VARS}
     missing = [name for name in REQUIRED_VARS if present[name] is None]
     if missing:
         raise RuntimeError(
