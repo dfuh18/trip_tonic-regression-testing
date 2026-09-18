@@ -1,5 +1,6 @@
-# .env and .venv/ are ignored by the repository root .gitignore; this file
-# covers what the Python package added in B14 leaves behind locally.
+# The Python caches this subtree's package leaves behind locally. The venv and
+# .env are covered by the repository root .gitignore, which now ignores a venv
+# at any path rather than this one by name.
 __pycache__/
 *.py[cod]
 .pytest_cache/
