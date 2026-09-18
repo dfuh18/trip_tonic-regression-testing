@@ -34,6 +34,27 @@ is evidence; one that implies it checked everything is not.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### R02 — 2026-09-18
+Reviewed: B12 ([STANDARD], dispatched and reviewed inside the second
+`/thesis-resume` session)
+Checked against: the B12 spec; D24; the "pure, no I/O, no `src.config`"
+constraint; the subtree test suite run by the reviewing session (41 passed).
+Findings:
+  - Two readings of D24 the subagent had to make and flagged rather than
+    hid. (1) `has_location`: no tool takes a top-level `address`, so argument
+    keys are collected recursively and an `address` inside a `propose_plan`
+    day (which also carries `day_date`) is not a location, while a lookup
+    carrying one is. (2) The three term booleans run over argument values
+    joined by newlines so a match cannot span two values. Both are the
+    reading the ruling intended; accepted as the definition of
+    `SIGNATURE_RULE_VERSION = '1'`. C05 freezes it.
+  - `_bucket(0)` returns `'1'`; unreachable from the callers and D24 defines
+    no zero bucket. Left as is.
+Accepted: B12 as delivered.
+Not covered: the signature has not yet been run over a real
+`tool_call_trace` from `study_suggestions`; C02 is where that happens.
+
+
 ### R01 — 2026-09-18
 Reviewed: A03, A10, A11, B13 ([STANDARD], dispatched in one batch by the
 `/thesis-resume` session and reviewed inside it; B14 reviewed in the same

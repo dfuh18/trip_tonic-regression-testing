@@ -45,8 +45,8 @@ that cannot be skipped or reordered.
 
 | Phase | Tasks | Done | Blocked |
 |---|---|---|---|
-| A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 5 | 0 |
-| B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 2 | 0 |
+| A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 6 | 0 |
+| B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 3 | 0 |
 | C — analysis and pilot | 6 (6 `[FABLE]`, 0 `[STANDARD]`) | 0 | 1 |
 
 Estimate total: about 152 h (A 51.5 h · B 73.5 h · C 27 h). Vertex compute for
@@ -432,7 +432,7 @@ Phase: A
 Tier: [FABLE]
 Depends on: A01, A10
 Estimate: 4h
-Status: not started
+Status: done (2026-09-18; every endpoint exercised live from two throwaway users, ownership and the 409/403/404 paths confirmed; 10 schema tests)
 Spec: `apps/api/src/routes/study/` in the three-file pattern: `POST /session`
 (consent: creates `study_sessions` from `{cohort, consent_version}`, `user_id`
 from the JWT, `device_type` from the header, rejects a second consented, undeclined session for the same user — D16), `POST /session/decline`, `GET /session` (the caller's active
@@ -706,7 +706,7 @@ Phase: B
 Tier: [STANDARD]
 Depends on: B14
 Estimate: 3h
-Status: not started
+Status: done (2026-09-18, standard subagent; reviewed R02)
 Spec: Create `src/signature.py` exporting `SIGNATURE_RULE_VERSION = '1'` and
 `signature(trace: list[dict], turns: int, request_type: str) -> tuple` where
 `trace` is the `tool_call_trace` array from `study_suggestions` (entries with
