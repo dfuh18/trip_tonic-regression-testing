@@ -45,6 +45,31 @@ fact. Rough is fine; absent is not.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### L02 — Origin carried in a header has to survive every hop, including the API's own database client
+Phase: A · Related tasks: A04
+Effort: about the estimate (six hours planned, roughly five spent), but the
+first live run was wrong in a way no test or reading had shown.
+What happened: D13 puts the origin of a write in a request header that a
+PostgreSQL trigger reads through PostgREST. The browser sent it, the Fastify
+API received it, and the trigger never saw it: the API talks to PostgREST
+through its own per-request Supabase client, which copied the JWT and nothing
+else. Every member-path write came out `user_manual`. The fix is one line —
+forward the header when building that client — and it was found only by
+reading the rows a real run produced.
+Why it matters: §2.6.1 treats the system-shell layer as the place where
+tool boundaries are observable. This is a reminder that the shell has more
+than one boundary: an attribution that rides on transport metadata is lost at
+any hop that rebuilds the request, and the hop nobody lists is the service's
+own client to its database. Unit tests cannot catch it, because the loss is
+in configuration, not logic.
+Design consequence: `getSupabaseClient` forwards `x-study-origin`; the live
+check for every instrumentation task now reads back the rows it should have
+produced rather than the status code of the call that produced them.
+Generalises: any tracing or attribution scheme that carries context in
+headers across a BFF-style API — the same failure OpenTelemetry context
+propagation has to solve, and for the same reason.
+
+
 ### L01 — Cold subagents caught two false premises the planning session wrote into its own specs
 Phase: A, B · Related tasks: A10, B13 (and B14 for the pattern)
 Effort: the five `[STANDARD]` tasks of the first batch ran three to eight

@@ -45,7 +45,7 @@ that cannot be skipped or reordered.
 
 | Phase | Tasks | Done | Blocked |
 |---|---|---|---|
-| A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 12 | 0 |
+| A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 13 | 0 |
 | B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 3 | 0 |
 | C — analysis and pilot | 6 (6 `[FABLE]`, 0 `[STANDARD]`) | 0 | 1 |
 
@@ -465,7 +465,7 @@ Phase: A
 Tier: [FABLE]
 Depends on: A02, A04, A05, A06, A07, A08, A09, A12
 Estimate: 3h
-Status: not started
+Status: done (2026-09-18; whole flow walked over HTTP for three throwaway accounts — consent, questionnaire, three turns spanning find/plan/reschedule, place add, slot accept and reject, revert, thumbs, post-task dismissed and submitted, one decline; every app-set column non-null in at least one row across all seven study tables, `error_code` and `structural_check_outcome` exempt by design; the rule-4 diff review found only the four documented changes. Browser handlers remain unexercised — no browser — which is what the pilot (C04) covers)
 Spec: Walk the whole participant flow on the dev server against the showcase
 trip with a pilot-cohort link: join → consent → demographics → three agent turns
 covering venue lookup, a draft with a slot accepted and one rejected, a live
