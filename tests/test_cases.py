@@ -106,9 +106,49 @@ def test_unknown_predicate_is_refused(tmp_path):
     assert "does_not_exist" in str(exc.value)
 
 
+def test_fixture_dependency_must_name_something_the_fixture_has(tmp_path):
+    from src.cases import fixture_anchors
+
+    anchors = fixture_anchors()
+    ok = load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "fixture_depends_on": ["tram", "2026-11-07"]}), known_anchors=anchors)
+    assert ok.fixture_depends_on == ["tram", "2026-11-07"]
+    for bad in ("no_such_block", "2027-01-01"):
+        with pytest.raises(CaseFileError) as exc:
+            load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "fixture_depends_on": [bad]}), known_anchors=anchors)
+        assert bad in str(exc.value) and "fixture" in str(exc.value)
+
+
+def test_fixture_anchors_are_the_block_keys_and_the_trip_days():
+    from src.cases import fixture, fixture_anchors
+
+    fx = fixture()
+    anchors = fixture_anchors(fx)
+    assert {b["key"] for b in fx["blocks"]} <= anchors
+    assert fx["trip"]["start_date"] in anchors and fx["trip"]["end_date"] in anchors
+    assert "2026-11-10" not in anchors  # the day after the trip ends
+
+
+def test_every_seed_case_declares_what_it_leans_on():
+    """A case whose text names a fixture stop must say so, or the loader cannot
+    protect it when the fixture changes."""
+    from src.cases import CASES_DIR, fixture, load_cases
+
+    titles = {b["key"]: b["title"] for b in fixture()["blocks"]}
+    for case in load_cases(CASES_DIR):
+        text = f"{case.opening_turn} {case.goal}".lower()
+        for key, title in titles.items():
+            first_words = " ".join(title.lower().split()[:2])
+            if first_words in text:
+                assert key in case.fixture_depends_on, f"{case.case_id} names {title!r} but does not declare {key!r}"
+
+
 def test_suite_version_follows_the_files(tmp_path):
     write(tmp_path, "venue_lookup_seafood", VALID)
     first = suite_version(tmp_path)
+    (tmp_path / "fixture.json").write_text('{"trip": {"start_date": "2026-11-06"}}', encoding="utf-8")
+    with_fixture = suite_version(tmp_path)
+    assert with_fixture != first, "the fixture is part of the suite version"
+    (tmp_path / "fixture.json").unlink()
     assert len(first) == 64 and suite_version(tmp_path) == first
     write(tmp_path, "venue_lookup_seafood", {**VALID, "goal": "Three places."})
     assert suite_version(tmp_path) != first

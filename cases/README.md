@@ -30,6 +30,7 @@ scoring_criteria:                             # the ten-point rubric, one line e
 references: []                                # factual_qa only: title, section, path
 repetitions_n: 8                              # 8 for seeds (§3.1), 4 for follow-ups (D21)
 metamorphic_relation: null                    # INV-1..4 / DIR-1..4 for follow-ups (D22)
+fixture_depends_on: [tram, '2026-11-07']      # block keys / days in fixture.json the case assumes
 notes: Minimum-functionality case for the venue lookup function.
 ```
 
@@ -42,3 +43,15 @@ notes: Minimum-functionality case for the venue lookup function.
   carry at least one reference; the stored text lives under `references/`.
 - `repetitions_n` and the relation catalogue are rulings (D21, D22), not
   choices a case makes on its own.
+- `fixture_depends_on` names what the case reads off the starting trip: block
+  keys from `fixture.json` and day dates inside the trip's range. The loader
+  rejects a name the fixture does not have, so editing the fixture out from
+  under a case fails loudly instead of changing what the case tests.
+
+## The fixture
+
+Every repetition starts from the trip in `fixture.json`, rebuilt through the
+application's own API and checked by the precondition gate before the case runs
+(invariant 1, D03 — see `src/reset.py`). Cases are written against it: a stop it
+does not contain cannot be rescheduled, and a day outside its range cannot be
+planned. `notebooks/sim/01_cases.ipynb` renders it in full.

@@ -32,4 +32,5 @@ scoring_criteria:
 - Stays in or next to Cais do Sodré; does not wander to another part of town or another city.
 - Reflects the budget cue without lecturing about it.
 - Does not claim to have added or scheduled anything.
+fixture_depends_on: []
 notes: 'Minimum functionality for the venue-lookup function: one search, grounded names, no writes.'

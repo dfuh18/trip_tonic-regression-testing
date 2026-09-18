@@ -568,7 +568,7 @@ Phase: B
 Tier: [FABLE]
 Depends on: B03
 Estimate: 6h
-Status: in progress — eight seed cases drafted (two per function, D21), the two Wikipedia references stored under cases/references/, `sim/01_cases` executed with outputs; awaiting the author's review marks in cases/reviewed.json, which is the done-when
+Status: in progress — eight seed cases drafted (two per function, D21), the two Wikipedia references stored under cases/references/, and `sim/01_cases` executed with outputs. The notebook opens with the fixture trip in full, and each case declares `fixture_depends_on` (block keys and days the loader validates against cases/fixture.json), so a reader can see what the case is written against and the fixture cannot be edited out from under it. Awaiting the author's review marks in cases/reviewed.json, which is the done-when
 Spec: Author the seed set: two cases per function, eight in all (D21), each a
 minimum-functionality scenario generated with LLM help and reviewed by hand
 (§3.1), with constraints, expected tool sequence, criteria and — for factual

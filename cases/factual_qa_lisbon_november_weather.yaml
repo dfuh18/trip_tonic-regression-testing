@@ -28,6 +28,7 @@ references:
 - title: Lisbon
   section: Climate
   path: lisbon_climate.md
+fixture_depends_on: []
 notes: 'The agent may answer through get_region_climate or get_climate_normals; the predicate accepts
   either. Judged against the stored climate section (D23: the stored reference is right for climate; the
   trace forecast is for day-by-day weather).'

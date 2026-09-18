@@ -30,4 +30,6 @@ references:
 - title: Alfama
   section: History
   path: alfama_history.md
+fixture_depends_on:
+- tram
 notes: 'Minimum functionality for factual QA: read the article, answer from it.'

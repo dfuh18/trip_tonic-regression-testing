@@ -17,4 +17,8 @@ scoring_criteria:
 - 'Fits the trip on the itinerary: November, city walking, a Sintra hill day.'
 - 'Concrete and short: items, not paragraphs.'
 - Does not claim to have changed the trip.
+fixture_depends_on:
+- pena
+- tram
+- timeout
 notes: 'Advisory function: no structural trace (P4); judged on the criteria only.'

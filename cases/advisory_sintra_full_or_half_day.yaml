@@ -17,4 +17,7 @@ scoring_criteria:
 - Takes a position and gives the reason.
 - Refers to what is already planned for that day (Pena Palace).
 - Does not claim to have changed the trip.
+fixture_depends_on:
+- pena
+- '2026-11-08'
 notes: 'Advisory function: a decision the member has to make, helped along.'

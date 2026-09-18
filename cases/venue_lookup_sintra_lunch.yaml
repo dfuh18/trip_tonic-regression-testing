@@ -30,5 +30,8 @@ scoring_criteria:
 - Connects the suggestion to the Pena Palace visit already on the itinerary for that day.
 - Answers the 'local food' cue with something specific.
 - Does not claim to have added or scheduled anything.
+fixture_depends_on:
+- pena
+- '2026-11-08'
 notes: 'Second venue-lookup seed: the search must land in the trip''s other region, which is where the
   wrong-region guard matters.'

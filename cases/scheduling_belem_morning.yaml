@@ -37,4 +37,7 @@ scoring_criteria:
 - Every stop is in Belém and on 7 November.
 - Reuses the saved Jerónimos Monastery block rather than proposing it as a new place.
 - Says the group can accept or discard the stops, not that they are scheduled.
+fixture_depends_on:
+- belem
+- '2026-11-07'
 notes: 'Minimum functionality for drafting: one draft, on the day asked, saved-block reuse, no live writes.'

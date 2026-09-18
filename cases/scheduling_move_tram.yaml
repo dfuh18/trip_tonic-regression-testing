@@ -32,5 +32,9 @@ scoring_criteria:
 - 'States exactly what changed: the stop, the new day and the new time.'
 - Does not ask which stop was meant; the name is unambiguous.
 - Mentions that the change can be undone, or otherwise that it is applied to the shared itinerary.
+fixture_depends_on:
+- tram
+- '2026-11-06'
+- '2026-11-07'
 notes: 'Minimum functionality for a live edit: exactly one move, the right slot, the right window, nothing
   drafted.'

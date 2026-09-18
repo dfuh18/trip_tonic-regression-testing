@@ -11,14 +11,21 @@ the loader validates, plus an optional ``predicates`` list naming functions in
 scoring criteria and no constraints, because the advisory function leaves no
 structural trace (P4).
 
-``suite_version`` is the SHA-256 over the sorted case files and is what a run
-records (Table 11): a suite that changed is a different suite.
+Every case is written against the fixture trip in ``cases/fixture.json`` (built
+and reset by ``src/reset.py``), and ``fixture_depends_on`` names the parts of it
+a case assumes — validated here, so a case cannot outlive the state it reads.
+
+``suite_version`` is the SHA-256 over the sorted case files **and the fixture**,
+and is what a run records (Table 11): a suite that changed is a different suite,
+and so is the same suite against a different starting trip.
 """
 
 from __future__ import annotations
 
 import hashlib
 import importlib.util
+import json
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Literal, Optional, Union
 
@@ -29,6 +36,7 @@ SUBTREE_ROOT = Path(__file__).resolve().parent.parent
 CASES_DIR = SUBTREE_ROOT / "cases"
 REFERENCES_DIR = CASES_DIR / "references"
 PREDICATES_FILE = CASES_DIR / "predicates.py"
+FIXTURE_FILE = CASES_DIR / "fixture.json"
 
 Function = Literal["venue_lookup", "scheduling", "factual_qa", "advisory"]
 Provenance = Literal["seeded", "metamorphic", "retained"]
@@ -119,6 +127,12 @@ class Case(BaseModel):
     references: list[Reference] = Field(default_factory=list)
     repetitions_n: int = Field(ge=1)
     metamorphic_relation: Optional[str] = None
+    #: What the case leans on in the fixture trip: block keys from
+    #: cases/fixture.json and/or day dates inside the trip's range. The loader
+    #: checks them, so a case cannot quietly outlive the state it assumes —
+    #: "move the Tram 28 ride" is only a case while that block is in the
+    #: fixture. Empty means the case reads nothing off the trip.
+    fixture_depends_on: list[str] = Field(default_factory=list)
     #: Free text for the notebook: why this case exists, what it exercises.
     notes: Optional[str] = None
 
@@ -144,6 +158,24 @@ class CaseFileError(ValueError):
     """A case file that cannot be loaded, naming the file and what is wrong."""
 
 
+def fixture() -> dict:
+    """The trip every repetition starts from (cases/fixture.json, built by B02)."""
+    return json.loads(FIXTURE_FILE.read_text(encoding="utf-8"))
+
+
+def fixture_anchors(data: Optional[dict] = None) -> set[str]:
+    """What a case may declare a dependency on: block keys and trip days."""
+    data = data or fixture()
+    anchors = {block["key"] for block in data["blocks"]}
+    start = date.fromisoformat(data["trip"]["start_date"])
+    end = date.fromisoformat(data["trip"]["end_date"])
+    day = start
+    while day <= end:
+        anchors.add(day.isoformat())
+        day += timedelta(days=1)
+    return anchors
+
+
 def _predicate_names() -> set[str]:
     if not PREDICATES_FILE.exists():
         return set()
@@ -159,7 +191,11 @@ def case_files(directory: Path = CASES_DIR) -> list[Path]:
     return sorted(p for p in directory.glob("*.yaml") if not p.name.startswith("_"))
 
 
-def load_case(path: Path, known_predicates: Optional[set[str]] = None) -> Case:
+def load_case(
+    path: Path,
+    known_predicates: Optional[set[str]] = None,
+    known_anchors: Optional[set[str]] = None,
+) -> Case:
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     except yaml.YAMLError as exc:
@@ -182,13 +218,21 @@ def load_case(path: Path, known_predicates: Optional[set[str]] = None) -> Case:
     for ref in case.references:
         if not (REFERENCES_DIR / ref.path).exists():
             raise CaseFileError(f"{path.name}: reference file missing: references/{ref.path}")
+    anchors = fixture_anchors() if known_anchors is None else known_anchors
+    unknown_anchors = [a for a in case.fixture_depends_on if a not in anchors]
+    if unknown_anchors:
+        raise CaseFileError(
+            f"{path.name}: fixture_depends_on names {unknown_anchors}, which the fixture does not "
+            f"have — a block key from cases/fixture.json or a day inside the trip's range"
+        )
     return case
 
 
 def load_cases(directory: Path = CASES_DIR) -> list[Case]:
     """Every case, validated, with base cases checked to exist."""
     known = _predicate_names()
-    cases = [load_case(path, known) for path in case_files(directory)]
+    anchors = fixture_anchors()
+    cases = [load_case(path, known, anchors) for path in case_files(directory)]
     ids = {c.case_id for c in cases}
     for c in cases:
         if c.base_case_id and c.base_case_id not in ids:
@@ -197,8 +241,18 @@ def load_cases(directory: Path = CASES_DIR) -> list[Case]:
 
 
 def suite_version(directory: Path = CASES_DIR) -> str:
-    """SHA-256 over the sorted case files, names and contents (Table 11)."""
+    """SHA-256 over the sorted case files and the fixture they run against.
+
+    The fixture is in the hash on purpose: the same case text against a
+    different starting trip is a different test, and Table 11's suite version
+    has to say so.
+    """
     digest = hashlib.sha256()
+    fixture_path = directory / "fixture.json"
+    if fixture_path.exists():
+        digest.update(b"fixture.json\0")
+        digest.update(fixture_path.read_bytes())
+        digest.update(b"\0")
     for path in case_files(directory):
         digest.update(path.name.encode("utf-8"))
         digest.update(b"\0")
