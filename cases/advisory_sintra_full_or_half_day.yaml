@@ -1,0 +1,20 @@
+base_case_id: null
+provenance: seeded
+run_priority: 1
+repetitions_n: 8
+metamorphic_relation: null
+case_id: advisory_sintra_full_or_half_day
+function: advisory
+user_profile: Tom, 41, weighing the schedule, wants a recommendation with a reason.
+goal: Decide whether Sintra deserves the whole of 8 November or half of it.
+opening_turn: '@Tonic is Sintra worth a full day or is half a day enough?'
+intent: null
+expected_tool_sequence: []
+declared_constraints:
+  checks: {}
+  predicates: []
+scoring_criteria:
+- Takes a position and gives the reason.
+- Refers to what is already planned for that day (Pena Palace).
+- Does not claim to have changed the trip.
+notes: 'Advisory function: a decision the member has to make, helped along.'

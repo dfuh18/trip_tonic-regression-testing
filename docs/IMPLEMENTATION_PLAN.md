@@ -46,7 +46,7 @@ that cannot be skipped or reordered.
 | Phase | Tasks | Done | Blocked |
 |---|---|---|---|
 | A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 13 | 0 |
-| B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 8 | 0 |
+| B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 9 | 0 |
 | C — analysis and pilot | 6 (6 `[FABLE]`, 0 `[STANDARD]`) | 0 | 1 |
 
 Estimate total: about 152 h (A 51.5 h · B 73.5 h · C 27 h). Vertex compute for
@@ -568,7 +568,7 @@ Phase: B
 Tier: [FABLE]
 Depends on: B03
 Estimate: 6h
-Status: not started
+Status: in progress — eight seed cases drafted (two per function, D21), the two Wikipedia references stored under cases/references/, `sim/01_cases` executed with outputs; awaiting the author's review marks in cases/reviewed.json, which is the done-when
 Spec: Author the seed set: two cases per function, eight in all (D21), each a
 minimum-functionality scenario generated with LLM help and reviewed by hand
 (§3.1), with constraints, expected tool sequence, criteria and — for factual
@@ -622,7 +622,7 @@ Phase: B
 Tier: [FABLE]
 Depends on: B02, B03, B06
 Estimate: 8h
-Status: not started
+Status: done (2026-09-18; dry run of two cases at n = 2: one run row, four execution rows, a kill after the first execution and a resume with no duplicate; every run-level field recorded except `baseline_ref` (null on a baseline run by definition) and `judge_prompt_version` (written when the judge runs in B10); `structural_outcome` on executions is B08's. The first attempt exposed two faults, both fixed: a model call with no timeout hung the run for forty minutes, and the run row was opened before the first gate — see L03, L04)
 Spec: `src/runner.py run(suite, n_override=None, priority_only=False)`: opens
 a `study_runs` row (run level per event-model.md: `model_version`,
 `model_released_on`, `prompt_version`, `tool_version` from

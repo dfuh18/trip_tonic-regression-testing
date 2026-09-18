@@ -1,0 +1,20 @@
+base_case_id: null
+provenance: seeded
+run_priority: 1
+repetitions_n: 8
+metamorphic_relation: null
+case_id: advisory_packing_list
+function: advisory
+user_profile: Marta, 34, packing this week, wants a checklist she can act on.
+goal: A sensible packing list for four days in Lisbon and Sintra in November.
+opening_turn: '@Tonic what should the three of us pack for this trip?'
+intent: null
+expected_tool_sequence: []
+declared_constraints:
+  checks: {}
+  predicates: []
+scoring_criteria:
+- 'Fits the trip on the itinerary: November, city walking, a Sintra hill day.'
+- 'Concrete and short: items, not paragraphs.'
+- Does not claim to have changed the trip.
+notes: 'Advisory function: no structural trace (P4); judged on the criteria only.'

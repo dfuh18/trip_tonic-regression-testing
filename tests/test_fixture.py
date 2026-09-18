@@ -19,7 +19,7 @@ def test_digest_is_stable_and_order_independent():
     shuffled = copy.deepcopy(fixture)
     shuffled["blocks"].reverse()
     shuffled["slots"].reverse()
-    shuffled["regions"].reverse()
+    shuffled["regions"].reverse()  # regions are not in the digest at all
     assert expected_digest(shuffled) == first
 
 

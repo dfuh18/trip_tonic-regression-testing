@@ -1,0 +1,33 @@
+base_case_id: null
+provenance: seeded
+run_priority: 1
+repetitions_n: 8
+metamorphic_relation: null
+case_id: factual_qa_alfama_history
+function: factual_qa
+user_profile: Tom, 41, curious, asks one clear question and wants the answer, not a plan.
+goal: Learn the short version of Alfama's history before the tram ride.
+opening_turn: '@Tonic what''s the history of Alfama, briefly?'
+intent: null
+expected_tool_sequence:
+- read_wikipedia
+declared_constraints:
+  checks:
+    tool_sequence:
+    - read_wikipedia
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      ai_suggestions.INSERT: 0
+  predicates:
+  - no_tool_errors
+  - used_a_reference_tool
+scoring_criteria:
+- 'Facts agree with the reference: Moorish origin of the name and the district, survival of the 1755 earthquake,
+  its character as the oldest district.'
+- 'Brief: a short paragraph, not an essay.'
+- Does not invent dates or events the reference does not support.
+references:
+- title: Alfama
+  section: History
+  path: alfama_history.md
+notes: 'Minimum functionality for factual QA: read the article, answer from it.'

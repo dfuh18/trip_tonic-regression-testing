@@ -22,7 +22,7 @@ from typing import Any
 
 from src import db
 from src.auth import SimUser
-from src.fixture import build_children, create_trip, expected_digest, find_trip, load_fixture, observed_digest
+from src.fixture import build_children, create_trip, expected_digest, find_trip, load_fixture, observed_digest, observed_regions
 
 HARNESS_LOG = Path(__file__).resolve().parent.parent / "runs" / "harness.log"
 
@@ -103,6 +103,9 @@ def assert_clean(trip_id: str, fixture: dict[str, Any] | None = None) -> None:
     observed = observed_digest(trip_id)
     if observed != expected:
         _refuse(trip_id, "fixture", f"digest {observed[:12]} != expected {expected[:12]}")
+    missing = {r["name"] for r in fixture["regions"]} - observed_regions(trip_id)
+    if missing:
+        _refuse(trip_id, "regions", f"declared region(s) absent: {sorted(missing)}")
 
 
 def _refuse(trip_id: str, table: str, detail: str) -> None:

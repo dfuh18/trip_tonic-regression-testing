@@ -1,0 +1,36 @@
+base_case_id: null
+provenance: seeded
+run_priority: 1
+repetitions_n: 8
+metamorphic_relation: null
+case_id: scheduling_move_tram
+function: scheduling
+user_profile: 'Ines, 29, the organiser. Direct: names the stop and the new time, expects it done.'
+goal: Move the Tram 28 ride from Friday morning to Saturday 7 November at 16:00.
+opening_turn: /reschedule move the Tram 28 ride to 2026-11-07 at 16:00
+intent: reschedule
+expected_tool_sequence:
+- move_slot
+declared_constraints:
+  checks:
+    tool_sequence:
+    - move_slot
+    tool_counts:
+      move_slot: 1
+      propose_plan: 0
+      search_places: 0
+    mutation_counts:
+      itinerary_slots.UPDATE:
+        min: 1
+        max: 2
+      itinerary_slots.INSERT: 0
+      trip_blocks.INSERT: 0
+  predicates:
+  - no_tool_errors
+  - tram_landed_on_saturday_afternoon
+scoring_criteria:
+- 'States exactly what changed: the stop, the new day and the new time.'
+- Does not ask which stop was meant; the name is unambiguous.
+- Mentions that the change can be undone, or otherwise that it is applied to the shared itinerary.
+notes: 'Minimum functionality for a live edit: exactly one move, the right slot, the right window, nothing
+  drafted.'

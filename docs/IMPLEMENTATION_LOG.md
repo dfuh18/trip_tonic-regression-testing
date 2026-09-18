@@ -45,6 +45,44 @@ fact. Rough is fine; absent is not.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### L04 — An unattended run needs a timeout on every external call and a heartbeat outside its process
+Phase: B · Related tasks: B06, B07
+Effort: the runner itself came in under its estimate; the first dry run then
+sat for forty minutes on one call before anyone noticed.
+What happened: the Gemini SDK's default request timeout is none. A single
+persona call hung, the runner waited on it indefinitely, and nothing outside
+the process showed anything but silence — the run's own log was piped into
+a buffer that flushes at exit. Fixed with a ninety-second per-call timeout
+(retried like a 5xx) and a line per execution in `runs/harness.log`.
+Why it matters: §3.1 describes runs of a hundred-plus executions over hours,
+run once. A run that can stall silently is a run that can lose its window,
+and neither the tests nor the specification asked for a timeout because
+neither imagined the absence of one.
+Design consequence: every external call the harness makes carries a timeout,
+and progress is written to disk, not only to stdout.
+Generalises: any simulation harness built on an SDK whose defaults assume an
+interactive caller.
+
+### L03 — A fixture digest can only contain what the application does not derive
+Phase: B · Related tasks: B02, B07
+Effort: below estimate for B02; the fault appeared two tasks later.
+What happened: the state-reset gate compared a digest of the rebuilt fixture
+(blocks, slots, regions) with the fixture file. On the third rebuild the
+application's city-aware region assignment created a region the fixture had
+not named, the digests differed, and the gate refused a perfectly clean trip.
+Regions are now checked for presence only; the digest holds what the fixture
+declares and the application copies verbatim.
+Why it matters: invariant 1 asks the gate to assert on a clean state, and an
+assertion that is stricter than the application's own determinism produces
+refusals that look like dirt. The line between "what the fixture put there"
+and "what the application derived from it" has to be drawn explicitly, and it
+is not visible from the fixture file alone.
+Design consequence: `observed_digest` excludes derived state; declared state
+is checked by digest, derived state by presence.
+Generalises: any end-to-end harness whose fixture is built through the
+product's own write paths rather than inserted as rows.
+
+
 ### L02 — Origin carried in a header has to survive every hop, including the API's own database client
 Phase: A · Related tasks: A04
 Effort: about the estimate (six hours planned, roughly five spent), but the

@@ -1,0 +1,40 @@
+base_case_id: null
+provenance: seeded
+run_priority: 1
+repetitions_n: 8
+metamorphic_relation: null
+case_id: scheduling_belem_morning
+function: scheduling
+user_profile: Ines, 29, the organiser of the group. Wants a plan she can accept slot by slot, writes full
+  sentences, gives the date.
+goal: Get a draft for the morning of 7 November in Belém with two or three stops, so the group can settle
+  them one by one.
+opening_turn: /plan a morning in Belém on 2026-11-07 with two or three stops, we already have the monastery
+  saved
+intent: plan
+expected_tool_sequence:
+- search_places
+- propose_plan
+declared_constraints:
+  checks:
+    tool_sequence:
+    - propose_plan
+    tool_counts:
+      propose_plan: 1
+    slot_days:
+    - '2026-11-07'
+    slot_count:
+      min: 2
+      max: 3
+    mutation_counts:
+      ai_suggestions.INSERT: 1
+      itinerary_slots.INSERT: 0
+  predicates:
+  - no_tool_errors
+  - search_before_draft
+scoring_criteria:
+- Summarises the draft in a few sentences instead of repeating every slot.
+- Every stop is in Belém and on 7 November.
+- Reuses the saved Jerónimos Monastery block rather than proposing it as a new place.
+- Says the group can accept or discard the stops, not that they are scheduled.
+notes: 'Minimum functionality for drafting: one draft, on the day asked, saved-block reuse, no live writes.'

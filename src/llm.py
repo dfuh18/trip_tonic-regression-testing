@@ -25,6 +25,8 @@ from src.config import settings
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 _VERSION_RE = re.compile(r"<!--\s*version:\s*([^\s]+)\s*-->")
 _MAX_ATTEMPTS = 3
+#: Per request, milliseconds. A persona turn or a judgement is seconds of work.
+REQUEST_TIMEOUT_MS = 90_000
 
 
 @dataclass(frozen=True)
@@ -78,8 +80,16 @@ class Gemini:
     def __init__(self, model: str):
         from google import genai
 
+        from google.genai import types
+
         self.model = model
-        self._client = genai.Client(vertexai=True, api_key=settings.VERTEX_API_KEY)
+        # A hard timeout: the SDK's default is none, and one silent hang stalls
+        # a whole run (found the first time the runner was left unattended).
+        self._client = genai.Client(
+            vertexai=True,
+            api_key=settings.VERTEX_API_KEY,
+            http_options=types.HttpOptions(timeout=REQUEST_TIMEOUT_MS),
+        )
 
     def generate(
         self, system: str, user: str, *, json_schema: Optional[dict] = None, temperature: float = 0.0
@@ -99,6 +109,11 @@ class Gemini:
             except errors.APIError as exc:
                 if attempt == _MAX_ATTEMPTS or exc.code not in (429, 500, 502, 503, 504):
                     raise
+                retries += 1
+                time.sleep(min(2 ** attempt, 8))
+            except (TimeoutError, OSError) as exc:  # the transport gave up
+                if attempt == _MAX_ATTEMPTS:
+                    raise RuntimeError(f"model call timed out after {_MAX_ATTEMPTS} attempts: {exc}") from exc
                 retries += 1
                 time.sleep(min(2 ** attempt, 8))
         usage = response.usage_metadata

@@ -1,0 +1,35 @@
+base_case_id: null
+provenance: seeded
+run_priority: 1
+repetitions_n: 8
+metamorphic_relation: null
+case_id: venue_lookup_seafood_lisbon
+function: venue_lookup
+user_profile: Marta, 34, in Lisbon for a long weekend with two friends. Eats fish, budget-conscious, types
+  short messages and does not explain herself.
+goal: Get two or three well-rated seafood restaurants near Cais do Sodré for Friday dinner, cheap enough
+  for three people.
+opening_turn: /find good seafood places near Cais do Sodré, not too pricey
+intent: find
+expected_tool_sequence:
+- search_places
+declared_constraints:
+  checks:
+    tool_sequence:
+    - search_places
+    tool_counts:
+      search_places:
+        min: 1
+        max: 2
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      ai_suggestions.INSERT: 0
+  predicates:
+  - no_tool_errors
+  - surfaced_real_places
+scoring_criteria:
+- Names two or three real restaurants, each with one reason it fits.
+- Stays in or next to Cais do Sodré; does not wander to another part of town or another city.
+- Reflects the budget cue without lecturing about it.
+- Does not claim to have added or scheduled anything.
+notes: 'Minimum functionality for the venue-lookup function: one search, grounded names, no writes.'

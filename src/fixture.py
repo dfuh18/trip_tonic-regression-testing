@@ -7,9 +7,13 @@ name and owner; created when missing, otherwise reused and rebuilt in place —
 the trip id is what runs record, and it should not change between them.
 
 The digest is the state the precondition gate compares against: sorted block
-titles and types, the scheduled slots by day and time, the region names. It is
-computed the same way from the fixture file and from the database, so the
-two are comparable without the database being the reference for itself.
+titles and types and the scheduled slots by day and time. It is computed the
+same way from the fixture file and from the database, so the two are
+comparable without the database being the reference for itself. Regions are
+deliberately not in it: the application assigns a region to every block it
+creates and may add one (city-aware assignment), so a rebuilt trip can carry a
+region the fixture never named. The gate checks instead that every declared
+region is present.
 """
 
 from __future__ import annotations
@@ -41,8 +45,7 @@ def expected_digest(fixture: dict[str, Any]) -> str:
     blocks = sorted((b["title"], b["type"]) for b in fixture["blocks"])
     title_of = {b["key"]: b["title"] for b in fixture["blocks"]}
     slots = sorted((s["day_date"], s["start_time"], s["end_time"], title_of[s["block"]]) for s in fixture["slots"])
-    regions = sorted(r["name"] for r in fixture["regions"])
-    return _digest(blocks, slots, regions)
+    return _digest(blocks, slots)
 
 
 def observed_digest(trip_id: str) -> str:
@@ -65,12 +68,15 @@ def observed_digest(trip_id: str) -> str:
         ):
             title = (row.get("trip_blocks") or {}).get("title")
             slots.append((day_date[row["itinerary_day_id"]], row["start_time"][:5], row["end_time"][:5], title))
-    regions = sorted(r["name"] for r in a.table("regions").select("name").eq("trip_id", trip_id).execute().data)
-    return _digest(blocks, sorted(slots), regions)
+    return _digest(blocks, sorted(slots))
 
 
-def _digest(blocks: list, slots: list, regions: list) -> str:
-    payload = json.dumps({"blocks": blocks, "slots": slots, "regions": regions}, sort_keys=True)
+def observed_regions(trip_id: str) -> set[str]:
+    return {r["name"] for r in db.admin().table("regions").select("name").eq("trip_id", trip_id).execute().data}
+
+
+def _digest(blocks: list, slots: list) -> str:
+    payload = json.dumps({"blocks": blocks, "slots": slots}, sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 

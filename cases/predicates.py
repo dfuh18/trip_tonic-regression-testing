@@ -8,8 +8,9 @@ structural checker (B08) turns a finding into ``detected``.
 The execution object is the checker's view of one case run: its ordered
 ``trace`` (the tool-call entries of every turn, in order), its ``mutations``
 (study_mutations rows), its ``drafts`` (the resulting_state_shape ``draft``
-objects) and, for metamorphic follow-ups, the ``base`` execution it is
-compared against. Keep predicates small and named for what they assert.
+objects), its ``place_ids`` (the Google ids of every place the replies named,
+from the reply messages' refs) and, for metamorphic follow-ups, the ``base``
+execution it is compared against. Keep predicates small and named for what they assert.
 """
 
 from __future__ import annotations
@@ -39,8 +40,8 @@ def same_venues_as_base(execution: Mapping[str, Any]) -> Optional[str]:
     base = execution.get("base")
     if not base:
         return "no base execution to compare against"
-    mine = _place_ids(execution["trace"])
-    theirs = _place_ids(base["trace"])
+    mine = _place_ids(execution)
+    theirs = _place_ids(base)
     if mine != theirs:
         return f"venues differ from the base case ({len(mine ^ theirs)} not shared)"
     return None
@@ -51,17 +52,35 @@ def different_venues_from_base(execution: Mapping[str, Any]) -> Optional[str]:
     base = execution.get("base")
     if not base:
         return "no base execution to compare against"
-    if _place_ids(execution["trace"]) == _place_ids(base["trace"]):
+    if _place_ids(execution) == _place_ids(base):
         return "venues identical to the base case despite the changed constraint"
     return None
 
 
-def _place_ids(trace: Sequence[Mapping[str, Any]]) -> set[str]:
-    ids: set[str] = set()
-    for entry in trace:
-        if entry.get("kind") != "tool":
-            continue
-        for place in (entry.get("result_places") or []):
-            if place.get("googlePlaceId"):
-                ids.add(place["googlePlaceId"])
-    return ids
+def surfaced_real_places(execution: Mapping[str, Any]) -> Optional[str]:
+    """A venue lookup returned at least one Google place (P4: grounded, not recalled)."""
+    return None if _place_ids(execution) else "no search_places result carried a Google place id"
+
+
+def used_a_reference_tool(execution: Mapping[str, Any]) -> Optional[str]:
+    """A factual answer came from a reference tool, not from the model's memory."""
+    tools = {e["tool"] for e in execution["trace"] if e.get("kind") == "tool"}
+    if tools & {"read_wikipedia", "get_region_climate", "get_climate_normals", "get_weather"}:
+        return None
+    return "no reference tool was called"
+
+
+def tram_landed_on_saturday_afternoon(execution: Mapping[str, Any]) -> Optional[str]:
+    """scheduling_move_tram: the moved slot sits on 2026-11-07 starting 16:00."""
+    for m in execution.get("mutations", []):
+        proj = m.get("projection") or {}
+        if (m.get("table_name") == "itinerary_slots" and m.get("op") == "UPDATE"
+                and proj.get("day_date") == "2026-11-07" and str(proj.get("start_time", "")).startswith("16:00")):
+            return None
+    return "no itinerary_slots update landed on 2026-11-07 at 16:00"
+
+
+def _place_ids(execution: Mapping[str, Any]) -> set[str]:
+    """Google place ids the replies named, from the place refs on the reply
+    messages (the trace keeps tool results as size and error only)."""
+    return set(execution.get("place_ids") or [])
