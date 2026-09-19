@@ -16,6 +16,8 @@ declared_constraints:
     no_tool_errors: true
     mutation_counts:
       trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 0
       ai_suggestions.INSERT: 0
   predicates: []
 scoring_criteria:
@@ -33,4 +35,5 @@ fixture_depends_on:
 - Tram 28 ride through Alfama
 notes: 'Minimum functionality for factual QA: read the article, answer from it. tools_any_of rather than
   a count, because how many times the agent reads to answer well is not the case''s business — that it
-  read at all is.'
+  read at all is. This case carries no intent, so the agent keeps its whole toolset and could draft or
+  schedule; the four zeros are therefore a real constraint here, not a restatement of the tool policy.'

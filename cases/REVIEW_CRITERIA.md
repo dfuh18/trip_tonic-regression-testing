@@ -34,9 +34,12 @@ Twelve criteria, grouped. A case fails review on any one of them.
    but not needed silently permits behaviour the case should have caught. No
    zeros — a tool is forbidden by being absent — and the three read tools are
    always allowed, so they are never listed.
-6. **Nothing load-bearing is missing.** If the request implies a change to the
-   trip, or implies none, `mutation_counts` says so. If it implies a specific
-   stop in a specific window, `slot_moved` says so.
+6. **Nothing load-bearing is missing.** All four mutation counts are stated —
+   `trip_blocks.INSERT`, `itinerary_slots.INSERT`, `itinerary_slots.UPDATE`,
+   `ai_suggestions.INSERT` — with the deviations the request implies and zeros
+   elsewhere. A count that is incidental to the request rather than implied by
+   it is left out, and `notes` says why. If the request implies a specific stop
+   in a specific window, `slot_moved` says so.
 7. **Consistent with its siblings.** Cases of the same function carry the same
    bounds unless `notes` say why they differ. An unexplained difference between
    two cases of one function is an accident in a pass criterion.

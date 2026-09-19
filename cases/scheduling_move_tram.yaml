@@ -20,8 +20,10 @@ declared_constraints:
       day: '2026-11-07'
       start_time: '16:00'
     mutation_counts:
-      itinerary_slots.INSERT: 0
       trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 1
+      ai_suggestions.INSERT: 0
   predicates: []
 scoring_criteria:
 - 'States exactly what changed: the stop, the new day and the new time.'
@@ -36,4 +38,7 @@ fixture_depends_on:
 notes: 'Minimum functionality for a live edit. The member says ''Saturday'' and ''around 4''; resolving
   those to 2026-11-07 and 16:00 is part of what is being tested, so slot_moved asserts the resolved values.
   propose_plan and search_places are not asserted at zero: /reschedule cannot reach them, and asserting
-  it would test agent.tool-policy.ts rather than the agent.'
+  it would test agent.tool-policy.ts rather than the agent. itinerary_days.INSERT is deliberately not
+  asserted: the 7th is an empty day in the fixture, so moving a stop onto it legitimately creates the
+  day row, and a count would encode which days the fixture happens to have rather than anything about
+  the agent.'

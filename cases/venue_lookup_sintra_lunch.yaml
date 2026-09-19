@@ -22,6 +22,8 @@ declared_constraints:
       min: 1
     mutation_counts:
       trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 0
       ai_suggestions.INSERT: 0
   predicates: []
 scoring_criteria:

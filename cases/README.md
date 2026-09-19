@@ -70,6 +70,26 @@ context falls short, which varies between runs of one case. And a case that
 names no tool at all constrains none, which is how the advisory seeds stay free
 to ground their advice in a forecast.
 
+**Every non-advisory case states the same four mutation counts.** The write
+classes an agent turn can cause on the plan are `trip_blocks.INSERT`,
+`itinerary_slots.INSERT`, `itinerary_slots.UPDATE` and
+`ai_suggestions.INSERT`. A case states all four, so "this request changes
+nothing" and "this request writes exactly one draft" are the same sentence with
+one word different, and a line that is missing is visible rather than implied.
+Deviations are the point of the case: `/plan` sets `ai_suggestions.INSERT: 1`,
+`/reschedule` sets `itinerary_slots.UPDATE: 1`, and both leave the rest at zero.
+
+This is a second signal, not a restatement of the tool constraint: deny by
+default reads the trace, the mutation counts read the database. For a case with
+no slash command — the factual and advisory ones — the agent keeps its whole
+toolset, so the zeros are a real constraint rather than a restatement of
+anything.
+
+Counts that are *incidental* to the request are left unasserted, and the case's
+`notes` say why: `ai_suggestions.UPDATE` after a draft (the thread-id backfill
+is an implementation detail), `itinerary_days.INSERT` when a stop moves onto a
+day the fixture left empty (that encodes the fixture, not the agent).
+
 ## checks and predicates
 
 The split is about **arity, not about where the data comes from** (D19, D27).

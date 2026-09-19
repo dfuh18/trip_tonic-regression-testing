@@ -27,9 +27,10 @@ declared_constraints:
       min: 2
       max: 3
     mutation_counts:
-      ai_suggestions.INSERT: 1
+      trip_blocks.INSERT: 0
       itinerary_slots.INSERT: 0
       itinerary_slots.UPDATE: 0
+      ai_suggestions.INSERT: 1
   predicates: []
 scoring_criteria:
 - Summarises the draft in a few sentences instead of repeating every slot.
@@ -46,4 +47,8 @@ notes: 'Minimum functionality for drafting. The member says "the 7th" and the ca
   format the product never sees. expected_tool_sequence carries both the grounding and the order: search
   before propose, which is what makes the plan real venues rather than recalled ones (P5). The itinerary
   mutation counts are the assertion that a draft is a proposal — nothing reaches the live itinerary until
-  a member accepts.'
+  a member accepts. The mutation counts are the same four classes every case states, with one word changed:
+  a draft is written and nothing reaches the live itinerary. ai_suggestions.UPDATE is deliberately not
+  asserted — propose_plan backfills plan_thread_id after the insert because the id is not known until
+  it returns, and that is an implementation detail a refactor may remove without changing what the member
+  sees.'

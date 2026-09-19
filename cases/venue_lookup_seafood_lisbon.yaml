@@ -22,6 +22,8 @@ declared_constraints:
       min: 1
     mutation_counts:
       trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 0
       ai_suggestions.INSERT: 0
   predicates: []
 scoring_criteria:
@@ -32,5 +34,6 @@ scoring_criteria:
 repetitions_n: 8
 metamorphic_relation: null
 fixture_depends_on: []
-notes: 'Minimum functionality for venue lookup: a grounded search that changes nothing. The mutation counts
-  are the assertion that /find is read-only in fact and not only in policy.'
+notes: 'Minimum functionality for venue lookup: a grounded search that changes nothing. The four mutation
+  zeros are the assertion that /find is read-only in fact and not only in policy — a second signal to
+  deny-by-default on the tools, taken from the database rather than the trace.'
