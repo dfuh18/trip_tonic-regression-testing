@@ -33,7 +33,9 @@ references:
 repetitions_n: 8
 metamorphic_relation: null
 fixture_depends_on: []
-notes: 'expected_tool_sequence is empty and tools_any_of carries the constraint, because three tools answer
-  this question legitimately and the case has no business preferring one. Judged against the stored climate
-  section: D23 sends a day-by-day forecast question to the retrieved forecast, but a typical-November
-  question is climate, and the article is the reference for it.'
+notes: 'Minimum functionality for factual question answering where more than one source is legitimate.
+  get_region_climate, get_climate_normals and get_weather all answer this question honestly, so tools_any_of
+  carries the constraint and expected_tool_sequence is empty: the case requires a source, not a particular
+  one. Judged against the stored climate section rather than a retrieved forecast, because D23 sends a
+  day-by-day weather question to the forecast the agent fetched, and "usually, in November" is a climate
+  question. The message carries no slash command, so the mutation zeros are a real constraint.'

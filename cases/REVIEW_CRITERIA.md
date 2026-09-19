@@ -72,6 +72,15 @@ Twelve criteria, grouped. A case fails review on any one of them.
     different resolution the member leaves implicit, a different failure mode —
     rather than being the same case with new nouns.
 
+13. **The notes stand alone.** `notes` explains this case without leaning on
+    another one: no "the same as the seafood case", no "the second advisory
+    seed", no "same reason as above". A case is read on its own — in a diff, in
+    a failure report, in the notebook a year later — and a note pointing
+    sideways is a reason the reader has to go and find. Give the reason here,
+    even where it repeats one given elsewhere. The notes should also still be
+    true: an explanation of why something is asserted has to survive the rule
+    that made it necessary changing.
+
 ## Reporting a review
 
 Per case: adopt, adopt with a named change, or reject with the reason. Cite the

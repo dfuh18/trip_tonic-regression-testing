@@ -36,6 +36,9 @@ metamorphic_relation: null
 fixture_depends_on:
 - Pena Palace
 - '2026-11-08'
-notes: 'The same shape as the seafood case, deliberately: same function, same bounds. What differs is
-  the resolution the member leaves implicit — ''the Sintra day'' is only a day because of what the itinerary
-  holds — and the region, which is where the wrong-region guard earns its keep.'
+notes: 'Minimum functionality for venue lookup where the member leaves the day implicit. "The Sintra day"
+  is a day only because of what the itinerary holds, so the agent has to resolve it against the trip before
+  it can search at all. The search then has to land in the trip''s second region rather than in Lisbon,
+  which is where the wrong-region guard earns its keep. search_places is bounded at one to three calls:
+  one per constraint the member gave, or a re-search after the region guard drops a result. Nothing is
+  written.'

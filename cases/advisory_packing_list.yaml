@@ -26,8 +26,9 @@ fixture_depends_on:
 - Pena Palace
 - Tram 28 ride through Alfama
 - Time Out Market lunch
-notes: 'The judge carries most of this case: advisory leaves no trace to score against (P4). The fixture
-  dependency is real even so: ''fits the trip on the itinerary'' is only scorable against these stops.
-  The four mutation zeros are the assertion that asking for advice changes nothing — the request implies
-  it, so the case states it. Tools stay unconstrained: this message carries no slash command, so the agent
-  keeps everything and grounding the advice in a forecast is its call to make (D29).'
+notes: 'Advisory: the judge carries most of this case, because advice leaves no structural trace to score
+  against (P4). The fixture dependency is real even so, since "fits the trip on the itinerary" is only
+  scorable against the stops that are actually on it. The four mutation zeros assert that asking for advice
+  changes nothing, which is what the request implies. Tools stay unconstrained: the message carries no
+  slash command, so the agent keeps everything, and whether to ground the advice in a forecast is its
+  call to make (D29).'

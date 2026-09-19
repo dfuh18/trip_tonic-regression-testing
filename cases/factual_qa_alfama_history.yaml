@@ -33,7 +33,8 @@ repetitions_n: 8
 metamorphic_relation: null
 fixture_depends_on:
 - Tram 28 ride through Alfama
-notes: 'Minimum functionality for factual QA: read the article, answer from it. tools_any_of rather than
-  a count, because how many times the agent reads to answer well is not the case''s business — that it
-  read at all is. This case carries no intent, so the agent keeps its whole toolset and could draft or
-  schedule; the four zeros are therefore a real constraint here, not a restatement of the tool policy.'
+notes: 'Minimum functionality for factual question answering: read the article, answer from it. tools_any_of
+  rather than a count, because how often the agent reads in order to answer well is not the case''s business,
+  while whether it read at all is. The message carries no slash command, so the agent keeps its whole
+  toolset and could draft or schedule if it chose to; the four mutation zeros are therefore a real constraint
+  here rather than a restatement of what the tool policy already guarantees.'

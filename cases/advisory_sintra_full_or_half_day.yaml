@@ -25,6 +25,8 @@ metamorphic_relation: null
 fixture_depends_on:
 - Pena Palace
 - '2026-11-08'
-notes: 'The second advisory seed: a decision the member has to make rather than a list they want written.
-  Same constraint for the same reason: the member asks for a recommendation, not a change, so nothing
-  may be written; which tools inform the recommendation is the agent''s call.'
+notes: 'Advisory, and a question that asks for a position rather than a list: the reply has to come down
+  on one side and say why, which is the thing worth scoring. The judge carries the case, because advice
+  leaves no structural trace (P4). The member asks for a recommendation, not a change, so the four mutation
+  zeros assert that nothing is written. Tools stay unconstrained: the message carries no slash command,
+  so which sources inform the recommendation is the agent''s call (D29).'

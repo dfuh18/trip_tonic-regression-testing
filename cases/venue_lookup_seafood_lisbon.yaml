@@ -34,6 +34,8 @@ scoring_criteria:
 repetitions_n: 8
 metamorphic_relation: null
 fixture_depends_on: []
-notes: 'Minimum functionality for venue lookup: a grounded search that changes nothing. The four mutation
-  zeros are the assertion that /find is read-only in fact and not only in policy — a second signal to
-  deny-by-default on the tools, taken from the database rather than the trace.'
+notes: 'Minimum functionality for venue lookup: a grounded search that changes nothing. The member gives
+  two constraints, a place and a price, so search_places is bounded at one to three calls: one per constraint,
+  or a re-search after the region guard drops a result. The four mutation zeros assert that /find is read-only
+  in fact and not only in policy, which is a second signal taken from the database rather than from the
+  trace.'

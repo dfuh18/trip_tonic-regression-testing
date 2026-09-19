@@ -42,13 +42,11 @@ metamorphic_relation: null
 fixture_depends_on:
 - Jerónimos Monastery
 - '2026-11-07'
-notes: 'Minimum functionality for drafting. The member says "the 7th" and the case for the tram says "Saturday":
-  members name a day both ways and both have to resolve, so the seeds carry one of each rather than a
-  format the product never sees. expected_tool_sequence carries both the grounding and the order: search
-  before propose, which is what makes the plan real venues rather than recalled ones (P5). The itinerary
-  mutation counts are the assertion that a draft is a proposal — nothing reaches the live itinerary until
-  a member accepts. The mutation counts are the same four classes every case states, with one word changed:
-  a draft is written and nothing reaches the live itinerary. ai_suggestions.UPDATE is deliberately not
-  asserted — propose_plan backfills plan_thread_id after the insert because the id is not known until
-  it returns, and that is an implementation detail a refactor may remove without changing what the member
+notes: 'Minimum functionality for drafting. The member writes the date as "the 7th", which is how people
+  write one, so resolving it against the trip''s dates is part of what is tested. expected_tool_sequence
+  carries both the grounding and the order, search before propose, which is what makes the plan real venues
+  rather than recalled ones (P5). The mutation counts say that a draft is a proposal: one ai_suggestions
+  row, and nothing on the live itinerary until a member accepts. ai_suggestions.UPDATE is deliberately
+  not asserted, because propose_plan backfills plan_thread_id in a second write once the insert returns
+  the id, and that is an implementation detail a refactor may remove without changing anything the member
   sees.'
