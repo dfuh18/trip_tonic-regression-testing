@@ -137,10 +137,31 @@ Both read the same recorded execution.
 
 The check keys the checker (B08) knows: `tool_counts`, `tools_any_of`,
 `no_tool_errors`, `places_surfaced`, `slot_days`, `slot_count`, `slot_moved`
-(`{block, day, start_time?, end_time?}`), `mutation_counts` (`table.OP`). A
-count is an integer or `{min, max}`. Assert `end_time` wherever the stop has a
-length worth keeping: a move that sets the start and leaves the end alone lands
-the stop in the right window and is still wrong.
+(`{block, day, starts_between?, duration_minutes?, clear_of_other_slots?}`),
+`mutation_counts` (`table.OP`). A count is an integer or `{min, max}`.
+
+**A time is asserted as a window, never as a clock reading** (D31). A member
+says "around 4" or "Saturday afternoon", and both are ranges — an agent writing
+16:15 for the first has understood the request. `starts_between` takes the
+inclusive `[earliest, latest]` pair those words license, and a case that really
+does mean one minute writes it twice, so the tolerance it intends is always on
+the page rather than implied by the absence of one. The day is the exception and
+carries no tolerance: the trip has one Saturday.
+
+This is what makes the check survive a fuller fixture. Where the target day
+already holds something near the time the member named, shifting off that time
+is the *correct* behaviour, so the case widens `starts_between` to the part of
+the day the member actually named and asserts `clear_of_other_slots` — the
+requirement being that the agent found a free window, not that it found one
+particular minute. Narrow windows are for days the fixture leaves empty.
+
+**Length is asserted separately from the start.** `move_slot` takes the end
+time as an optional argument and nothing derives it from the stop's duration,
+so an agent that sets the start correctly and leaves the stored end alone turns
+an hour-long stop into one running to the end of the day — and no assertion
+about the start notices. `duration_minutes` is stated in full even where the
+case means "unchanged", so that a case cannot silently inherit a length the
+fixture changed underneath it.
 
 **A case asserts the outcome, not the route to it.** Where the application
 refuses a reasonable first attempt and the agent can recover within the turn,

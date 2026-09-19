@@ -43,7 +43,13 @@ Thirteen criteria, grouped. A case fails review on any one of them.
    `ai_suggestions.INSERT` — with the deviations the request implies and zeros
    elsewhere. A count that is incidental to the request rather than implied by
    it is left out, and `notes` says why. If the request implies a specific stop
-   in a specific window, `slot_moved` says so.
+   in a specific window, `slot_moved` says so — as a window and a length, never
+   a clock reading (D31). Check the tolerance against the member's own words: if
+   they said "around 4" and the case demands 16:00 exactly, it will fail an
+   agent that understood them. Check it against the fixture too: if the target
+   day already holds something near that time, the case must widen the window
+   and assert `clear_of_other_slots`, because moving off the named time is then
+   the correct behaviour.
 7. **Consistent with its siblings.** Cases of the same function carry the same
    bounds unless `notes` say why they differ. An unexplained difference between
    two cases of one function is an accident in a pass criterion.

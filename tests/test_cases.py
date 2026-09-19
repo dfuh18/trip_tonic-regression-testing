@@ -134,19 +134,51 @@ def test_unknown_check_key_is_refused(tmp_path):
     assert "tool_sequence" in str(exc.value)
 
 
-def test_slot_moved_names_a_stop_a_day_and_optionally_a_time(tmp_path):
-    moved = {"block": "Tram 28 ride through Alfama", "day": "2026-11-07", "start_time": "16:00"}
-    case = load_case(write(tmp_path, "venue_lookup_seafood",
-                           {**VALID, "declared_constraints": {"checks": {"slot_moved": moved}, "predicates": []}}))
-    assert case.declared_constraints.checks.slot_moved.start_time == "16:00"
-    without_time = {k: v for k, v in moved.items() if k != "start_time"}
-    case = load_case(write(tmp_path, "venue_lookup_seafood",
-                           {**VALID, "declared_constraints": {"checks": {"slot_moved": without_time}, "predicates": []}}))
-    assert case.declared_constraints.checks.slot_moved.start_time is None
+def test_slot_moved_names_a_stop_a_day_and_optionally_a_window(tmp_path):
+    def built(moved):
+        return load_case(write(tmp_path, "venue_lookup_seafood",
+                               {**VALID, "declared_constraints": {"checks": {"slot_moved": moved},
+                                                                  "predicates": []}}))
+
+    moved = {"block": "Tram 28 ride through Alfama", "day": "2026-11-07",
+             "starts_between": ["15:30", "16:30"]}
+    assert built(moved).declared_constraints.checks.slot_moved.starts_between == ("15:30", "16:30")
+    without_time = {k: v for k, v in moved.items() if k != "starts_between"}
+    assert built(without_time).declared_constraints.checks.slot_moved.starts_between is None
     with pytest.raises(CaseFileError) as exc:
-        load_case(write(tmp_path, "venue_lookup_seafood",
-                        {**VALID, "declared_constraints": {"checks": {"slot_moved": {"day": "2026-11-07"}}, "predicates": []}}))
+        built({"day": "2026-11-07"})
     assert "block" in str(exc.value)
+
+
+def test_a_window_read_backwards_is_refused(tmp_path):
+    """The pair is [earliest, latest]. Reversed it is satisfiable by nothing,
+    and a constraint nothing can satisfy fails every correct agent silently."""
+    with pytest.raises(CaseFileError) as exc:
+        load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "declared_constraints": {
+            "checks": {"slot_moved": {"block": "x", "day": "2026-11-07",
+                                      "starts_between": ["16:30", "15:30"]}},
+            "predicates": []}}))
+    assert "earliest first" in str(exc.value)
+
+
+def test_a_window_takes_clock_times(tmp_path):
+    with pytest.raises(CaseFileError) as exc:
+        load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "declared_constraints": {
+            "checks": {"slot_moved": {"block": "x", "day": "2026-11-07",
+                                      "starts_between": ["4pm", "5pm"]}},
+            "predicates": []}}))
+    assert "HH:MM" in str(exc.value)
+
+
+def test_an_exact_time_is_written_as_a_window_of_one_minute(tmp_path):
+    """There is no exact-time key on purpose (D31). A case that means one
+    minute says so twice, so the tolerance it intends is never implied by the
+    absence of one."""
+    case = load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "declared_constraints": {
+        "checks": {"slot_moved": {"block": "x", "day": "2026-11-07",
+                                  "starts_between": ["09:00", "09:00"]}},
+        "predicates": []}}))
+    assert case.declared_constraints.checks.slot_moved.starts_between == ("09:00", "09:00")
 
 
 def test_a_case_permits_what_it_names_plus_the_read_tools(tmp_path):
@@ -278,15 +310,39 @@ def test_priority_order(tmp_path):
     assert [c.case_id for c in by_priority(load_cases(tmp_path))] == ["a_seed", "a_follow", "b_seed"]
 
 
-def test_slot_moved_can_assert_the_window_and_not_only_the_start():
-    """A move that sets the start and leaves the end alone lands the stop in
-    the right window and is still wrong (D30's sibling finding)."""
-    from src.cases import SlotMoved
+def test_the_tram_window_brackets_what_the_member_actually_said():
+    """The member says "Saturday afternoon ... around 4". A case demanding
+    16:00 exactly fails an agent that wrote 16:15 and understood her (D31)."""
+    from src.cases import minutes_of
 
-    moved = SlotMoved(block="Tram 28 ride through Alfama", day="2026-11-07",
-                      start_time="16:00", end_time="17:00")
-    assert moved.end_time == "17:00"
-    assert SlotMoved(block="x", day="2026-11-07").end_time is None
+    case = {c.case_id: c for c in load_cases()}["scheduling_move_tram"]
+    moved = case.declared_constraints.checks.slot_moved
+    earliest, latest = moved.starts_between
+    assert minutes_of(latest) - minutes_of(earliest) >= 30
+    assert minutes_of(earliest) <= minutes_of("16:00") <= minutes_of(latest)
+
+
+def test_the_tram_duration_bound_brackets_the_length_the_fixture_gives_it():
+    """"Keeps its hour" is only a constraint while the fixture's hour is inside
+    the bound. Stated in the case rather than inherited, so a fixture change
+    that moves the length shows up here instead of silently passing."""
+    from src.cases import as_bound, fixture, minutes_of
+
+    case = {c.case_id: c for c in load_cases()}["scheduling_move_tram"]
+    moved = case.declared_constraints.checks.slot_moved
+    slot = next(s for s in fixture()["slots"] if s["block"] == moved.block)
+    current = minutes_of(slot["end_time"]) - minutes_of(slot["start_time"])
+    assert as_bound(moved.duration_minutes).holds(current)
+
+
+def test_a_case_asserting_a_landing_time_also_asserts_a_length():
+    """The two failures are different: the start can be right while the stored
+    end runs the stop to the end of the day, and move_slot takes the end as an
+    optional argument that nothing derives from the stop's duration."""
+    for case in load_cases():
+        moved = case.declared_constraints.checks.slot_moved
+        if moved and moved.starts_between:
+            assert moved.duration_minutes is not None, case.case_id
 
 
 def test_every_reference_a_case_names_exists_and_is_not_empty():

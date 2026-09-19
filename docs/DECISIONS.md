@@ -31,6 +31,32 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D31 — a time is asserted as a window and a length, never a clock reading
+Date: 2026-09-19 · Decided by: author
+Options: assert the exact resolved time · assert the day only · assert the
+window the member's words license, plus the stop's length, plus that it cleared
+whatever else was on the day
+Chosen: the third. `slot_moved` now takes `starts_between` (an inclusive
+`[earliest, latest]` pair), `duration_minutes` (exact or bounded) and
+`clear_of_other_slots`. `start_time` and `end_time` are gone; a case that means
+one minute writes the same value twice.
+Reason: the author's, on reading the tram case's `end_time`. Two separate
+problems, one answer. The member says "around 4", which is a range — an agent
+writing 16:15 has understood her, and 16:00-exactly would have failed it. And
+the fixture will grow: as soon as the target day holds something near the time
+the member named, moving off that time is the *correct* behaviour, so a case
+pinned to the minute would start failing correct agents as the starting trip
+gets fuller. Widening the window and asserting that the agent found a free slot
+says what the request actually requires. Length is a separate key because it is
+a separate failure: `move_slot` takes the end time as an optional argument and
+nothing derives it from the stop's duration, so an agent can land the start
+correctly and leave an hour-long stop running to the end of the day. The day
+itself carries no tolerance — the trip has one Saturday.
+Affects: src/cases.py (SlotMoved), cases/scheduling_move_tram.yaml,
+cases/README.md, cases/REVIEW_CRITERIA.md (criterion 6), B08 · Reverses: the
+exact-time reading of `slot_moved` in B03, and the `end_time` field added
+earlier the same day
+
 ### D30 — a case asserts the outcome; retries are reported, not punished
 Date: 2026-09-19 · Decided by: author
 Options: assert first-try correctness (a tight bound plus `no_tool_errors`) ·

@@ -33,6 +33,7 @@ import importlib.util
 import inspect
 import json
 from datetime import date, timedelta
+import re
 from pathlib import Path
 from typing import Literal, Optional, Union
 
@@ -81,21 +82,67 @@ def as_bound(value: BoundLike) -> Bound:
     return Bound(min=value, max=value) if isinstance(value, int) else value
 
 
+TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
+def minutes_of(hhmm: str) -> int:
+    hours, minutes = hhmm.split(":")
+    return int(hours) * 60 + int(minutes)
+
+
 class SlotMoved(BaseModel):
-    """One stop ends up in one window. Named, not hardcoded: the same check
-    serves every rescheduling case."""
+    """One stop ends up on one day, inside a window, at roughly its length.
+
+    A member names a time the way people do — "around 4", "Saturday
+    afternoon" — so the case asserts the range those words mean and not a clock
+    reading (D31). Two things make an exact time the wrong assertion. The words
+    themselves are a range: an agent that writes 16:15 for "around 4" has
+    understood the request. And the day may already hold something near the
+    target, in which case shifting away from the exact minute is the correct
+    behaviour, not a miss — so a case whose target day is busy widens the
+    window to the part of the day the member named and asserts
+    ``clear_of_other_slots`` instead of a narrow one.
+
+    Length is asserted separately, because the two failures are different: an
+    agent that lands the start correctly and leaves the stored end where it was
+    turns an hour-long stop into one that runs to the end of the day, and no
+    assertion about the start would notice.
+    """
 
     model_config = ConfigDict(extra="forbid")
     #: The stop's title, as the fixture and the trip call it.
     block: str
-    #: YYYY-MM-DD.
+    #: YYYY-MM-DD. A day is what the member named and carries no tolerance:
+    #: "Saturday" is one day, and an agent on the wrong one is wrong.
     day: str
-    #: HH:MM. Omit where the case asks for a day and not a time.
-    start_time: Optional[str] = None
-    #: HH:MM. Assert it wherever the stop has a length worth preserving: a
-    #: move that sets the start and leaves the end at the day's edge lands the
-    #: stop in the right window and still gets it wrong.
-    end_time: Optional[str] = None
+    #: Inclusive ``[earliest, latest]`` HH:MM range the start must fall in.
+    #: Omit where the case asks for a day and not a time. A case that means an
+    #: exact minute writes the same value twice, so the tolerance it intends is
+    #: always visible rather than implied by the absence of one.
+    starts_between: Optional[tuple[str, str]] = None
+    #: How long the stop runs afterwards, in minutes, exact or bounded. Where
+    #: the case means "unchanged", the bound brackets the length the fixture
+    #: gives that slot — stated, because a case that silently inherits it
+    #: cannot say whether a changed fixture changed what it tests.
+    duration_minutes: Optional[BoundLike] = None
+    #: The stop does not overlap another slot on that day. The assertion for a
+    #: day with something already on it, where the exact landing time is the
+    #: agent's to choose and the requirement is that it chose a free window.
+    clear_of_other_slots: Optional[bool] = None
+
+    @model_validator(mode="after")
+    def _window_is_a_window(self) -> "SlotMoved":
+        if self.starts_between is None:
+            return self
+        earliest, latest = self.starts_between
+        for value in (earliest, latest):
+            if not TIME_RE.match(value):
+                raise ValueError(f"starts_between takes HH:MM times, got {value!r}")
+        if minutes_of(earliest) > minutes_of(latest):
+            raise ValueError(
+                f"starts_between must read earliest first, got {earliest} to {latest}"
+            )
+        return self
 
 
 class Checks(BaseModel):
