@@ -28,9 +28,12 @@ Twelve criteria, grouped. A case fails review on any one of them.
    `declared_constraints.checks` is something this member's request actually
    implies. A check nobody could justify from the turn is the harness's opinion,
    not a requirement.
-5. **Nothing asserted is guaranteed elsewhere.** No zero for a tool the slash
-   command already forbids (`agent.tool-policy.ts` has its own tests), and no
-   assertion that restates a database constraint.
+5. **The tool list is complete, and contains nothing spare.** Every tool the
+   agent legitimately needs for this request is named, because anything not
+   named is a structural failure (D28, deny by default). Equally, a tool named
+   but not needed silently permits behaviour the case should have caught. No
+   zeros — a tool is forbidden by being absent — and the three read tools are
+   always allowed, so they are never listed.
 6. **Nothing load-bearing is missing.** If the request implies a change to the
    trip, or implies none, `mutation_counts` says so. If it implies a specific
    stop in a specific window, `slot_moved` says so.

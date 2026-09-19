@@ -31,6 +31,28 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D28 - a case permits the tools it names and no others
+Date: 2026-09-19 - Decided by: author
+Options: name the tools expected and assert a zero for each one forbidden -
+deny by default, so anything unnamed is a structural failure - report an
+unexpected tool as a finding without failing the case
+Chosen: deny by default. A case's allowed set is the union of
+`expected_tool_sequence`, the keys of `tool_counts` and `tools_any_of`, plus
+the three read tools; any other tool call is `detected`. Two carve-outs, both
+the author's: the read tools (`get_trip_details`, `list_trip_blocks`,
+`get_itinerary`) are always allowed, because the agent calls them only when its
+preloaded context falls short and that varies between runs of one case; and a
+case naming no tool at all constrains none, which keeps the advisory seeds free
+to ground their advice.
+Reason: simpler to write and strictly stronger. The previous shape required a
+zero per forbidden tool, so it caught only what the case author thought to
+forbid - and the zeros that were written were mostly for tools the slash
+command already made unreachable, which tested `agent.tool-policy.ts` rather
+than the agent. Under deny by default a case states what it expects, and every
+tool nobody anticipated is forbidden for free. An unexpected tool call is a
+behaviour change, which is what a regression run exists to notice.
+Affects: B03, B04, B05, B08 - Reverses: the explicit zeros in the seed cases
+
 ### D27 - checks describe one execution, predicates compare two
 Date: 2026-09-18 - Decided by: author (raised on reviewing the seed cases)
 Options: keep D19's line as written (declarative where possible, predicates for

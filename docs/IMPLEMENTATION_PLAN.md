@@ -654,7 +654,9 @@ Evaluates three things, all of which must hold for `none`:
 `no_tool_errors`, `places_surfaced`, `slot_days`, `slot_count`,
 `slot_moved {block, day, start_time?}`, `mutation_counts` (`table.OP`) — the
 closed vocabulary of D27, each one declarative and validated by the loader;
-(2) `expected_tool_sequence` as an ordered subsequence of the tools called;
+(2) `expected_tool_sequence` as an ordered subsequence of the tools called,
+and `Case.allowed_tools()` as deny by default (D28) — a call to any tool
+outside that set is `detected`, with the finding naming the tool;
 (3) the named `predicates`, which by D27 are only the comparisons with another
 execution, so a metamorphic follow-up is passed its seed's execution as `base`.
 

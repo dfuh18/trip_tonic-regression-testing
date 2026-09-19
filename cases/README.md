@@ -57,11 +57,18 @@ result. A number that differs between two cases without a reason is an
 accident, and an accident in a pass criterion is a finding about the harness
 rather than about the agent.
 
-**Do not assert what the tool policy already forbids.** `/find` cannot reach
-`propose_plan` - `agent.tool-policy.ts` makes it structurally impossible and has
-its own tests. A case asserting `propose_plan: 0` under `/find` tests that file,
-not the agent. Assert a zero only where the agent could have reached the tool
-and should not have.
+**A case lists the tools it expects; every other tool is forbidden.** Deny by
+default (D28). There are no zeros to write: `propose_plan` is already forbidden
+in a `/find` case because the case never names it, and so is every tool nobody
+thought to forbid — which is the point, since an unexpected tool call is
+exactly the kind of behaviour change a regression run exists to catch.
+
+Two things follow. The three read tools — `get_trip_details`,
+`list_trip_blocks`, `get_itinerary` — are always allowed: they read the trip's
+own state, write nothing, and the agent calls them only when its preloaded
+context falls short, which varies between runs of one case. And a case that
+names no tool at all constrains none, which is how the advisory seeds stay free
+to ground their advice in a forecast.
 
 ## checks and predicates
 

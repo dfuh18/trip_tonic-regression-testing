@@ -44,6 +44,13 @@ Function = Literal["venue_lookup", "scheduling", "factual_qa", "advisory"]
 Provenance = Literal["seeded", "metamorphic", "retained"]
 Intent = Literal["find", "plan", "reschedule"]
 
+#: Tools that read the trip's own state and write nothing. Never a violation
+#: under deny-by-default (D28): the agent calls them only when its preloaded
+#: prompt context is not enough, which varies between runs of one case, so
+#: treating them as unexpected would fail a case on variance rather than on a
+#: regression. Mirrors READ_TOOLS in apps/api/src/routes/ai/agent/agent.tool-policy.ts.
+ALWAYS_ALLOWED_TOOLS = ("get_trip_details", "list_trip_blocks", "get_itinerary")
+
 #: The D22 catalogue. A follow-up case names exactly one.
 METAMORPHIC_RELATIONS = (
     "INV-1", "INV-2", "INV-3", "INV-4",
@@ -93,9 +100,8 @@ class Checks(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     # --- what the agent called ---
-    #: Calls per tool, exact or bounded. 0 forbids a tool the agent could
-    #: otherwise have reached; a tool the intent already forbids is not worth
-    #: asserting (that is agent.tool-policy.ts's own test).
+    #: Calls per tool, exact or bounded. Under D28 a zero is never needed: a
+    #: tool the case does not name is already forbidden.
     tool_counts: Optional[dict[str, BoundLike]] = None
     #: At least one of these ran — "answered from a source", not from memory.
     tools_any_of: Optional[list[str]] = None
@@ -124,7 +130,8 @@ class Checks(BaseModel):
 class Constraints(BaseModel):
     model_config = ConfigDict(extra="forbid")
     checks: Checks = Field(default_factory=Checks)
-    #: Names of functions in cases/predicates.py (the sequence-dependent half).
+    #: Names of functions in cases/predicates.py — the comparisons with another
+    #: execution, which no schema key can state (D27).
     predicates: list[str] = Field(default_factory=list)
 
     def is_empty(self) -> bool:
@@ -177,6 +184,34 @@ class Case(BaseModel):
     fixture_depends_on: list[str] = Field(default_factory=list)
     #: Free text for the notebook: why this case exists, what it exercises.
     notes: Optional[str] = None
+
+    def constrains_tools(self) -> bool:
+        """True when the case says anything about which tools may run. A case
+        that says nothing constrains nothing (D28): that is how the advisory
+        seeds stay free to ground their advice."""
+        checks = self.declared_constraints.checks
+        return bool(self.expected_tool_sequence or checks.tool_counts or checks.tools_any_of)
+
+    def allowed_tools(self) -> Optional[set[str]]:
+        """Every tool this case permits, or None when it constrains none.
+
+        Deny by default (D28): the union of what the case names, plus the read
+        tools, and any other call is a structural failure. Listing what a case
+        expects is therefore the whole of its tool constraint — there are no
+        zeros to write, and a tool nobody thought to forbid is forbidden
+        anyway, which is the point.
+        """
+        if not self.constrains_tools():
+            return None
+        checks = self.declared_constraints.checks
+        allowed = set(ALWAYS_ALLOWED_TOOLS) | set(self.expected_tool_sequence)
+        allowed |= set(checks.tool_counts or {})
+        allowed |= set(checks.tools_any_of or [])
+        # A tool bounded at zero is named in order to be forbidden, not allowed.
+        for tool, bound in (checks.tool_counts or {}).items():
+            if as_bound(bound).max == 0:
+                allowed.discard(tool)
+        return allowed
 
     @model_validator(mode="after")
     def _coherent(self) -> "Case":

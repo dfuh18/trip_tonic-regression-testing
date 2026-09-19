@@ -122,6 +122,61 @@ def test_slot_moved_names_a_stop_a_day_and_optionally_a_time(tmp_path):
     assert "block" in str(exc.value)
 
 
+def test_a_case_permits_what_it_names_plus_the_read_tools(tmp_path):
+    """D28: deny by default. The allowed set is what the case names, plus the
+    three read tools, and nothing else."""
+    from src.cases import ALWAYS_ALLOWED_TOOLS
+
+    case = load_case(write(tmp_path, "venue_lookup_seafood", VALID))
+    assert case.allowed_tools() == {"search_places", *ALWAYS_ALLOWED_TOOLS}
+    assert "propose_plan" not in case.allowed_tools()
+    assert "read_wikipedia" not in case.allowed_tools()
+
+
+def test_every_way_of_naming_a_tool_permits_it(tmp_path):
+    from src.cases import ALWAYS_ALLOWED_TOOLS
+
+    base = {**VALID, "expected_tool_sequence": [], "declared_constraints": {"checks": {}, "predicates": []}}
+    by_sequence = load_case(write(tmp_path, "venue_lookup_seafood",
+                                  {**base, "expected_tool_sequence": ["search_places", "propose_plan"]}))
+    assert by_sequence.allowed_tools() == {"search_places", "propose_plan", *ALWAYS_ALLOWED_TOOLS}
+    by_counts = load_case(write(tmp_path, "venue_lookup_seafood",
+                                {**base, "declared_constraints": {"checks": {"tool_counts": {"move_slot": 1}}, "predicates": []}}))
+    assert by_counts.allowed_tools() == {"move_slot", *ALWAYS_ALLOWED_TOOLS}
+    by_any_of = load_case(write(tmp_path, "venue_lookup_seafood",
+                                {**base, "declared_constraints": {"checks": {"tools_any_of": ["read_wikipedia", "get_weather"]}, "predicates": []}}))
+    assert by_any_of.allowed_tools() == {"read_wikipedia", "get_weather", *ALWAYS_ALLOWED_TOOLS}
+
+
+def test_a_tool_bounded_at_zero_is_forbidden_not_permitted(tmp_path):
+    """Naming a tool to forbid it must not accidentally allow it."""
+    data = {**VALID, "declared_constraints": {
+        "checks": {"tool_counts": {"search_places": {"min": 1, "max": 2}, "propose_plan": 0}}, "predicates": []}}
+    case = load_case(write(tmp_path, "venue_lookup_seafood", data))
+    assert "propose_plan" not in case.allowed_tools()
+    assert "search_places" in case.allowed_tools()
+
+
+def test_a_case_naming_no_tool_constrains_none(tmp_path):
+    """The advisory seeds: no tool constraint means no tool checking, not an
+    empty allowlist that would fail the first grounded answer."""
+    data = {**VALID, "case_id": "advice", "function": "advisory", "intent": None,
+            "expected_tool_sequence": [], "declared_constraints": {"checks": {}, "predicates": []}}
+    case = load_case(write(tmp_path, "advice", data))
+    assert case.constrains_tools() is False
+    assert case.allowed_tools() is None
+
+
+def test_the_seed_suite_permits_what_each_function_needs():
+    from src.cases import CASES_DIR, load_cases
+
+    allowed = {c.case_id: c.allowed_tools() for c in load_cases(CASES_DIR)}
+    assert "propose_plan" in allowed["scheduling_belem_morning"]
+    assert "propose_plan" not in allowed["venue_lookup_seafood_lisbon"]
+    assert "search_places" not in allowed["scheduling_move_tram"]
+    assert allowed["advisory_packing_list"] is None
+
+
 def test_predicates_are_only_the_comparative_ones():
     """D27: a predicate exists to compare two executions. Anything describing
     one execution belongs in Checks, where the loader can validate it."""
