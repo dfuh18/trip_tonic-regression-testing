@@ -1,4 +1,18 @@
-<!-- source: https://en.wikipedia.org/wiki/Alfama · section: History · retrieved: 2026-09-18 · truncated to 6000 chars -->
+<!-- source: https://en.wikipedia.org/wiki/Alfama
+     tool: read_wikipedia({ query: "Alfama" }) -- apps/api/src/routes/ai/lib/wikipedia.ts
+     this is the tool's `text` field verbatim: the plain-text extract, capped at 6000 chars.
+     truncated by the tool: false
+     a History section is reachable within the cap: true
+     retrieved: 2026-09-19 -->
+
+The Alfama (Portuguese pronunciation: [alˈfɐmɐ]) is the oldest neighborhood of Lisbon, spreading on the slope between the São Jorge Castle and the Tagus river. The district includes the freguesias (parishes) of São Miguel, Santo Estêvão, São Vicente de Fora and part of the two streets, "Freguesia da Sé: Rua do Barão" and "Rua São João da Praça". It contains many important historical attractions, as well as an abundance of Fado bars and restaurants.
+
+
+== Etymology ==
+The name Alfama originates from the Arabic al-ḥamma (الحَمّة), meaning "hot springs". The Arabic word comes from the root meaning "to heat" or "to become hot", from which the word hammam (Arabic: حَمَّام, lit. 'bath, bathhouse') also derives.
+
+
+== History ==
 
 The Rua do Barão is one of the streets of the Freguesia da Sé, which begins at the Rua São João da Praça (where once stood the Door of the Alfama) and ends at Rua Augusto Rosa (at the Cathedral's walls). The toponym "Rua do Barão" is because João Fernandes da Silveira, the first Baron of Alvito, minister of Portuguese kings Dom Afonso V and Dom João II, lived here.
 During the times of Moorish rule, Alfama constituted the whole of the city, which later spread to the West (Baixa neighbourhood). Alfama became inhabited by the fishermen and the poor, and its condition as the neighbourhood of the poor continues to this day.
@@ -6,3 +20,10 @@ The 1755 Lisbon earthquake did not destroy the Alfama, which has remained a laby
 
 Overlooking the Alfama is the medieval Castle of São Jorge, royal residence until the early 16th century with views of the city. In the slopes of Alfama there are other terraces (miradouros) from which to see the city, like the Miradouro de Santa Luzia, near the church of the same name and over remnants of the Moorish city walls, and the Miradouro das Portas do Sol (Gates of the Sun). Near Miradouro of Santa Luzia is located the Museum of Decorative Arts (Museu de Artes Decorativas), a 17th-century mansion.
 From 2012, Alfama is part of the freguesia of Santa Maria Maior.
+
+
+== Landmarks ==
+Among the churches of the Alfama are Lisbon Cathedral (12th–14th centuries), the oldest of the city and located to the West of the neighbourhood, the Convent of the Grace (Convento da Graça, 18th century), near the Castle, the mannerist Monastery of São Vicente de Fora (late 16th–18th century), where the Kings of the House of Braganza are buried, and the baroque Church of Santa Engrácia (17th century), now converted into a National Pantheon for important Portuguese personalities.
+
+
+== References ==

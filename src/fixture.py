@@ -14,6 +14,18 @@ deliberately not in it: the application assigns a region to every block it
 creates and may add one (city-aware assignment), so a rebuilt trip can carry a
 region the fixture never named. The gate checks instead that every declared
 region is present.
+
+The trip carries two placeholder travellers besides the simulated member, so
+that a request about "the three of us" is about a group the trip actually has.
+They are placeholders in the application's own sense - a display_name and no
+account - which is how a trip names a traveller who has not signed up. Nothing
+in the run deletes them, so they are ensured rather than rebuilt, and the gate
+checks their presence the way it checks regions.
+
+``summary`` renders the fixture as a few lines of prose for the judge. A
+criterion like "fits this trip" is unscorable by a judge that sees only the
+request and the reply (P3), and the alternative - leaving the trip out and
+scoring the criterion on vibes - is worse than telling it what the trip is.
 """
 
 from __future__ import annotations
@@ -42,6 +54,10 @@ def load_fixture(path: Path = FIXTURE_FILE) -> dict[str, Any]:
     duplicates = sorted({t for t in titles if titles.count(t) > 1})
     if duplicates:
         raise ValueError(f"fixture has stops sharing a title: {duplicates}; titles identify a stop")
+    names = [member["display_name"] for member in data.get("members", [])]
+    repeated = sorted({n for n in names if names.count(n) > 1})
+    if repeated:
+        raise ValueError(f"fixture has travellers sharing a name: {repeated}")
     slot_titles = {slot["block"] for slot in data["slots"]}
     unknown = sorted(slot_titles - set(titles))
     if unknown:
@@ -87,6 +103,59 @@ def observed_regions(trip_id: str) -> set[str]:
     return {r["name"] for r in db.admin().table("regions").select("name").eq("trip_id", trip_id).execute().data}
 
 
+def observed_members(trip_id: str) -> set[str]:
+    """Placeholder travellers present on the trip, by name.
+
+    Read from the database rather than the API: there is no GET for a trip's
+    members - the web app subscribes to the table directly - and adding one
+    for the harness would be a change to the application under study.
+    """
+    rows = (
+        db.admin()
+        .table("trip_members")
+        .select("display_name")
+        .eq("trip_id", trip_id)
+        .eq("status", "active")
+        .execute()
+        .data
+    )
+    return {r["display_name"] for r in rows if r.get("display_name")}
+
+
+def summary(fixture: dict[str, Any]) -> str:
+    """The trip in a few lines, for the judge's reference material.
+
+    Rendered from the fixture file and not from the database, so it says what
+    every repetition starts from rather than what one of them ended with - a
+    judge told the after-state could reward a reply for a change the case
+    forbids.
+    """
+    trip = fixture["trip"]
+    scheduled = {s["block"]: s for s in fixture["slots"]}
+    lines = [
+        f"The trip runs {trip['start_date']} to {trip['end_date']}.",
+        "Regions: " + ", ".join(r["name"] for r in fixture["regions"]) + ".",
+    ]
+    travellers = [m["display_name"] for m in fixture.get("members", [])]
+    if travellers:
+        lines.append(
+            f"Travelling: the member asking, plus {' and '.join(travellers)} "
+            f"({len(travellers) + 1} people)."
+        )
+    lines.append("Stops saved to the trip:")
+    for block in fixture["blocks"]:
+        slot = scheduled.get(block["title"])
+        when = (
+            f"scheduled {slot['day_date']} {slot['start_time']}-{slot['end_time']}"
+            if slot
+            else "not scheduled"
+        )
+        lines.append(f"  - {block['title']} ({block['type']}) - {when}")
+    days = sorted({s["day_date"] for s in fixture["slots"]})
+    lines.append("Days with anything scheduled: " + (", ".join(days) or "none") + ".")
+    return "\n".join(lines)
+
+
 def _digest(blocks: list, slots: list) -> str:
     payload = json.dumps({"blocks": blocks, "slots": slots}, sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -126,6 +195,25 @@ def create_trip(fixture: dict[str, Any], user: SimUser, token: str) -> str:
         return r.json()["data"]["id"]
 
 
+def ensure_members(fixture: dict[str, Any], trip_id: str, token: str) -> None:
+    """Add any declared traveller the trip does not already have.
+
+    Ensured, not rebuilt: nothing in a repetition can remove a member - the
+    agent has no tool for it and the reset deletes only the trip's content -
+    so deleting and re-adding them every time would be two writes and a new
+    set of ids for no gain. Adding one that exists would be a duplicate name,
+    which the loader refuses on the way in.
+    """
+    present = observed_members(trip_id)
+    missing = [m for m in fixture.get("members", []) if m["display_name"] not in present]
+    if not missing:
+        return
+    with _api(token) as api:
+        for member in missing:
+            r = api.post(f"/trips/{trip_id}/members", json=member)
+            r.raise_for_status()
+
+
 def build_children(fixture: dict[str, Any], trip_id: str, token: str) -> dict[str, Any]:
     """Regions, blocks and slots, through the member's own API calls.
 
@@ -134,6 +222,7 @@ def build_children(fixture: dict[str, Any], trip_id: str, token: str) -> dict[st
     cannot afterwards say which stop a mutation touched (D26).
     """
     ids: dict[str, Any] = {"trip": trip_id, "regions": {}, "blocks": {}, "days": {}, "slots": {}}
+    ensure_members(fixture, trip_id, token)
     with _api(token) as api:
         for region in fixture["regions"]:
             r = api.post(f"/trips/{trip_id}/regions", json=region)

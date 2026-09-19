@@ -5,7 +5,9 @@ run_priority: 1
 function: venue_lookup
 user_profile: Tom, 41, travelling with his partner. Likes a proper sit-down lunch, says which day he means
   the way people do — by what is on it.
-goal: Find a lunch spot near Pena Palace for the Sintra day that is not a tourist trap.
+goal: See one to three lunch places near Pena Palace for the Sintra day that are not tourist traps. He
+  wants somewhere to consider and is satisfied once he has the names; he is not asking for anything to
+  be added to the trip.
 opening_turn: /find where should we eat lunch on the Sintra day? somewhere near the palace, proper local
   food
 intent: find
@@ -27,10 +29,10 @@ declared_constraints:
       ai_suggestions.INSERT: 0
   predicates: []
 scoring_criteria:
-- Names one to three real places in or near Sintra, not Lisbon.
-- Works out that the Sintra day is the one with Pena Palace on it, without asking which day is meant.
+- Names one to three places in or near Sintra, not back in Lisbon.
+- Works out which day is meant instead of asking, and answers for the Sintra day.
 - Answers the 'local food' cue with something specific.
-- Does not claim to have added or scheduled anything.
+- 'Gives enough per place to choose between them: what it is, why it fits, roughly where.'
 repetitions_n: 8
 metamorphic_relation: null
 fixture_depends_on:
@@ -38,7 +40,9 @@ fixture_depends_on:
 - '2026-11-08'
 notes: 'Minimum functionality for venue lookup where the member leaves the day implicit. "The Sintra day"
   is a day only because of what the itinerary holds, so the agent has to resolve it against the trip before
-  it can search at all. The search then has to land in the trip''s second region rather than in Lisbon,
-  which is where the wrong-region guard earns its keep. search_places is bounded at one to three calls:
-  one per constraint the member gave, or a re-search after the region guard drops a result. Nothing is
-  written.'
+  it can search at all. That the search stays in Sintra rather than drifting back to Lisbon is scored
+  by the judge and not checked: the agent''s wrong-region guard is a continent-scale sanity check measured
+  to the nearest trip anchor, so a Lisbon restaurant sits comfortably inside it and the guard would catch
+  nothing here. search_places is bounded at one to three calls, because the agent may search once per
+  constraint the member gave, or re-query after a thin result set. Nothing is written, and the goal stops
+  at the list deliberately: a case''s tool constraints bind the mode the first turn opens in.'

@@ -17,9 +17,11 @@ declared_constraints:
       ai_suggestions.INSERT: 0
   predicates: []
 scoring_criteria:
-- 'Fits the trip on the itinerary: November, city walking, a Sintra hill day.'
+- 'Fits this trip as the summary describes it: November in Lisbon and Sintra, city walking, and a day
+  at a hilltop palace.'
 - 'Concrete and short: items, not paragraphs.'
 - Does not claim to have changed the trip.
+- Writes for the group rather than for one traveller.
 repetitions_n: 8
 metamorphic_relation: null
 fixture_depends_on:
@@ -27,8 +29,9 @@ fixture_depends_on:
 - Tram 28 ride through Alfama
 - Time Out Market lunch
 notes: 'Advisory: the judge carries most of this case, because advice leaves no structural trace to score
-  against (P4). The fixture dependency is real even so, since "fits the trip on the itinerary" is only
-  scorable against the stops that are actually on it. The four mutation zeros assert that asking for advice
-  changes nothing, which is what the request implies. Tools stay unconstrained: the message carries no
-  slash command, so the agent keeps everything, and whether to ground the advice in a forecast is its
-  call to make (D29).'
+  against (P4). It can score "fits this trip" because every judge call carries a short summary of the
+  fixture - the dates, the regions, the travellers, the stops and which of them are scheduled - which
+  is the only way a criterion about the trip is scorable by a judge that otherwise sees just the request
+  and the reply (P3). The four mutation zeros assert that asking for advice changes nothing, which is
+  what the request implies. Tools stay unconstrained: the message carries no slash command, so the agent
+  keeps everything, and whether to ground the advice in a forecast is its call to make (D29).'

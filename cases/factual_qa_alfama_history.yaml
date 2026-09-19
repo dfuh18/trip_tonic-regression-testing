@@ -7,8 +7,7 @@ user_profile: Tom, 41, curious, asks one clear question and wants the answer, no
 goal: Learn the short version of Alfama's history before the tram ride.
 opening_turn: '@Tonic what''s the history of Alfama, briefly?'
 intent: null
-expected_tool_sequence:
-- read_wikipedia
+expected_tool_sequence: []
 declared_constraints:
   checks:
     tools_any_of:
@@ -21,20 +20,25 @@ declared_constraints:
       ai_suggestions.INSERT: 0
   predicates: []
 scoring_criteria:
-- 'Facts agree with the reference: Moorish origin of the name and the district, survival of the 1755 earthquake,
-  its character as the oldest district.'
+- 'Facts agree with the reference: the Arabic origin of the name, Alfama as Lisbon''s oldest neighbourhood,
+  its extent under Moorish rule, and its survival of the 1755 earthquake.'
 - 'Brief: a short paragraph, not an essay.'
-- Does not invent dates or events the reference does not support.
+- States no date or event the reference contradicts.
 references:
 - title: Alfama
-  section: History
+  section: read_wikipedia('Alfama') - the whole article, as the tool returns it
   path: alfama_history.md
 repetitions_n: 8
 metamorphic_relation: null
-fixture_depends_on:
-- Tram 28 ride through Alfama
+fixture_depends_on: []
 notes: 'Minimum functionality for factual question answering: read the article, answer from it. tools_any_of
-  rather than a count, because how often the agent reads in order to answer well is not the case''s business,
-  while whether it read at all is. The message carries no slash command, so the agent keeps its whole
-  toolset and could draft or schedule if it chose to; the four mutation zeros are therefore a real constraint
-  here rather than a restatement of what the tool policy already guarantees.'
+  rather than a count, and expected_tool_sequence is empty, because one tool constrains no order and naming
+  it twice would be two places to keep in step; how often the agent reads in order to answer well is not
+  the case''s business, while whether it read at all is. The stored reference is what read_wikipedia(''Alfama'')
+  returns verbatim - the whole article, which is under the tool''s six-thousand-character cap - so every
+  fact the first criterion asks for is text the agent actually had, including the etymology, which sits
+  in the lead and not in the History section. The third criterion says "contradicts" rather than "does
+  not support", so a true fact the agent knows and the article happens not to carry is not punished. The
+  message carries no slash command, so the agent keeps its whole toolset and could draft or schedule if
+  it chose to; the four mutation zeros are therefore a real constraint here rather than a restatement
+  of what the tool policy already guarantees.'

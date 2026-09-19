@@ -276,3 +276,46 @@ def test_priority_order(tmp_path):
     write(tmp_path, "a_follow", {**VALID, "case_id": "a_follow", "run_priority": 1, "provenance": "metamorphic",
                                  "base_case_id": "a_seed", "metamorphic_relation": "INV-1", "repetitions_n": 4})
     assert [c.case_id for c in by_priority(load_cases(tmp_path))] == ["a_seed", "a_follow", "b_seed"]
+
+
+def test_slot_moved_can_assert_the_window_and_not_only_the_start():
+    """A move that sets the start and leaves the end alone lands the stop in
+    the right window and is still wrong (D30's sibling finding)."""
+    from src.cases import SlotMoved
+
+    moved = SlotMoved(block="Tram 28 ride through Alfama", day="2026-11-07",
+                      start_time="16:00", end_time="17:00")
+    assert moved.end_time == "17:00"
+    assert SlotMoved(block="x", day="2026-11-07").end_time is None
+
+
+def test_every_reference_a_case_names_exists_and_is_not_empty():
+    """A reference is what the reply is scored against. An empty or missing
+    one scores the reply against nothing and says nothing about it."""
+    for case in load_cases():
+        for ref in case.references:
+            assert ref.text().strip(), f"{case.case_id}: empty reference {ref.path}"
+
+
+def test_the_forecast_tool_is_a_probe_the_weather_case_cannot_answer_from():
+    """get_weather is a 16-day forecast and cannot reach the trip's November,
+    so answering a typical-November question from it is answering about the
+    wrong weeks. Trying it and falling back is not a failure, though, so it is
+    permitted and does not satisfy (the review's finding D, and D30)."""
+    case = {c.case_id: c for c in load_cases()}["factual_qa_lisbon_november_weather"]
+    checks = case.declared_constraints.checks
+    assert "get_weather" not in (checks.tools_any_of or [])
+    assert "get_weather" in case.allowed_tools()
+
+
+def test_a_tool_bounded_at_zero_is_forbidden_rather_than_permitted():
+    """The same key spells both, so the difference must hold: {min: 0} names a
+    probe, {max: 0} names a ban."""
+    from src.cases import Case
+
+    def built(bound):
+        return Case(**{**VALID, "declared_constraints": {
+            "checks": {"tool_counts": {"get_weather": bound}}, "predicates": []}})
+
+    assert "get_weather" in built({"min": 0, "max": 1}).allowed_tools()
+    assert "get_weather" not in built({"min": 0, "max": 0}).allowed_tools()

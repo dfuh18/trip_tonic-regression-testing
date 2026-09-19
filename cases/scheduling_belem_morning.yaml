@@ -19,7 +19,9 @@ declared_constraints:
       search_places:
         min: 1
         max: 3
-      propose_plan: 1
+      propose_plan:
+        min: 1
+        max: 2
     no_tool_errors: true
     slot_days:
     - '2026-11-07'
@@ -30,13 +32,16 @@ declared_constraints:
       trip_blocks.INSERT: 0
       itinerary_slots.INSERT: 0
       itinerary_slots.UPDATE: 0
-      ai_suggestions.INSERT: 1
+      ai_suggestions.INSERT:
+        min: 1
+        max: 2
   predicates: []
 scoring_criteria:
-- Summarises the draft in a few sentences instead of repeating every slot.
-- Every stop is in Belém and on Saturday 7 November.
-- Reuses the saved Jerónimos Monastery rather than proposing it as a new place.
-- Says the group can accept or discard the stops, not that they are scheduled.
+- Summarises the morning in a few sentences and makes clear it is Belem, on the 7th, without reciting
+  every stop back.
+- Every stop it proposes falls in the morning; nothing starts after lunchtime.
+- Treats the monastery as a stop the trip already has rather than as a new find.
+- Says the group can accept or discard the stops, not that they are already scheduled.
 repetitions_n: 8
 metamorphic_relation: null
 fixture_depends_on:
@@ -45,8 +50,12 @@ fixture_depends_on:
 notes: 'Minimum functionality for drafting. The member writes the date as "the 7th", which is how people
   write one, so resolving it against the trip''s dates is part of what is tested. expected_tool_sequence
   carries both the grounding and the order, search before propose, which is what makes the plan real venues
-  rather than recalled ones (P5). The mutation counts say that a draft is a proposal: one ai_suggestions
-  row, and nothing on the live itinerary until a member accepts. ai_suggestions.UPDATE is deliberately
-  not asserted, because propose_plan backfills plan_thread_id in a second write once the insert returns
-  the id, and that is an implementation detail a refactor may remove without changing anything the member
-  sees.'
+  rather than recalled ones (P5). The mutation counts say that a draft is a proposal: nothing reaches
+  the live itinerary until a member accepts. propose_plan and ai_suggestions.INSERT permit two rather
+  than one, because a member who asks for a morning may accept a revision within the turn cap and every
+  propose_plan call inserts a new row, so a revised plan is one more insert rather than a second plan.
+  ai_suggestions.UPDATE is deliberately not asserted, because propose_plan backfills plan_thread_id in
+  a second write once the insert returns the id, and that is an implementation detail a refactor may remove
+  without changing anything the member sees. That every stop falls in the morning is scored rather than
+  checked: there is no check key for a draft slot''s time of day, and adding one for a single case would
+  be a vocabulary nothing else uses.'

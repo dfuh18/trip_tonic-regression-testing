@@ -11,6 +11,14 @@ weather question is the forecast the agent actually retrieved, for a Wikipedia
 question the stored section. P3: the judge sees the request and the reply and
 nothing about what the member did afterwards. D20 (stated, not hidden): the
 judge is the agent's own model family.
+
+Every call also carries a summary of the fixture trip, prepended to the
+reference material. Criteria like "fits this trip" or "refers to the palace
+already on that day" are otherwise unscorable: a judge that sees only the
+request and the reply has no way to know what the trip holds, and would be
+scoring them on plausibility. It is prepended here rather than passed by the
+caller so that no call can forget it. P3 is untouched - the summary is the
+before-state every repetition starts from, not what the member did next.
 """
 
 from __future__ import annotations
@@ -71,10 +79,18 @@ def _criteria(case: Case) -> str:
     return "\n".join(f"- {line.strip()}" for line in case.scoring_criteria)
 
 
+def _fixture_summary() -> str:
+    # Imported here: the judge's scoring logic is unit-tested without a
+    # fixture file, and a module-level import would make it a hard dependency.
+    from src.fixture import load_fixture, summary
+
+    return summary(load_fixture())
+
+
 def _references(references: list[str]) -> str:
-    if not references:
-        return "(none)"
-    return "\n\n".join(f"--- reference {i + 1} ---\n{text.strip()}" for i, text in enumerate(references))
+    blocks = [f"--- the trip this was asked about ---\n{_fixture_summary()}"]
+    blocks += [f"--- reference {i + 1} ---\n{text.strip()}" for i, text in enumerate(references)]
+    return "\n\n".join(blocks)
 
 
 def _usage(model: str, version: str, replies: list[LlmReply]) -> Usage:

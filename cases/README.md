@@ -52,10 +52,25 @@ the presence and the order from one field; there is no second place to say it.
 **Cases of the same function carry the same bounds** unless the case's `notes`
 say why they differ. `search_places` is `{min: 1, max: 3}` in both venue-lookup
 seeds: at least one search, and up to three because the agent may search once
-per constraint the member gave, or re-search after the region guard drops a
-result. A number that differs between two cases without a reason is an
-accident, and an accident in a pass criterion is a finding about the harness
-rather than about the agent.
+per constraint the member gave, or re-query after a thin result set. A number
+that differs between two cases without a reason is an accident, and an accident
+in a pass criterion is a finding about the harness rather than about the agent.
+
+The agent's wrong-region guard is **not** a reason for a higher bound, and not
+a substitute for a criterion either. It drops a result more than 300 km from
+the nearest trip anchor and, if that empties the list, refetches restricted to
+that radius — all inside one `search_places` call, so it never adds a call to
+the trace. At 300 km it is a right-continent check: Sintra and Lisbon are 25 km
+apart, so a Lisbon restaurant offered for the Sintra day sails through it. That
+a search stayed in the region the member named is judged, not checked.
+
+**A case's tool constraints bind the mode its first turn opens in.** The slash
+command is on turn one, and the simulator sends later turns without one — which
+is deliberate, because a member who has been answered does not re-issue a
+command (D28's note on deny-by-default). So a goal that ends in something
+schedulable invites a second turn in which the agent legitimately holds every
+tool, and the case then fails an agent doing exactly as it was asked. Write the
+goal so the member is satisfied by the reply the case is about.
 
 **A case lists the tools it expects; every other tool is forbidden.** Deny by
 default (D28). There are no zeros to write: `propose_plan` is already forbidden
@@ -69,6 +84,15 @@ own state, write nothing, and the agent calls them only when its preloaded
 context falls short, which varies between runs of one case. And a case that
 names no tool at all constrains none, which is how the advisory seeds stay free
 to ground their advice in a forecast.
+
+**Permitted and satisfying are different things.** `tool_counts` says a tool
+may run and how often; `tools_any_of` says the answer has to come from one of
+these. A tool named only in `tool_counts`, with `{min: 0}`, is a probe the
+agent may make and may not answer from. The weather case uses it: `get_weather`
+is a sixteen-day forecast that cannot reach the trip's November, so answering
+from it would be answering about the wrong weeks — but trying it, finding that,
+and falling back to the climate table is good behaviour, and forbidding the
+probe outright would fail an agent for recovering well (D30).
 
 **A case constrains what its request implies, not what its function is.** An
 advisory request asking for a packing list implies the trip does not change, so
@@ -113,8 +137,17 @@ Both read the same recorded execution.
 
 The check keys the checker (B08) knows: `tool_counts`, `tools_any_of`,
 `no_tool_errors`, `places_surfaced`, `slot_days`, `slot_count`, `slot_moved`
-(`{block, day, start_time?}`), `mutation_counts` (`table.OP`). A count is an
-integer or `{min, max}`.
+(`{block, day, start_time?, end_time?}`), `mutation_counts` (`table.OP`). A
+count is an integer or `{min, max}`. Assert `end_time` wherever the stop has a
+length worth keeping: a move that sets the start and leaves the end alone lands
+the stop in the right window and is still wrong.
+
+**A case asserts the outcome, not the route to it.** Where the application
+refuses a reasonable first attempt and the agent can recover within the turn,
+the bound is widened and `no_tool_errors` left off, rather than failing an
+agent that recovered correctly. The retry is not invisible: the analysis
+reports tool errors and retries per case, so first-try success stays a readable
+number without being a pass criterion.
 
 - Advisory cases constrain no tools (D29); what they constrain about the trip
   follows from the request like any other case. Factual-QA cases carry at least
@@ -135,3 +168,29 @@ application's own API and checked by the precondition gate before the case runs
 (invariant 1, D03 — see `src/reset.py`). Cases are written against it: a stop it
 does not contain cannot be rescheduled, and a day outside its range cannot be
 planned. `notebooks/sim/01_cases.ipynb` renders it in full.
+
+It carries two placeholder travellers besides the simulated member, so that a
+request about "the three of us" is about a group the trip actually has. They
+are placeholders in the application's own sense — a display name and no account
+— and nothing in a repetition can remove them, so they are ensured once rather
+than rebuilt, and the gate checks their presence the way it checks regions.
+
+**The judge sees a summary of it on every call** (`fixture.summary`): the
+dates, the regions, the travellers, the stops and which of them are scheduled.
+Criteria like "fits this trip" or "refers to the palace already on that day"
+are otherwise unscorable — a judge that sees only the request and the reply has
+no way to know what the trip holds, and would be scoring them on plausibility.
+P3 is untouched: the summary is the before-state every repetition starts from,
+never what the member did next.
+
+**A case's references are what the agent's own tools return**, not a better
+version assembled by hand. `references/alfama_history.md` is the payload of
+`read_wikipedia({query: "Alfama"})` verbatim; `lisbon_climate.md` is what
+`get_region_climate({place: "Lisbon"})` returns, capped where the tool caps it;
+`lisbon_climate_normals.md` is `get_climate_normals` at the fixture's Lisbon
+centre. Re-extracting the same articles in the harness produced a richer source
+than the tools hand the agent — a section the tool's character cap cuts, a
+table its plain-text endpoint strips — and scoring a reply against that is
+judging it for not having read what it could not read. Where a case permits
+more than one source, every permitted source is stored and the criteria are
+worded to hold for each.

@@ -23,7 +23,16 @@ from typing import Any
 
 from src import db
 from src.auth import SimUser
-from src.fixture import build_children, create_trip, expected_digest, find_trip, load_fixture, observed_digest, observed_regions
+from src.fixture import (
+    build_children,
+    create_trip,
+    expected_digest,
+    find_trip,
+    load_fixture,
+    observed_digest,
+    observed_members,
+    observed_regions,
+)
 
 HARNESS_LOG = Path(__file__).resolve().parent.parent / "runs" / "harness.log"
 
@@ -119,6 +128,11 @@ def assert_clean(trip_id: str, fixture: dict[str, Any] | None = None) -> None:
     missing = {r["name"] for r in fixture["regions"]} - observed_regions(trip_id)
     if missing:
         _refuse(trip_id, "regions", f"declared region(s) absent: {sorted(missing)}")
+    # Travellers are checked by presence for the same reason as regions: they
+    # are not in the digest, because nothing in a repetition can change them.
+    absent = {m["display_name"] for m in fixture.get("members", [])} - observed_members(trip_id)
+    if absent:
+        _refuse(trip_id, "members", f"declared traveller(s) absent: {sorted(absent)}")
 
 
 def _refuse(trip_id: str, table: str, detail: str) -> None:

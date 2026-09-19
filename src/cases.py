@@ -92,6 +92,10 @@ class SlotMoved(BaseModel):
     day: str
     #: HH:MM. Omit where the case asks for a day and not a time.
     start_time: Optional[str] = None
+    #: HH:MM. Assert it wherever the stop has a length worth preserving: a
+    #: move that sets the start and leaves the end at the day's edge lands the
+    #: stop in the right window and still gets it wrong.
+    end_time: Optional[str] = None
 
 
 class Checks(BaseModel):

@@ -10,10 +10,13 @@ intent: null
 expected_tool_sequence: []
 declared_constraints:
   checks:
+    tool_counts:
+      get_weather:
+        min: 0
+        max: 1
     tools_any_of:
     - get_region_climate
     - get_climate_normals
-    - get_weather
     no_tool_errors: true
     mutation_counts:
       trip_blocks.INSERT: 0
@@ -22,20 +25,30 @@ declared_constraints:
       ai_suggestions.INSERT: 0
   predicates: []
 scoring_criteria:
-- Gives typical November temperatures and rain for Lisbon consistent with the reference (mild, roughly
-  12-19 C, one of the wetter months).
+- 'Gives typical November figures for Lisbon that agree with a reference: a daily high near 18 C and a
+  low near 12 C.'
+- Places November among the wettest months of the Lisbon year.
 - Says which source or kind of data the figures come from.
 - Answers the question asked; does not turn it into a packing list unprompted.
 references:
 - title: Lisbon
-  section: Climate
+  section: get_region_climate('Lisbon') - Climate prose and Weather box
   path: lisbon_climate.md
+- title: Lisbon
+  section: get_climate_normals(38.7434, -9.1604) - monthly averages
+  path: lisbon_climate_normals.md
 repetitions_n: 8
 metamorphic_relation: null
 fixture_depends_on: []
 notes: 'Minimum functionality for factual question answering where more than one source is legitimate.
-  get_region_climate, get_climate_normals and get_weather all answer this question honestly, so tools_any_of
+  get_region_climate and get_climate_normals both answer a typical-November question honestly, so tools_any_of
   carries the constraint and expected_tool_sequence is empty: the case requires a source, not a particular
-  one. Judged against the stored climate section rather than a retrieved forecast, because D23 sends a
-  day-by-day weather question to the forecast the agent fetched, and "usually, in November" is a climate
+  one. Both are stored as references, and the criteria are worded to be true of either - the two disagree
+  by a few tenths of a degree, and a reply should not be marked down for having used the other one. get_weather
+  is permitted but does not satisfy the case: it is a sixteen-day forecast and cannot reach the trip''s
+  month, so an agent that answered from it would be answering about the wrong weeks - but one that tries
+  it, finds it does not reach November and falls back has done nothing wrong, and forbidding the probe
+  outright would fail it. That is what the zero-minimum count in tool_counts says, and why tools_any_of
+  does not name it. Judged against stored climate data rather than a retrieved forecast, because D23 sends
+  a day-by-day weather question to the forecast the agent fetched, and "usually, in November" is a climate
   question. The message carries no slash command, so the mutation zeros are a real constraint.'

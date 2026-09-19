@@ -76,3 +76,59 @@ def test_a_slot_for_an_undefined_stop_is_refused(tmp_path):
     with pytest.raises(ValueError) as exc:
         load(path)
     assert "Not in the fixture" in str(exc.value)
+
+
+def test_travellers_sharing_a_name_are_refused(tmp_path):
+    """A placeholder is identified by its display name, and ensure_members
+    adds the ones the trip lacks by name — two of a name would add neither."""
+    import json
+
+    import pytest
+
+    from src.fixture import load_fixture as load
+
+    fixture = load_fixture()
+    fixture["members"].append({**fixture["members"][0]})
+    path = tmp_path / "fixture.json"
+    path.write_text(json.dumps(fixture), encoding="utf-8")
+    with pytest.raises(ValueError) as exc:
+        load(path)
+    assert fixture["members"][0]["display_name"] in str(exc.value)
+
+
+def test_the_trip_has_travellers_for_the_cases_that_assume_them():
+    """Two seeds ask about a group. Without members the trip is one person and
+    the criterion is scored against a trip that does not match the request."""
+    fixture = load_fixture()
+    assert len(fixture["members"]) == 2
+    assert all(m.get("display_name") and "user_id" not in m for m in fixture["members"])
+
+
+def test_summary_states_what_the_judge_has_to_know():
+    """The criteria that lean on it: the dates, the regions, the group size,
+    and which stops are already scheduled on which day."""
+    from src.fixture import summary
+
+    fixture = load_fixture()
+    text = summary(fixture)
+    assert fixture["trip"]["start_date"] in text and fixture["trip"]["end_date"] in text
+    for region in fixture["regions"]:
+        assert region["name"] in text
+    assert "3 people" in text
+    for block in fixture["blocks"]:
+        assert block["title"] in text
+    # Pena Palace is scheduled; the hotel is not. Both readings must be there,
+    # because one advisory case scores a reply for naming the scheduled one.
+    assert "Pena Palace (sightseeing) - scheduled 2026-11-08" in text
+    assert "Hotel near Baixa (hotel) - not scheduled" in text
+
+
+def test_summary_is_the_before_state_not_a_database_read():
+    """P3: the judge may know what every repetition starts from, never what
+    the member did next. summary() takes the fixture and touches no client."""
+    import inspect
+
+    from src import fixture as fixture_module
+
+    source = inspect.getsource(fixture_module.summary)
+    assert "db." not in source and "admin" not in source

@@ -5,8 +5,9 @@ run_priority: 1
 function: venue_lookup
 user_profile: Marta, 34, in Lisbon for a long weekend with two friends. Eats fish, budget-conscious, types
   short messages and does not explain herself.
-goal: Get two or three well-rated seafood restaurants near Cais do Sodré for Friday dinner, cheap enough
-  for three people.
+goal: See two or three well-rated seafood restaurants near Cais do Sodre that three people can afford.
+  She wants names to look at and is satisfied once she has them; she is not asking for anything to be
+  added to the trip.
 opening_turn: /find good seafood places near Cais do Sodré, nothing too pricey
 intent: find
 expected_tool_sequence:
@@ -27,15 +28,18 @@ declared_constraints:
       ai_suggestions.INSERT: 0
   predicates: []
 scoring_criteria:
-- Names two or three real restaurants, each with one reason it fits.
-- Stays in or next to Cais do Sodré; does not wander to another part of town or another city.
+- Names two or three seafood restaurants, each with one reason it fits.
+- Stays in or beside Cais do Sodre; does not wander to another part of town or another city.
 - Reflects the budget cue without lecturing about it.
-- Does not claim to have added or scheduled anything.
+- 'Gives enough per place to choose between them: what it is, why it fits, roughly where.'
 repetitions_n: 8
 metamorphic_relation: null
 fixture_depends_on: []
-notes: 'Minimum functionality for venue lookup: a grounded search that changes nothing. The member gives
-  two constraints, a place and a price, so search_places is bounded at one to three calls: one per constraint,
-  or a re-search after the region guard drops a result. The four mutation zeros assert that /find is read-only
-  in fact and not only in policy, which is a second signal taken from the database rather than from the
-  trace.'
+notes: 'Minimum functionality for venue lookup: a grounded search that changes nothing. search_places
+  is bounded at one to three calls, because the member gives two constraints and the agent may search
+  once per constraint, or re-query after a thin result set; the wrong-region guard''s own refetch happens
+  inside a single call and never adds one. The four mutation zeros assert that /find is read-only in fact
+  and not only in policy, which is a second signal taken from the database rather than from the trace.
+  The goal stops at the list deliberately: a case''s tool constraints bind the mode the first turn opens
+  in, and a goal ending in something schedulable would invite a second turn where the agent legitimately
+  holds every tool and the counts would fail an agent doing as it was asked.'

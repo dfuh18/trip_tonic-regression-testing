@@ -6,7 +6,7 @@ LLM-generated and human-reviewed, so the review is the step that makes them the
 author's rather than the model's, and a case that passes review badly is a case
 that will measure the wrong thing eight times per run.
 
-Twelve criteria, grouped. A case fails review on any one of them.
+Thirteen criteria, grouped. A case fails review on any one of them.
 
 ## The request
 

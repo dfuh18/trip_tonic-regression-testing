@@ -31,6 +31,34 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D30 — a case asserts the outcome; retries are reported, not punished
+Date: 2026-09-19 · Decided by: author
+Options: assert first-try correctness (a tight bound plus `no_tool_errors`) ·
+assert the final state and report retries separately · assert the final state
+and record nothing about retries
+Chosen: the second. Where the application refuses a reasonable first attempt
+and the agent recovers within the turn, the case widens the bound and drops
+`no_tool_errors`; C02 reports tool errors and retries per case from the trace.
+Reason: the author's, on a finding from the case review. `scheduling_move_tram`
+asserted exactly one `move_slot` call and no tool errors, and the API refuses a
+move that sets a later start without also moving the end — the stored end would
+precede the new start. An agent that retries with both is behaving correctly and
+would have failed the case, which is the worse of the two errors a constraint
+can make: a false regression in the record costs the suite its credibility the
+first time someone chases one. Dropping the signal entirely was rejected as the
+opposite mistake — an agent that starts needing two calls where it needed one
+has changed, and a pass rate alone would not show it.
+The same reading settles a second case. Dropping `get_weather` from the
+weather case's `tools_any_of` also forbade it, because a case permits the union
+of the tools it names — and with no slash command the agent holds every tool, so
+one that tries the forecast, finds it cannot reach November and falls back to
+the climate table has behaved well. It is now named in `tool_counts` with a
+minimum of zero: permitted, and never satisfying. Permitted and satisfying are
+different questions, and the case vocabulary already had a key for each.
+Affects: cases/scheduling_move_tram.yaml,
+cases/factual_qa_lisbon_november_weather.yaml, cases/README.md, C02 · Reverses:
+the first-try reading of `no_tool_errors` in B03
+
 ### D29 - a case constrains what its request implies, not what its function is
 Date: 2026-09-19 - Decided by: author
 Options: advisory carries no constraints at all (P4 read as a rule) - advisory

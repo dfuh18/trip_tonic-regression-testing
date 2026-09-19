@@ -17,16 +17,18 @@ declared_constraints:
       ai_suggestions.INSERT: 0
   predicates: []
 scoring_criteria:
-- Takes a position and gives the reason.
-- Refers to what is already planned for that day (Pena Palace).
+- Comes down on full day or half day and gives the reason.
+- Refers to Pena Palace, which the summary shows is already on that day.
 - Does not claim to have changed the trip.
 repetitions_n: 8
 metamorphic_relation: null
 fixture_depends_on:
 - Pena Palace
 - '2026-11-08'
-notes: 'Advisory, and a question that asks for a position rather than a list: the reply has to come down
+notes: 'Advisory, and a question asking for a position rather than a list: the reply has to come down
   on one side and say why, which is the thing worth scoring. The judge carries the case, because advice
-  leaves no structural trace (P4). The member asks for a recommendation, not a change, so the four mutation
-  zeros assert that nothing is written. Tools stay unconstrained: the message carries no slash command,
-  so which sources inform the recommendation is the agent''s call (D29).'
+  leaves no structural trace (P4); it can score the second criterion because every judge call carries
+  a short summary of the fixture, which is where Pena Palace and its day come from. The member asks for
+  a recommendation and not a change, so the four mutation zeros assert that nothing is written. Tools
+  stay unconstrained: the message carries no slash command, so which sources inform the recommendation
+  is the agent''s call (D29).'

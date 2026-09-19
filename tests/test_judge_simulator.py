@@ -54,6 +54,23 @@ def test_pointwise_inlines_criteria_and_references_and_validates_the_score():
         score_pointwise(CASE, "q", "r", llm=FakeLlm([{"score": 11, "rationale": ""}]))
 
 
+def test_every_judge_call_carries_the_trip_the_request_was_about():
+    """Criteria like "fits this trip" are unscorable from the request and the
+    reply alone. The summary is prepended here so no caller can forget it —
+    including the calls that pass no references at all."""
+    from src.fixture import load_fixture, summary
+
+    expected = summary(load_fixture())
+    llm = FakeLlm([{"score": 5, "rationale": ""}])
+    score_pointwise(CASE, "what should we pack", "Layers.", llm=llm)
+    system, _, _ = llm.calls[0]
+    assert expected in system
+
+    pair = FakeLlm([{"better": "tie", "rationale": ""}, {"better": "tie", "rationale": ""}])
+    compare_pairwise(CASE, "what should we pack", "a", "b", llm=pair)
+    assert expected in pair.calls[0][0]
+
+
 @pytest.mark.parametrize(
     "first, swapped, expected",
     [

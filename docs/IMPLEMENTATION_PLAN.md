@@ -848,7 +848,13 @@ labels; P3 — judge scores (B09, run blind over participant replies with
 criteria by `request_type`) split by thumbs and by accept/reject, the two
 signals never pooled; (5) UMUX-LITE (1..7, D18) via the Sauro–Lewis curved grading scale and the
 recommend item; (6) every inferential statistic with assumptions
-checked and n stated. Structural verdicts for participant suggestions are
+checked and n stated; (7) **tool errors and retries per case**, from the
+trace: how many executions reached a passing outcome only after a tool call
+came back an error, and which tool it was. Not a pass criterion — a case that
+asserts the outcome deliberately permits the recovery (D30) — but the number
+that makes "the agent got there" and "the agent got there first time" separate
+readings, and the place a rise in retries shows up as a finding rather than
+hiding inside a pass rate. Structural verdicts for participant suggestions are
 written to `study_verdicts` by B08, never onto the app rows.
 Done when: the notebook runs end to end **on simulated data only**
 (`run_type = 'simulation'` as the stand-in participant round, compared against
