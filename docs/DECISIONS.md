@@ -31,6 +31,28 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D29 - a case constrains what its request implies, not what its function is
+Date: 2026-09-19 - Decided by: author
+Options: advisory carries no constraints at all (P4 read as a rule) - advisory
+must change nothing, as a rule of the function - a case constrains what its own
+request implies, whatever its function
+Chosen: the third. The two advisory seeds assert the four mutation zeros,
+because asking for a packing list or a recommendation implies the trip does not
+change. This is not a rule about advisory: a future case of any function is free
+to imply something different. Neither advisory case constrains tools, and the
+model now refuses one that tries.
+Reason: the author's, on reviewing the mutation counts. A message carrying no
+slash command keeps the agent's whole toolset deliberately - a member who forgets
+the command should still be helped - so which tools inform an answer is the
+agent's judgement and not a case's to fix. What the member asked for is a
+different matter, and "advise me" asks for nothing to be written. The previous
+rule, that advisory carries no constraints, came from reading P4's "leaves no
+structural trace" as a licence not to check rather than as a claim worth testing:
+both seeds carry no command, so the agent could draft a plan in answer to "what
+should we pack" and nothing would have caught it.
+Affects: B03 (the model rule it reverses), B04, B08 - Reverses: the empty-
+constraints rule for advisory written in B03
+
 ### D28 - a case permits the tools it names and no others
 Date: 2026-09-19 - Decided by: author
 Options: name the tools expected and assert a zero for each one forbidden -

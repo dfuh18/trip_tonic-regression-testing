@@ -70,7 +70,14 @@ context falls short, which varies between runs of one case. And a case that
 names no tool at all constrains none, which is how the advisory seeds stay free
 to ground their advice in a forecast.
 
-**Every non-advisory case states the same four mutation counts.** The write
+**A case constrains what its request implies, not what its function is.** An
+advisory request asking for a packing list implies the trip does not change, so
+the case says so — but it constrains no tools, because a message without a slash
+command keeps the agent's whole toolset on purpose and whether to check the
+forecast first is the agent's judgement (D29). Read the request, not the label.
+
+**Every case whose request implies something about the trip states the same
+four mutation counts.** The write
 classes an agent turn can cause on the plan are `trip_blocks.INSERT`,
 `itinerary_slots.INSERT`, `itinerary_slots.UPDATE` and
 `ai_suggestions.INSERT`. A case states all four, so "this request changes
@@ -109,8 +116,9 @@ The check keys the checker (B08) knows: `tool_counts`, `tools_any_of`,
 (`{block, day, start_time?}`), `mutation_counts` (`table.OP`). A count is an
 integer or `{min, max}`.
 
-- Advisory cases carry criteria and no constraints (P4). Factual-QA cases carry
-  at least one reference; the stored text lives under `references/`.
+- Advisory cases constrain no tools (D29); what they constrain about the trip
+  follows from the request like any other case. Factual-QA cases carry at least
+  one reference; the stored text lives under `references/`.
 - `repetitions_n` and the relation catalogue are rulings (D21, D22), not
   choices a case makes on its own.
 - `fixture_depends_on` names what the case reads off the starting trip: stop

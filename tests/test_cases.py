@@ -84,12 +84,39 @@ def test_base_case_must_exist_in_suite(tmp_path):
     assert "nope" in str(exc.value)
 
 
-def test_advisory_carries_no_constraints(tmp_path):
-    data = {**VALID, "case_id": "advice", "function": "advisory", "intent": None,
+def test_advisory_constrains_the_trip_but_never_the_tools(tmp_path):
+    """D29: a case constrains what its request implies. An advisory request
+    implies nothing is written, so it may say so — but it may not fix which
+    tools inform the answer, because a message with no slash command keeps the
+    whole toolset on purpose and that choice is the agent's."""
+    base = {**VALID, "case_id": "advice", "function": "advisory", "intent": None,
             "expected_tool_sequence": [], "declared_constraints": {"checks": {}, "predicates": []}}
-    assert load_case(write(tmp_path, "advice", data)).declared_constraints.is_empty()
-    with pytest.raises(CaseFileError):
-        load_case(write(tmp_path, "advice", {**data, "declared_constraints": {"checks": {"no_tool_errors": True}}}))
+
+    writes = {"checks": {"mutation_counts": {"trip_blocks.INSERT": 0, "ai_suggestions.INSERT": 0}}, "predicates": []}
+    case = load_case(write(tmp_path, "advice", {**base, "declared_constraints": writes}))
+    assert case.declared_constraints.checks.mutation_counts["ai_suggestions.INSERT"] == 0
+    assert case.constrains_tools() is False
+    assert case.allowed_tools() is None
+
+    for tool_constraint in (
+        {"expected_tool_sequence": ["read_wikipedia"]},
+        {"declared_constraints": {"checks": {"tool_counts": {"search_places": 1}}, "predicates": []}},
+        {"declared_constraints": {"checks": {"tools_any_of": ["get_weather"]}, "predicates": []}},
+    ):
+        with pytest.raises(CaseFileError) as exc:
+            load_case(write(tmp_path, "advice", {**base, **tool_constraint}))
+        assert "does not constrain tools" in str(exc.value)
+
+
+def test_the_advisory_seeds_assert_that_nothing_is_written():
+    from src.cases import CASES_DIR, load_cases
+
+    for case in load_cases(CASES_DIR):
+        if case.function != "advisory":
+            continue
+        counts = case.declared_constraints.checks.mutation_counts
+        assert counts and set(counts.values()) == {0}, f"{case.case_id} should assert the trip is unchanged"
+        assert case.allowed_tools() is None, f"{case.case_id} must not constrain tools"
 
 
 def test_factual_qa_needs_a_reference(tmp_path):

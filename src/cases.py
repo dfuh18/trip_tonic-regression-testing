@@ -9,8 +9,13 @@ file and the key: a case that loads is a case that can run.
 declarative keys carries everything that can be stated about **one** execution,
 and the ``predicates`` list names functions in ``cases/predicates.py`` for the
 one thing a schema cannot state — a comparison with **another** execution, which
-is what every metamorphic relation is. Advisory cases carry scoring criteria and
-no constraints, because the advisory function leaves no structural trace (P4).
+is what every metamorphic relation is.
+
+What a case constrains follows from **what its request asks for**, not from its
+function label (D29). An advisory request that asks for advice implies the trip
+does not change, so it says so; it does not constrain tools, because a message
+carrying no slash command keeps the whole toolset deliberately and whether to
+look something up is the agent's judgement.
 
 Every case is written against the fixture trip in ``cases/fixture.json`` (built
 and reset by ``src/reset.py``), and ``fixture_depends_on`` names the parts of it
@@ -226,8 +231,12 @@ class Case(BaseModel):
             raise ValueError("only a metamorphic case carries metamorphic_relation")
         if self.function == "factual_qa" and not self.references:
             raise ValueError("a factual_qa case needs at least one reference")
-        if self.function == "advisory" and not self.declared_constraints.is_empty():
-            raise ValueError("an advisory case carries no structural constraints (P4)")
+        if self.function == "advisory" and self.constrains_tools():
+            raise ValueError(
+                "an advisory case does not constrain tools: it carries no slash command, so the "
+                "agent keeps its whole toolset and whether to look anything up is its call (D29). "
+                "Constrain what the request implies about the trip instead."
+            )
         return self
 
 
