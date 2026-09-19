@@ -6,7 +6,7 @@ LLM-generated and human-reviewed, so the review is the step that makes them the
 author's rather than the model's, and a case that passes review badly is a case
 that will measure the wrong thing eight times per run.
 
-Thirteen criteria, grouped. A case fails review on any one of them.
+Fourteen criteria, grouped. A case fails review on any one of them.
 
 ## The request
 
@@ -43,42 +43,69 @@ Thirteen criteria, grouped. A case fails review on any one of them.
    `ai_suggestions.INSERT` — with the deviations the request implies and zeros
    elsewhere. A count that is incidental to the request rather than implied by
    it is left out, and `notes` says why. If the request implies a specific stop
-   in a specific window, `slot_moved` says so — as a window and a length, never
-   a clock reading (D31). Check the tolerance against the member's own words: if
-   they said "around 4" and the case demands 16:00 exactly, it will fail an
-   agent that understood them. Check it against the fixture too: if the target
-   day already holds something near that time, the case must widen the window
-   and assert `clear_of_other_slots`, because moving off the named time is then
-   the correct behaviour.
+   in a specific window, `slot_moved` says so — and criterion 9 governs how
+   tightly.
 7. **Consistent with its siblings.** Cases of the same function carry the same
    bounds unless `notes` say why they differ. An unexplained difference between
    two cases of one function is an accident in a pass criterion.
 8. **Ordering lives in `expected_tool_sequence`.** A grounded plan writes
    `[search_places, propose_plan]`; the order is not restated anywhere else,
    and no check duplicates it.
+9. **Every assertion is as loose as the request allows.** An assertion has to
+   hold for *every* correct agent, and for the fixture as it will be rather
+   than only as it is. A constraint tighter than the request is the most
+   expensive mistake a case can make: it puts a false regression in the record,
+   and the first person to chase one stops trusting the suite. Four habits,
+   each from a case that had the tight version first:
+
+   - **A time is a window and a length, never a clock reading** (D31). The
+     member says "around 4" or "Saturday afternoon", and those are ranges — an
+     agent writing 16:15 for the first understood her. `starts_between` takes
+     the pair her words license; a case meaning one minute writes it twice, so
+     the tolerance is always on the page. A day is the exception and is exact.
+   - **Read the assertion against a fuller fixture.** If the target day already
+     holds something near the time she named, moving off that time is the
+     *correct* behaviour — so the case widens the window to the part of the day
+     she actually named and asserts `clear_of_other_slots`. A case pinned to the
+     minute silently rots as the starting trip gains stops.
+   - **Assert the outcome, not the route to it** (D30). Where the application
+     refuses a reasonable first attempt and the agent recovers inside the turn,
+     widen the bound and leave `no_tool_errors` off rather than failing the
+     recovery. Nothing is lost: the analysis reports tool errors and retries, so
+     first-try success stays readable without being a pass criterion.
+   - **Never encode an incidental fact about the fixture.** A count that holds
+     only because of how the starting trip happens to be arranged tests the
+     fixture, not the agent — `itinerary_days.INSERT` on a day the fixture left
+     empty is the example, and it is left unasserted with `notes` saying so.
+
+   The counter-pressure is real and criterion 10 is where it lives: loosening
+   an assertion until nothing fails it asserts nothing. The test is whether a
+   *specific wrong behaviour* still trips it. Dropping the length from
+   `slot_moved` would have loosened it past that line, because an agent that
+   moves the start and leaves an hour-long stop running to midnight would pass.
 
 ## What it scores
 
-9. **The judge can apply every criterion from the request and the reply
-   alone.** P3 keeps the judge blind to what the member did afterwards, so a
-   criterion needing the trace, the database or the user's reaction is not
-   scorable and belongs in `checks` instead.
-10. **The criteria discriminate.** Each one can separate a good reply from a
+10. **The judge can apply every criterion from the request and the reply
+    alone.** P3 keeps the judge blind to what the member did afterwards, so a
+    criterion needing the trace, the database or the user's reaction is not
+    scorable and belongs in `checks` instead.
+11. **The criteria discriminate.** Each one can separate a good reply from a
     mediocre one. A criterion every plausible reply satisfies costs a point of
     the ten-point scale and buys nothing.
-11. **Factual cases carry a sufficient reference.** For `factual_qa`, the
+12. **Factual cases carry a sufficient reference.** For `factual_qa`, the
     stored reference actually contains what the criteria ask the reply to get
     right (D23). A criterion about a fact the reference does not cover cannot
     be scored honestly.
 
 ## As part of the suite
 
-12. **The pair earns its place.** Two seeds per function (D21), and the second
+13. **The pair earns its place.** Two seeds per function (D21), and the second
     differs from the first in something that matters — a different region, a
     different resolution the member leaves implicit, a different failure mode —
     rather than being the same case with new nouns.
 
-13. **The notes stand alone.** `notes` explains this case without leaning on
+14. **The notes stand alone.** `notes` explains this case without leaning on
     another one: no "the same as the seafood case", no "the second advisory
     seed", no "same reason as above". A case is read on its own — in a diff, in
     a failure report, in the notebook a year later — and a note pointing
@@ -89,26 +116,26 @@ Thirteen criteria, grouped. A case fails review on any one of them.
 
 ## Four questions about the suite
 
-The thirteen criteria are asked of one case at a time, and a suite can pass all
+The fourteen criteria are asked of one case at a time, and a suite can pass all
 of them case by case while still being wrong as a whole. These four are asked
 once, after the cases have been read.
 
 **A. Would the pairs catch a regression in each of the four functions?** For
 venue lookup, scheduling, factual question answering and advisory in turn: if
 the agent got worse at that function tomorrow, would one of its two cases
-notice? Name what a whole function's pair would miss. Criterion 12 asks whether
+notice? Name what a whole function's pair would miss. Criterion 13 asks whether
 the second case differs from the first; this asks whether the two together are
 enough, which is a different question and the one §3.1 means by a minimum
 functionality baseline.
 
-**B. Which scoring criteria would a mediocre reply still pass?** Criterion 10
+**B. Which scoring criteria would a mediocre reply still pass?** Criterion 11
 asks this of each criterion in isolation, where it is easy to answer yes. Asked
 across the suite it exposes the pattern: rubrics drift towards restating the
 request, and a rubric every plausible reply satisfies makes the ten-point scale
 shorter than it looks and the baseline in §3.1 easier to match than intended.
 
 **C. Is any scoring criterion unscorable by a judge that sees only the request
-and the reply?** The same sweep for criterion 9. P3 keeps the judge blind to
+and the reply?** The same sweep for criterion 10. P3 keeps the judge blind to
 what the member did afterwards, and a criterion needing the trace, the database
 or the user's reaction cannot be scored honestly — it has to move into `checks`
 or be dropped.
@@ -118,8 +145,9 @@ an incorrect one?** This matters more than the other three together. A case
 that fails a correct agent puts a false regression in the record and costs the
 suite its credibility the first time someone chases one; a case that passes an
 incorrect agent is worse, because it is silent. Criteria 4 to 8 ask whether a
-constraint follows from the request and is complete; this asks whether it is
-*true*, which no amount of internal consistency guarantees.
+constraint follows from the request and is complete, and criterion 9 whether it
+leaves a correct agent room; this asks whether it is *true*, which no amount of
+internal consistency guarantees.
 
 ## Reporting a review
 

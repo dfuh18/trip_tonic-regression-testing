@@ -53,7 +53,7 @@ nothing derives it from the stop's duration, so an agent can land the start
 correctly and leave an hour-long stop running to the end of the day. The day
 itself carries no tolerance — the trip has one Saturday.
 Affects: src/cases.py (SlotMoved), cases/scheduling_move_tram.yaml,
-cases/README.md, cases/REVIEW_CRITERIA.md (criterion 6), B08 · Reverses: the
+cases/README.md, cases/REVIEW_CRITERIA.md (criterion 9), B08 · Reverses: the
 exact-time reading of `slot_moved` in B03, and the `end_time` field added
 earlier the same day
 
