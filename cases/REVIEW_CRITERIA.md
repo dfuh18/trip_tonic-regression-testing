@@ -81,8 +81,46 @@ Twelve criteria, grouped. A case fails review on any one of them.
     true: an explanation of why something is asserted has to survive the rule
     that made it necessary changing.
 
+## Four questions about the suite
+
+The thirteen criteria are asked of one case at a time, and a suite can pass all
+of them case by case while still being wrong as a whole. These four are asked
+once, after the cases have been read.
+
+**A. Would the pairs catch a regression in each of the four functions?** For
+venue lookup, scheduling, factual question answering and advisory in turn: if
+the agent got worse at that function tomorrow, would one of its two cases
+notice? Name what a whole function's pair would miss. Criterion 12 asks whether
+the second case differs from the first; this asks whether the two together are
+enough, which is a different question and the one §3.1 means by a minimum
+functionality baseline.
+
+**B. Which scoring criteria would a mediocre reply still pass?** Criterion 10
+asks this of each criterion in isolation, where it is easy to answer yes. Asked
+across the suite it exposes the pattern: rubrics drift towards restating the
+request, and a rubric every plausible reply satisfies makes the ten-point scale
+shorter than it looks and the baseline in §3.1 easier to match than intended.
+
+**C. Is any scoring criterion unscorable by a judge that sees only the request
+and the reply?** The same sweep for criterion 9. P3 keeps the judge blind to
+what the member did afterwards, and a criterion needing the trace, the database
+or the user's reaction cannot be scored honestly — it has to move into `checks`
+or be dropped.
+
+**D. Is any declared constraint wrong — would it fail a correct agent, or pass
+an incorrect one?** This matters more than the other three together. A case
+that fails a correct agent puts a false regression in the record and costs the
+suite its credibility the first time someone chases one; a case that passes an
+incorrect agent is worse, because it is silent. Criteria 4 to 8 ask whether a
+constraint follows from the request and is complete; this asks whether it is
+*true*, which no amount of internal consistency guarantees.
+
 ## Reporting a review
 
 Per case: adopt, adopt with a named change, or reject with the reason. Cite the
 criterion number. Where a case is fine, say so briefly rather than padding;
 where it is not, say what specifically to change.
+
+Then answer A to D. Finally, state what was not checked and could not be
+verified — a review that names its own limits is evidence, and one that implies
+it checked everything is not.
