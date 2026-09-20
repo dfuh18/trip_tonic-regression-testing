@@ -45,6 +45,39 @@ fact. Rough is fine; absent is not.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### L07 — "LLM-generated and human-reviewed" took three adversarial rounds
+Phase: B · Related tasks: B04, B03
+Effort: several times the 6h estimate, almost all of it in review rather than
+in authoring
+What happened: the eight seed cases were generated with LLM help and read by
+hand, which is what §3.1 describes. That first reading caught wording and
+plausibility problems and missed every defect that mattered. Three further
+rounds, each by an independent agent working from a written criteria list and
+with read access to the application, found in order: constraints tighter than
+the member's request, which would have recorded false regressions (D30, D31);
+a check with no source, where the drafting case's central assertion pointed at
+a logged field carrying counts and no dates, so a plan drafted onto the wrong
+day would have passed; and a case permitting a probe it could never forgive,
+plus an unpinned question about which reply the judge scores that the personas
+had quietly made decisive (D33 as amended, D34). The third round also probed
+the live weather API and found a production bug: every dated forecast call had
+been failing, on the path the agent's own prompt names (D36).
+Why it matters: §3.1 treats "generated with LLM help and reviewed by hand" as
+one step, and §2.6.1 treats structural verification as the cheap half. Both
+survive, but with a correction worth stating. The cheapness is real *per
+assertion* and it is not where the work is. The work is in establishing that an
+assertion is true — that it cannot fail a correct agent, that it can fail an
+incorrect one, and that something in the log can actually evaluate it — and
+none of those is visible from reading the case. Each round needed the
+application source, and the round that found the most needed the network.
+A single review by the author is not enough for a suite that will run eight
+times per case and whose failures will be read as regressions in the system
+under test. What made the later rounds productive was writing the criteria down
+first (`cases/REVIEW_CRITERIA.md`, fourteen criteria and four suite-level
+questions): the first review had no list and produced style notes, and the
+three that had one produced defects. The reviews are also the honest reason the
+seed set is eight cases and not sixteen.
+
 ### L06 — Advisory's minimum-functionality baseline is scored, not checked
 Phase: B · Related tasks: B03, B04, B09
 Effort: no effort; a limitation found by reviewing, and one §3.7 has to state

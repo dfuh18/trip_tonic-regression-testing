@@ -576,7 +576,7 @@ Phase: B
 Tier: [FABLE]
 Depends on: B03
 Estimate: 6h
-Status: in progress — eight seed cases drafted (two per function, D21), the two Wikipedia references stored under cases/references/, and `sim/01_cases` executed with outputs. The notebook opens with the fixture trip in full, and each case declares `fixture_depends_on` (block keys and days the loader validates against cases/fixture.json), so a reader can see what the case is written against and the fixture cannot be edited out from under it. Awaiting the author's review marks in cases/reviewed.json, which is the done-when
+Status: done (2026-09-20) — eight seed cases (two per function, D21), three references stored under cases/references/ as the agent's own tools return them, and `sim/01_cases` executed with outputs. The notebook opens with the fixture trip in full and with the summary the judge is given, and each case declares `fixture_depends_on`, so a reader can see what the case is written against and the fixture cannot be edited out from under it. All eight carry the author's mark in cases/reviewed.json. Three independent review rounds preceded adoption, against the fourteen criteria in cases/REVIEW_CRITERIA.md; they produced D30-D36 and the third reported the suite converging, with the residual risk outside the case files (B08 does not exist, and no repetition has been run). Effort ran well over the 6h estimate — see L05 and L07
 Spec: Author the seed set: two cases per function, eight in all (D21), each a
 minimum-functionality scenario generated with LLM help and reviewed by hand
 (§3.1), with constraints, expected tool sequence, criteria and — for factual

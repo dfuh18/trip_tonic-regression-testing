@@ -1,4 +1,37 @@
 {
-  "_note": "case_id -> {by, on}. Set by the author after reading the case in sim/01_cases; the notebook lists what is still unreviewed.",
-  "reviewed": {}
+  "_note": "case_id -> {by, on}. Set by the author after reading the case in sim/01_cases; the notebook lists what is still unreviewed. The mark is the author's own: it is what makes a seed the author's rather than the model's (3.1), so an agent never writes one unasked.",
+  "reviewed": {
+    "advisory_packing_list": {
+      "by": "author",
+      "on": "2026-09-20"
+    },
+    "advisory_sintra_full_or_half_day": {
+      "by": "author",
+      "on": "2026-09-20"
+    },
+    "factual_qa_alfama_history": {
+      "by": "author",
+      "on": "2026-09-20"
+    },
+    "factual_qa_lisbon_november_weather": {
+      "by": "author",
+      "on": "2026-09-20"
+    },
+    "scheduling_belem_morning": {
+      "by": "author",
+      "on": "2026-09-20"
+    },
+    "scheduling_move_tram": {
+      "by": "author",
+      "on": "2026-09-20"
+    },
+    "venue_lookup_seafood_lisbon": {
+      "by": "author",
+      "on": "2026-09-20"
+    },
+    "venue_lookup_sintra_lunch": {
+      "by": "author",
+      "on": "2026-09-20"
+    }
+  }
 }
