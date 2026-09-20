@@ -21,7 +21,7 @@ scoring_criteria:
 - Ties at least one item to something specific about this trip - the Sintra hills, the cobbled streets,
   or November rain - rather than reading as a generic city-break list.
 - 'Fits the season and the places in the summary: November, Lisbon and Sintra, a day at a hilltop palace.'
-- 'Concrete and short: items, not paragraphs.'
+- Names specific items rather than describing categories.
 - Writes for the group rather than for one traveller.
 repetitions_n: 8
 metamorphic_relation: null
@@ -36,15 +36,12 @@ notes: 'Advisory: the judge carries most of this case, because advice leaves no 
   request and the reply (P3). The first criterion asks for a specific tie deliberately: a list of a jacket,
   an umbrella and comfortable shoes is true of every November city break and satisfied the earlier wording,
   which spent four of the ten points on a reply that showed no knowledge of the trip. The four mutation
-  zeros assert that asking for advice changes nothing, and the goal ends by declining, because the free-text
-  instruction has the agent close by offering to pre-schedule and names accepting that offer as a reason
-  to draft in the same turn - a persona who said yes would make a correct agent fail the zeros. Tools
-  stay unconstrained: the message carries no slash command, so the agent keeps everything, and whether
-  to ground the advice in a forecast is its call to make (D29). The goal ends by declining an offer to
-  schedule, and the reason is narrower than it looks: the free-text instruction scopes its closing offer
-  to requests that ask purely for ideas, and says in the same breath that informational questions are
-  answered without a draft - so this request is not supposed to attract the offer at all. The clause is
-  insurance against the agent making it anyway, which costs nothing, rather than a guard against behaviour
-  the prompt requires. fixture_depends_on names the palace and the trip''s two end dates and nothing else:
-  those are what the criteria read off the trip, and a longer list would fail the case when a stop nobody
-  scores against is renamed.'
+  zeros assert that asking for advice changes nothing. Tools stay unconstrained: the message carries no
+  slash command, so the agent keeps everything, and whether to ground the advice in a forecast is its
+  call to make (D29). The goal ends by declining an offer to schedule, and the reason is narrower than
+  it looks: the free-text instruction scopes its closing offer to requests that ask purely for ideas,
+  and says in the same breath that informational questions are answered without a draft - so this request
+  is not supposed to attract the offer at all. The clause is insurance against the agent making it anyway,
+  which costs nothing, rather than a guard against behaviour the prompt requires. fixture_depends_on names
+  the palace and the trip''s two end dates and nothing else: those are what the criteria read off the
+  trip, and a longer list would fail the case when a stop nobody scores against is renamed.'

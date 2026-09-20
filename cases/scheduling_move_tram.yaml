@@ -17,6 +17,9 @@ declared_constraints:
       move_slot:
         min: 1
         max: 2
+      get_weather:
+        min: 0
+        max: 1
     slot_moved:
       block: Tram 28 ride through Alfama
       day: '2026-11-07'
@@ -71,9 +74,11 @@ notes: 'Minimum functionality for a live edit. The member says "Saturday" and "a
   an INSERT the zeros forbid. The goal ends by declining an offer, which will read as redundant to anyone
   who has not traced the toolset: the reschedule instruction forbids asking before editing but not a closing
   offer, and the next turn carries no slash command, so propose_plan is available again and the free-text
-  instruction names accepting an offer as a reason to draft in that same turn. No reference tool is named
-  either, which is a deliberate assertion rather than an oversight: moving one stop to a time the member
-  chose needs no forecast, so an agent that checks the weather first has done something this case says
-  is unnecessary. itinerary_days.INSERT is deliberately not asserted: the 7th is an empty day in the fixture,
-  so moving a stop onto it legitimately creates the day row, and a count would encode which days the fixture
-  happens to have rather than anything about the agent.'
+  instruction names accepting an offer as a reason to draft in that same turn. get_weather is permitted
+  at up to one call for the same reason its sibling permits it: /reschedule keeps the reference tools,
+  and the standing instruction to check conditions during the trip dates is not scoped to a mode, so an
+  agent that looks before moving an outdoor ride to a November afternoon is following its instructions.
+  Forbidding it here while permitting it there would have been two answers to one question. Nothing else
+  is permitted: no search, no draft, no unschedule. itinerary_days.INSERT is deliberately not asserted:
+  the 7th is an empty day in the fixture, so moving a stop onto it legitimately creates the day row, and
+  a count would encode which days the fixture happens to have rather than anything about the agent.'

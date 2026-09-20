@@ -31,12 +31,10 @@ notes: 'Advisory, and a question asking for a position rather than a list: the r
   fails. The judge carries the case, because advice leaves no structural trace (P4); it can score the
   second criterion because every judge call carries a short summary of the fixture, which is where Pena
   Palace and its day come from. The member asks for a recommendation and not a change, so the four mutation
-  zeros assert that nothing is written, and the goal ends by declining, because the free-text instruction
-  has the agent close by offering to pre-schedule and names accepting that offer as a reason to edit the
-  itinerary in the same turn - a persona who said yes would make a correct agent fail the zeros. Tools
-  stay unconstrained: the message carries no slash command, so which sources inform the recommendation
-  is the agent''s call (D29). The goal ends by declining an offer to schedule, and the reason is narrower
-  than it looks: the free-text instruction scopes its closing offer to requests that ask purely for ideas,
-  and says in the same breath that informational questions are answered without a draft - so this request
-  is not supposed to attract the offer at all. The clause is insurance against the agent making it anyway,
-  which costs nothing, rather than a guard against behaviour the prompt requires.'
+  zeros assert that nothing is written. Tools stay unconstrained: the message carries no slash command,
+  so which sources inform the recommendation is the agent''s call (D29). The goal ends by declining an
+  offer to schedule, and the reason is narrower than it looks: the free-text instruction scopes its closing
+  offer to requests that ask purely for ideas, and says in the same breath that informational questions
+  are answered without a draft - so this request is not supposed to attract the offer at all. The clause
+  is insurance against the agent making it anyway, which costs nothing, rather than a guard against behaviour
+  the prompt requires.'

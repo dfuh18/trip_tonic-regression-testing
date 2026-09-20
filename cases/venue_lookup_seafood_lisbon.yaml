@@ -33,7 +33,7 @@ scoring_criteria:
 - Names at least two real seafood restaurants, each with one reason it fits.
 - Distinguishes them from each other, so the reasons are not interchangeable.
 - Reflects the budget cue without lecturing about it.
-- 'Places each one well enough to choose between them: a neighbourhood or a landmark, not an address.'
+- Places each one by a neighbourhood or a landmark, so they can be told apart on a map.
 repetitions_n: 8
 metamorphic_relation: null
 fixture_depends_on: []

@@ -31,6 +31,47 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D35 — a case with stored references is judged against them
+Date: 2026-09-20 · Decided by: author
+Options: D23's rule unchanged (a weather question is judged against the
+forecast the agent retrieved) · the stored references always win · the
+reference material is whatever the case declares, and the retrieved result only
+where it declares none
+Chosen: the third. A case that declares `references` is judged against them;
+the tool result the agent retrieved is the reference only for a case that
+declares none.
+Reason: the author's, on a contradiction the third review found. D23 says a
+weather question is judged against the forecast the agent fetched, and the
+weather seed's notes overrule it in prose — it asks what November is *usually*
+like, which is a climate question, so it carries two stored climate sources
+instead. Nothing in the harness resolved the two, and the judge scores whatever
+the caller hands it. The rule has to live in one place, and "what the case
+declares" is the place, because the case is where someone decided what a good
+answer agrees with. It also fails safe: the dated forecast call returns an
+error, so under D23 unamended the weather case would have been judged against
+an error object.
+Affects: D23 (amended), B09, B10, cases/README.md · Reverses: D23's
+retrieved-forecast rule, for cases that declare references
+
+### D34 — the judge scores the first reply, against the opening turn
+Date: 2026-09-20 · Decided by: author
+Options: score the last reply · score a concatenation of every reply · score
+the first reply against the case's `opening_turn`
+Chosen: the third. B09 and B10 pass `user_request = case.opening_turn` and
+`reply` = the first agent reply of the execution. Structural checks stay
+execution-wide, and that asymmetry is deliberate and stated in
+`cases/README.md`.
+Reason: the author's. Nothing had pinned it, and the personas made it decisive:
+six of eight goals now end with the member declining an offer to schedule, so a
+typical execution's *last* reply is a sign-off like "no problem, enjoy Lisbon",
+which scores near one against every rubric in the suite. The rubrics were
+written for the answer to the opening turn, so that is the reply to score. The
+checks go the other way for their own reason — a draft written on turn two is
+still a draft the member got — and the asymmetry is the honest consequence of
+the judge scoring an answer while the checks score an outcome.
+Affects: src/judge.py, B09, B10, cases/README.md, every scoring_criteria in
+the suite · Reverses: none — it fills a gap rather than changing a rule
+
 ### D33 — a tool error is forbidden or correctable, never just absent
 Date: 2026-09-20 · Decided by: author
 Options: keep `no_tool_errors: true|false` · drop the key where recovery is
@@ -39,6 +80,13 @@ Chosen: the third. `none` forbids any tool error; `corrected` permits one only
 where the agent recovers from that error, so a later call to the tool that
 failed, or to one named in `tools_any_of`, has to succeed; leaving the key out
 constrains nothing. The weather, tram and Belem cases use `corrected`.
+Amended 2026-09-20: `corrected` also covers a **probe the agent abandons** —
+a tool permitted at `min: 0`, named in no other check, whose result nothing
+depends on. Walking away from a source that could not answer is a recovery, and
+for a probe it is the only one available, because a probe is capped at one call
+and cannot be retried. Without this the drafting case was unsatisfiable: it
+permits one forecast call precisely because trying is reasonable, and then had
+no way to forgive the error that call returns.
 Amended the same day: `corrected` first read "a later call to a tool this case
 names". That is too loose wherever a case names more than one source — in the
 weather case a failed climate lookup followed by a successful forecast call

@@ -81,8 +81,10 @@ notes: 'Minimum functionality for drafting. The member writes the date as "the 7
   asserted nowhere, because that is the agent''s judgement and the author''s taste is not a pass criterion.
   get_weather is permitted at up to one call with tool_errors "corrected": /plan keeps the reference tools
   and the standing prompt tells the agent to check conditions during the trip dates, so looking before
-  drafting an outdoor morning is reasonable - and the trip is far outside the forecast''s sixteen-day
-  window, so the call returns an error the agent has to recover from rather than answer from. ai_suggestions.UPDATE
-  is deliberately not asserted, because propose_plan backfills plan_thread_id once the insert returns
-  the id and expires a previous pending draft, both implementation details a refactor may remove without
-  changing anything the member sees.'
+  drafting an outdoor morning is reasonable. The call fails - the forecast endpoint refuses a date outside
+  its sixteen-day window - and the correction available is to abandon it, which is what "corrected" means
+  for a probe (D33): the tool is capped at one call, so there is no retry, and the case asserts that the
+  draft does not lean on what the failed call did not return. An agent that treats the error as an answer
+  fails on the draft''s own checks. ai_suggestions.UPDATE is deliberately not asserted, because propose_plan
+  backfills plan_thread_id once the insert returns the id and expires a previous pending draft, both implementation
+  details a refactor may remove without changing anything the member sees.'

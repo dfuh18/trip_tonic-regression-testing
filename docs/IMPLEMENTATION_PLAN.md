@@ -684,7 +684,13 @@ across `tool_call_trace`.
 `tool_counts` and `mutation_counts` sum across the turns; `places_surfaced` and
 `places_named` take the maximum, so a closing "thanks, that's great" does not
 fail a case whose first turn answered well. `tools_any_of` requires at least
-one named tool to have run **and returned without an error**;
+one named tool to have run, returned **no error and no miss** — the reference
+tools signal a miss with `found: false` and no `error` key, so a lookup that
+matched no article must not count as a source. `tool_errors: corrected` is
+satisfied by a later successful call to the tool that failed or to one in
+`tools_any_of`, **or** by the agent abandoning a probe (a tool permitted at
+`min: 0`, named in no other check, whose result nothing depends on) — see D33
+as amended;
 (2) `expected_tool_sequence` as an ordered subsequence of the tools called,
 and `Case.allowed_tools()` as deny by default (D28) — a call to any tool
 outside that set is `detected`, with the finding naming the tool;
@@ -724,6 +730,12 @@ reference passed is the forecast tool result taken from the execution's trace,
 for Wikipedia cases the stored section (D23). The judge sees the user request and the agent's
 reply only (P3: blind to user reaction). Judge tokens metered into the run's
 cost.
+**Amended 2026-09-20:** the judge scores the **first** agent reply of the
+execution against `case.opening_turn` (D34) — not the last, which after the
+personas gained their decline clauses is usually a sign-off that scores near
+one against every rubric. Reference material is whatever the case declares
+(D35); the tool result the agent retrieved is the reference only for a case
+that declares none.
 Done when: the two functions run against B07's dry-run replies and return
 well-formed results; the prompt files carry a version header that the results
 record.
@@ -742,6 +754,12 @@ baseline reply per case in `cases/baseline.json` (`case_id → execution_id`,
 `suggestion_id`), which is the `baseline_ref` later runs cite. Outputs
 committed. Failures shown, not hidden (§3.5: "one worked example of a failure is
 worth more than three of successes").
+**Amended 2026-09-20:** the judge scores the **first** agent reply of the
+execution against `case.opening_turn` (D34) — not the last, which after the
+personas gained their decline clauses is usually a sign-off that scores near
+one against every rubric. Reference material is whatever the case declares
+(D35); the tool result the agent retrieved is the reference only for a case
+that declares none.
 Done when: `cases/baseline.json` names one execution per case; the notebook runs
 top to bottom from the stored run; the run row records every version field.
 

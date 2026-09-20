@@ -6,11 +6,24 @@ prompts are files under ``src/prompts/`` with a version header — invariant 6:
 an explicit, inspectable, versionable judge, not a managed evaluation service.
 
 D23: the pair-wise comparison is asked in both orderings and passes only when
-both agree, which is the position-bias control; the reference material for a
-weather question is the forecast the agent actually retrieved, for a Wikipedia
-question the stored section. P3: the judge sees the request and the reply and
-nothing about what the member did afterwards. D20 (stated, not hidden): the
-judge is the agent's own model family.
+both agree, which is the position-bias control. D35 settles what the reply is
+compared against: a case that declares ``references`` is judged against them,
+and the tool result the agent retrieved is the reference only for a case that
+declares none — D23 originally sent a weather question to the retrieved
+forecast, which the weather seed overrules in prose because "usually, in
+November" is a climate question and because the dated forecast call returns an
+error.
+
+D34 settles which reply: the **first** agent reply of the execution, against
+``case.opening_turn``. Not the last. The personas decline an offer to
+schedule, so a typical execution ends on a sign-off that would score near one
+against every rubric in the suite, and the rubrics were written for the answer
+to the opening turn. The structural checks run the other way, over the whole
+execution — the judge scores an answer, the checks score an outcome.
+
+P3: the judge sees the request and the reply and nothing about what the member
+did afterwards. D20 (stated, not hidden): the judge is the agent's own model
+family.
 
 Every call also carries a summary of the fixture trip, prepended to the
 reference material. Criteria like "fits this trip" or "refers to the palace

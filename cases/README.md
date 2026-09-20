@@ -177,6 +177,13 @@ agent that drafts an afternoon and calls it a morning passes: the drafting tool
 instructs the reply not to repeat every slot, so a scoring criterion about the
 times the reply names is vacuous exactly when it is needed.
 
+**The judge scores the first reply; the checks score the whole execution.**
+The rubric was written for the answer to the opening turn, and since the
+personas decline an offer to schedule, a typical execution's last reply is a
+sign-off (D34). The checks go the other way on purpose: a draft written on turn
+two is still a draft the member got. That asymmetry is deliberate — the judge
+scores an answer, the checks score an outcome.
+
 **A check is a claim about the whole execution, not about one turn.** A case
 runs up to three turns and its checks are evaluated over all of them: counts in
 `tool_counts` and `mutation_counts` are **sums**, and `places_surfaced` and

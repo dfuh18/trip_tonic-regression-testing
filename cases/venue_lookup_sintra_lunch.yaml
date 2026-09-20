@@ -34,7 +34,7 @@ scoring_criteria:
 - Names at least two places in or near Sintra, not back in Lisbon.
 - Works out which day is meant instead of asking, and answers for the Sintra day.
 - Answers the 'local food' cue with something specific.
-- 'Places each one well enough to choose between them: a neighbourhood or a landmark, not an address.'
+- Places each one by a neighbourhood or a landmark, so they can be told apart on a map.
 repetitions_n: 8
 metamorphic_relation: null
 fixture_depends_on:

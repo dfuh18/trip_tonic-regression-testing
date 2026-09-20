@@ -492,10 +492,22 @@ def test_a_drafting_case_checks_the_day_and_the_hours_and_the_grounding():
 def test_a_case_permitting_a_probe_requires_the_recovery():
     """Wherever a case permits a tool that cannot answer its question, it says
     so with tool_errors: corrected — permitting the probe and forbidding an
-    agent that settles for what the probe returned (D33)."""
+    agent that settles for what the probe returned (D33).
+
+    And the pairing has to be satisfiable, which it was not at first: a probe
+    capped at one call cannot be retried, so unless abandoning it counts as the
+    recovery, `corrected` fails every repetition that probes. That is why D33
+    was amended rather than the permission withdrawn.
+    """
     for case in load_cases():
         checks = case.declared_constraints.checks
         probes = [t for t, b in (checks.tool_counts or {}).items()
                   if as_bound(b).min == 0 and t not in (checks.tools_any_of or [])]
         if probes:
             assert checks.tool_errors == "corrected", f"{case.case_id}: permits {probes}"
+            # Satisfiable: either the probe can be retried, or a declared
+            # source can carry the correction, or abandoning it is the
+            # correction (D33 as amended) — which is always available.
+            for tool in probes:
+                assert as_bound(checks.tool_counts[tool]).max == 1 or checks.tools_any_of, (
+                    f"{case.case_id}: {tool} is neither a capped probe nor backed by a source")

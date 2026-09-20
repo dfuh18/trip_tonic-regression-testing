@@ -185,24 +185,34 @@ class Checks(BaseModel):
     #: Calls per tool, exact or bounded. Under D28 a zero is never needed: a
     #: tool the case does not name is already forbidden.
     tool_counts: Optional[dict[str, BoundLike]] = None
-    #: At least one of these ran **and returned without an error** — the
-    #: claim is "answered from a source", and a source that failed answered
-    #: nothing. Requiring only that the call happened let a failed climate
-    #: lookup followed by a successful forecast satisfy the weather case,
-    #: which is the one thing that case exists to forbid.
+    #: At least one of these ran **and came back with something** — no error,
+    #: and not a miss. The claim is "answered from a source", and a source
+    #: that failed or found nothing answered nothing. Two ways that was too
+    #: weak before: requiring only that the call happened let a failed climate
+    #: lookup followed by a successful forecast satisfy the weather case; and
+    #: the reference tools signal a miss with ``found: false`` and no
+    #: ``error`` key, so a lookup that matched no article counted as a source
+    #: until the checker was told otherwise.
     tools_any_of: Optional[list[str]] = None
     #: How tool errors (D11's tool-level failure) are treated (D33).
     #:
     #: ``"none"``      no tool returned or threw an error.
     #: ``"corrected"`` an error is permitted only where the agent recovers
-    #:                 from **that** error: a later call to the tool that
-    #:                 failed, or to one named in ``tools_any_of``, has to
-    #:                 succeed. An error it does not correct fails, so this is
-    #:                 a weaker constraint than ``"none"`` and a much stronger
-    #:                 one than leaving the key out. The narrowing matters: at
-    #:                 "any tool this case names" a failed climate lookup was
-    #:                 corrected by a successful forecast call, which answers
-    #:                 a different question.
+    #:                 from **that** error, in one of two ways. Either a later
+    #:                 call to the tool that failed, or to one named in
+    #:                 ``tools_any_of``, succeeds — or the failure was a
+    #:                 **probe** and the agent abandoned it: a tool this case
+    #:                 permits at ``min: 0``, names in no other check, and
+    #:                 whose result nothing depends on. Walking away from a
+    #:                 source that could not answer is a recovery, and it is
+    #:                 often the only one available, because a probe is capped
+    #:                 at one call and so cannot be retried. An error that is
+    #:                 neither retried nor abandoned fails.
+    #:
+    #:                 The narrowing to "that error" matters: at "any tool this
+    #:                 case names" a failed climate lookup was corrected by a
+    #:                 successful forecast call, which answers a different
+    #:                 question.
     #: absent          tool errors are not constrained at all.
     #:
     #: ``"corrected"`` is what a case writes when the application legitimately

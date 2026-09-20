@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -122,6 +123,17 @@ def observed_members(trip_id: str) -> set[str]:
     return {r["display_name"] for r in rows if r.get("display_name")}
 
 
+def _day(iso: str) -> str:
+    """A date the way a member says it, and the way a reply will.
+
+    The summary is the judge's only view of the trip, and three criteria ask
+    it to check a reply that says "Saturday" or "the Sunday" against a fixture
+    that stored 2026-11-07. Making the judge do that arithmetic is a way to
+    lose a point to a conversion it got wrong, so the summary does it.
+    """
+    return f"{date.fromisoformat(iso).strftime('%A')} {iso}"
+
+
 def summary(fixture: dict[str, Any]) -> str:
     """The trip in a few lines, for the judge's reference material.
 
@@ -133,7 +145,7 @@ def summary(fixture: dict[str, Any]) -> str:
     trip = fixture["trip"]
     scheduled = {s["block"]: s for s in fixture["slots"]}
     lines = [
-        f"The trip runs {trip['start_date']} to {trip['end_date']}.",
+        f"The trip runs {_day(trip['start_date'])} to {_day(trip['end_date'])}.",
         "Regions: " + ", ".join(r["name"] for r in fixture["regions"]) + ".",
     ]
     travellers = [m["display_name"] for m in fixture.get("members", [])]
@@ -146,13 +158,15 @@ def summary(fixture: dict[str, Any]) -> str:
     for block in fixture["blocks"]:
         slot = scheduled.get(block["title"])
         when = (
-            f"scheduled {slot['day_date']} {slot['start_time']}-{slot['end_time']}"
+            f"scheduled {_day(slot['day_date'])} {slot['start_time']}-{slot['end_time']}"
             if slot
             else "not scheduled"
         )
         lines.append(f"  - {block['title']} ({block['type']}) - {when}")
     days = sorted({s["day_date"] for s in fixture["slots"]})
-    lines.append("Days with anything scheduled: " + (", ".join(days) or "none") + ".")
+    lines.append(
+        "Days with anything scheduled: " + (", ".join(_day(d) for d in days) or "none") + "."
+    )
     return "\n".join(lines)
 
 

@@ -119,8 +119,19 @@ def test_summary_states_what_the_judge_has_to_know():
         assert block["title"] in text
     # Pena Palace is scheduled; the hotel is not. Both readings must be there,
     # because one advisory case scores a reply for naming the scheduled one.
-    assert "Pena Palace (sightseeing) - scheduled 2026-11-08" in text
+    assert "Pena Palace (sightseeing) - scheduled Sunday 2026-11-08" in text
     assert "Hotel near Baixa (hotel) - not scheduled" in text
+
+
+def test_summary_names_the_weekday_the_reply_will_use():
+    """Three criteria score a reply that says "Saturday" or "the Sunday"
+    against a fixture that stored an ISO date. Making the judge convert is a
+    way to lose a point to arithmetic it got wrong, so the summary converts."""
+    from src.fixture import summary
+
+    text = summary(load_fixture())
+    assert "Friday 2026-11-06" in text and "Sunday 2026-11-08" in text
+    assert "Monday 2026-11-09" in text  # the trip's last day, which no slot uses
 
 
 def test_summary_is_the_before_state_not_a_database_read():
