@@ -31,6 +31,35 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D36 — the weather tool's dated calls are fixed before the baseline
+Date: 2026-09-20 · Decided by: author
+Options: fix before the baseline · leave it for the whole study and document
+the defect · fix and add a ninth seed covering the dated forecast path · record
+it as an open question and decide later
+Chosen: the first. `getWeatherForecast` no longer sends `forecast_days`
+alongside an explicit range; dates win when the caller gives them and the
+sixteen-day window is the default otherwise.
+Reason: the author's, on evidence from the third case review. Open-Meteo treats
+the two as mutually exclusive and answers 400 when both are sent, and the tool
+set the window unconditionally before adding the dates — so every dated call
+failed, including one for tomorrow, and including the use the standing prompt
+names by name ("use get_weather for upcoming conditions during the trip
+dates"). Verified against the live API before and after: a range inside the
+horizon now returns days where it previously returned 400, an undated call is
+unchanged at sixteen days, and a date beyond the horizon still fails, which is
+Open-Meteo's own limit and not this bug.
+**This is a rule-4 change to application behaviour, and the timing is the
+decision.** It had to happen before the baseline or not at all: fixed between
+the baseline and the regression run it would appear in the data as an agent
+behaviour change with nothing to attribute it to. The baseline and the
+participant round now both measure the fixed system. `git_sha` on every
+`study_runs` row is what ties a run to the code that produced it.
+No seed case changes: the fixture trip is in November, which is beyond the
+forecast horizon either way, so the permitted probe in the two scheduling seeds
+still errors and D33's abandoned-probe rule still carries it.
+Affects: apps/api/src/routes/ai/lib/weather.ts (+ weather.test.ts, four
+regression tests on the query string) · Reverses: none
+
 ### D35 — a case with stored references is judged against them
 Date: 2026-09-20 · Decided by: author
 Options: D23's rule unchanged (a weather question is judged against the
