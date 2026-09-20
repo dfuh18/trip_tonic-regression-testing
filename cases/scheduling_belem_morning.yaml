@@ -22,12 +22,11 @@ declared_constraints:
       propose_plan:
         min: 1
         max: 2
-    no_tool_errors: true
     slot_days:
     - '2026-11-07'
     slot_count:
       min: 2
-      max: 3
+      max: 4
     mutation_counts:
       trip_blocks.INSERT: 0
       itinerary_slots.INSERT: 0
@@ -35,11 +34,14 @@ declared_constraints:
       ai_suggestions.INSERT:
         min: 1
         max: 2
+    tool_errors: none
+    draft_reuses_blocks:
+    - Jerónimos Monastery
   predicates: []
 scoring_criteria:
 - Summarises the morning in a few sentences and makes clear it is Belem, on the 7th, without reciting
   every stop back.
-- Every stop it proposes falls in the morning; nothing starts after lunchtime.
+- 'Presents it as a morning: any time it names falls before lunch.'
 - Treats the monastery as a stop the trip already has rather than as a new find.
 - Says the group can accept or discard the stops, not that they are already scheduled.
 repetitions_n: 8
@@ -53,9 +55,20 @@ notes: 'Minimum functionality for drafting. The member writes the date as "the 7
   rather than recalled ones (P5). The mutation counts say that a draft is a proposal: nothing reaches
   the live itinerary until a member accepts. propose_plan and ai_suggestions.INSERT permit two rather
   than one, because a member who asks for a morning may accept a revision within the turn cap and every
-  propose_plan call inserts a new row, so a revised plan is one more insert rather than a second plan.
-  ai_suggestions.UPDATE is deliberately not asserted, because propose_plan backfills plan_thread_id in
-  a second write once the insert returns the id, and that is an implementation detail a refactor may remove
-  without changing anything the member sees. That every stop falls in the morning is scored rather than
-  checked: there is no check key for a draft slot''s time of day, and adding one for a single case would
-  be a vocabulary nothing else uses.'
+  propose_plan call inserts a new row, so a revised plan is one more insert rather than a second plan;
+  the draft assertions read the latest one, which is the draft the application itself records and the
+  plan the member is left with. slot_count allows four because "two or three stops, we already have the
+  monastery saved" reads both as two or three including it and as two or three besides it, and the third
+  criterion actively encourages reusing it - a bound that forbade the second reading would fail an agent
+  doing what the rubric asks. draft_reuses_blocks names the monastery, and that is not a breach of the
+  rule against naming venues but its exception (D32): the member said "we already have the monastery saved",
+  so that stop is hers to name, and a draft that ignores it and finds its own Belem monument has answered
+  a different request. Which OTHER stops fill the morning is asserted nowhere, because that is the agent''s
+  judgement and the author''s taste is not a pass criterion. ai_suggestions.UPDATE is deliberately not
+  asserted, because propose_plan backfills plan_thread_id once the insert returns the id and expires a
+  previous pending draft, both implementation details a refactor may remove without changing anything
+  the member sees. KNOWN GAP: nothing checks the draft''s own times. There is no check key for a draft
+  slot''s time of day, the judge never sees the draft, and the reply is instructed to be a short summary
+  - so an agent that drafts an afternoon and calls it a morning is caught only if it names a time in the
+  reply, which is what the second criterion scores. A draft-time check is the single most valuable thing
+  to add to the vocabulary next.'

@@ -20,7 +20,7 @@ expected_tool_sequence: [search_places]       # the ordering constraint itself, 
 declared_constraints:
   checks:                                     # everything about THIS execution
     tool_counts: { search_places: { min: 1, max: 3 } }
-    no_tool_errors: true
+    tool_errors: none                         # none | corrected
     places_surfaced: { min: 1 }
     mutation_counts: { "trip_blocks.INSERT": 0 }
   predicates: []                              # only comparisons with ANOTHER execution
@@ -136,9 +136,47 @@ Both read the same recorded execution.
   `same_tool_sequence_as_base`.
 
 The check keys the checker (B08) knows: `tool_counts`, `tools_any_of`,
-`no_tool_errors`, `places_surfaced`, `slot_days`, `slot_count`, `slot_moved`
+`tool_errors` (`none` | `corrected`), `places_surfaced`, `places_named`,
+`slot_days`, `slot_count`, `draft_reuses_blocks`, `slot_moved`
 (`{block, day, starts_between?, duration_minutes?, clear_of_other_slots?}`),
 `mutation_counts` (`table.OP`). A count is an integer or `{min, max}`.
+
+**A case asserts the kind of place, never which one** (D32). "Somewhere for
+lunch near Pena Palace" is a type and a region; the venue the agent picks is
+its judgement, and a case that named one would make the suite's taste the pass
+criterion — and would break the first time that restaurant closed. So a search
+is checked with `places_surfaced` and `places_named`, never with a venue list.
+
+**The exception is about who named the place.** A place the *member* named is
+hers, and the case asserts it exactly: `slot_moved.block` for the stop she
+pointed at, `draft_reuses_blocks` for one she told the agent it already has.
+"We already have the monastery saved" is an instruction, and a draft that
+ignores the saved stop and finds its own monument has answered a different
+request — so the case names it, while saying nothing about which *other* stops
+fill the morning. These two keys are the only ones that name a place, the
+loader checks both against `fixture.json`, and a case that names a venue the
+member did not has crossed back over the line.
+
+**`places_surfaced` and `places_named` are different claims.** The first counts
+what `search_places` returned, the second what the reply referenced
+(`resulting_state_shape.reply.place_refs`). A search whose results the agent
+never mentions satisfies the first and not the second, which is why a
+venue-lookup case states both: one says it looked, the other says it answered.
+
+**The draft keys read the latest draft**, which is the one the application
+records in `resulting_state_shape.draft` and the plan the member is left with.
+A case that permits a revision therefore still has a defined target.
+
+**`tool_errors` has three settings, and the middle one is the interesting
+one** (D33). `none` forbids any tool error. `corrected` permits one only where
+the agent recovers inside the turn — a later call to a tool the case names has
+to succeed — so an error it notices and fixes passes and an error it lives with
+does not. Leaving the key out constrains nothing. Write `corrected` where the
+application legitimately refuses a reasonable first attempt, or where a tool
+the agent may sensibly reach for cannot answer the question it was reached for:
+the weather case permits the forecast probe and requires the climate tool
+afterwards, because noticing you asked the wrong function and asking the right
+one is good behaviour, not a failure.
 
 **A time is asserted as a window, never as a clock reading** (D31). A member
 says "around 4" or "Saturday afternoon", and both are ranges — an agent writing
@@ -165,8 +203,8 @@ fixture changed underneath it.
 
 **A case asserts the outcome, not the route to it.** Where the application
 refuses a reasonable first attempt and the agent can recover within the turn,
-the bound is widened and `no_tool_errors` left off, rather than failing an
-agent that recovered correctly. The retry is not invisible: the analysis
+the bound is widened and `tool_errors` set to `corrected` rather than `none`,
+so the recovery passes and an uncorrected error still fails. The retry is not invisible: the analysis
 reports tool errors and retries per case, so first-try success stays a readable
 number without being a pass criterion.
 

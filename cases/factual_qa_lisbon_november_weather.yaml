@@ -4,7 +4,8 @@ provenance: seeded
 run_priority: 1
 function: factual_qa
 user_profile: Marta, 34, practical, packing this week.
-goal: Know what the weather is usually like in Lisbon in early November.
+goal: Know what the weather is usually like in Lisbon in early November. She wants the figures and nothing
+  else; if Tonic offers to change anything on the trip she says no thanks.
 opening_turn: '@Tonic what''s the weather usually like in Lisbon in November?'
 intent: null
 expected_tool_sequence: []
@@ -17,12 +18,12 @@ declared_constraints:
     tools_any_of:
     - get_region_climate
     - get_climate_normals
-    no_tool_errors: true
     mutation_counts:
       trip_blocks.INSERT: 0
       itinerary_slots.INSERT: 0
       itinerary_slots.UPDATE: 0
       ai_suggestions.INSERT: 0
+    tool_errors: corrected
   predicates: []
 scoring_criteria:
 - 'Gives typical November figures for Lisbon that agree with a reference: a daily high near 18 C and a
@@ -43,12 +44,17 @@ fixture_depends_on: []
 notes: 'Minimum functionality for factual question answering where more than one source is legitimate.
   get_region_climate and get_climate_normals both answer a typical-November question honestly, so tools_any_of
   carries the constraint and expected_tool_sequence is empty: the case requires a source, not a particular
-  one. Both are stored as references, and the criteria are worded to be true of either - the two disagree
-  by a few tenths of a degree, and a reply should not be marked down for having used the other one. get_weather
-  is permitted but does not satisfy the case: it is a sixteen-day forecast and cannot reach the trip''s
-  month, so an agent that answered from it would be answering about the wrong weeks - but one that tries
-  it, finds it does not reach November and falls back has done nothing wrong, and forbidding the probe
-  outright would fail it. That is what the zero-minimum count in tool_counts says, and why tools_any_of
-  does not name it. Judged against stored climate data rather than a retrieved forecast, because D23 sends
-  a day-by-day weather question to the forecast the agent fetched, and "usually, in November" is a climate
-  question. The message carries no slash command, so the mutation zeros are a real constraint.'
+  one. Both are stored as references and the criteria are worded to hold for either, because the two do
+  not agree exactly - they differ by a few tenths of a degree on the November temperatures, and they differ
+  about rank as well, the Wikipedia table making November the wettest month while the three-year normals
+  put it second to January by daily precipitation. That is why the second criterion says "among the wettest"
+  rather than "the wettest", which either source would have to contradict. get_weather is permitted at
+  up to one call and cannot satisfy the case: it is a sixteen-day forecast and cannot reach the trip''s
+  month, so an agent that answered from it would be answering about the wrong weeks. Trying it is not
+  the failure - the failure is staying there. tool_errors is "corrected" rather than "none" for exactly
+  this path (D33): asking the forecast endpoint for a date seven weeks out returns an error, and an agent
+  that reads that, recognises it used the wrong function for the question and calls a climate tool instead
+  has done the right thing twice. An error it does not correct still fails, so the case permits the recovery
+  without permitting the mistake. Judged against stored climate data rather than a retrieved forecast,
+  because D23 sends a day-by-day weather question to the forecast the agent fetched, and "usually, in
+  November" is a climate question.'

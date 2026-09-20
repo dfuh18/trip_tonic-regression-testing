@@ -29,8 +29,11 @@ declared_constraints:
     mutation_counts:
       trip_blocks.INSERT: 0
       itinerary_slots.INSERT: 0
-      itinerary_slots.UPDATE: 1
+      itinerary_slots.UPDATE:
+        min: 1
+        max: 2
       ai_suggestions.INSERT: 0
+    tool_errors: corrected
   predicates: []
 scoring_criteria:
 - 'States exactly what changed: the stop, the new day and the new time.'
@@ -46,18 +49,24 @@ notes: 'Minimum functionality for a live edit. The member says "Saturday" and "a
   people name a time, so resolving those against the trip is part of what is tested and slot_moved asserts
   the resolved values rather than the words. It asserts them as a range, because "around 4" is one: 15:30
   to 16:30 is what the phrase licenses, and an agent writing 16:15 has understood the request (D31). The
-  day carries no tolerance - the trip has one Saturday and an agent on another day is wrong. Length is
-  asserted separately at 45 to 90 minutes, which brackets the 60 the fixture gives this slot: move_slot
+  day carries no tolerance - the trip has one Saturday and an agent on another day is wrong. The stop
+  is named exactly, which is the one place a case does name a particular place (D32): the member pointed
+  at it, so any other stop landing in that window is a different answer to a different question. Length
+  is asserted separately at 45 to 90 minutes, which brackets the 60 the fixture gives this slot: move_slot
   takes the end time as an optional argument and nothing derives it from the stop''s duration, so an agent
   that sets the start and leaves the stored end alone turns an hour into a stop running to the end of
   the day, and no assertion about the start would notice. clear_of_other_slots is true although the 7th
   is empty in the fixture, so that the case keeps meaning what it says if a stop is ever added to that
-  day. The case measures the itinerary ending up right rather than getting there in one call - move_slot
-  may run twice and no_tool_errors is deliberately absent, because moving a slot later without also moving
-  its end is refused by the API (the stored end would precede the new start) and an agent that retries
-  with both is behaving correctly (D30). How often that retry happens is reported in the analysis from
-  the trace, so first-try success stays visible without being a pass criterion. move_slot is the only
-  tool named, so every other tool is forbidden by being absent (D28). itinerary_days.INSERT is deliberately
-  not asserted: the 7th is an empty day in the fixture, so moving a stop onto it legitimately creates
-  the day row, and a count would encode which days the fixture happens to have rather than anything about
-  the agent.'
+  day. tool_errors is "corrected" rather than "none": moving a slot later without also moving its end
+  is refused by the API before anything is written (the stored end would precede the new start), and an
+  agent that retries with both is behaving correctly (D30, D33). move_slot may therefore run twice, and
+  itinerary_slots.UPDATE allows two for a second reason - moving the day first and the time second is
+  two legal successful calls and two real writes, which a count of one would fail. How often either happens
+  is reported in the analysis from the trace, so first-try success stays visible without being a pass
+  criterion. move_slot is the only tool named, so every other tool is forbidden by being absent (D28)
+  - and that is a deliberate assertion about the route, not only the outcome: /reschedule also permits
+  unschedule_block then schedule_block, which reaches the same end state, and the case rejects it because
+  the agent''s own instruction is to prefer moving over unscheduling and because that path would write
+  an INSERT the zeros forbid. itinerary_days.INSERT is deliberately not asserted: the 7th is an empty
+  day in the fixture, so moving a stop onto it legitimately creates the day row, and a count would encode
+  which days the fixture happens to have rather than anything about the agent.'

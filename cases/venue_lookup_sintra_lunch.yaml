@@ -5,9 +5,9 @@ run_priority: 1
 function: venue_lookup
 user_profile: Tom, 41, travelling with his partner. Likes a proper sit-down lunch, says which day he means
   the way people do — by what is on it.
-goal: See one to three lunch places near Pena Palace for the Sintra day that are not tourist traps. He
-  wants somewhere to consider and is satisfied once he has the names; he is not asking for anything to
-  be added to the trip.
+goal: 'See lunch places near Pena Palace for the Sintra day that are not tourist traps. He wants somewhere
+  to consider and is satisfied once he has the names. If Tonic offers to add any of them to the trip or
+  asks which day they fit, he says no thanks and stops there: he only wants the names.'
 opening_turn: /find where should we eat lunch on the Sintra day? somewhere near the palace, proper local
   food
 intent: find
@@ -19,7 +19,6 @@ declared_constraints:
       search_places:
         min: 1
         max: 3
-    no_tool_errors: true
     places_surfaced:
       min: 1
     mutation_counts:
@@ -27,12 +26,15 @@ declared_constraints:
       itinerary_slots.INSERT: 0
       itinerary_slots.UPDATE: 0
       ai_suggestions.INSERT: 0
+    tool_errors: none
+    places_named:
+      min: 2
   predicates: []
 scoring_criteria:
-- Names one to three places in or near Sintra, not back in Lisbon.
+- Names at least two places in or near Sintra, not back in Lisbon.
 - Works out which day is meant instead of asking, and answers for the Sintra day.
 - Answers the 'local food' cue with something specific.
-- 'Gives enough per place to choose between them: what it is, why it fits, roughly where.'
+- 'Places each one well enough to choose between them: a neighbourhood or a landmark, not an address.'
 repetitions_n: 8
 metamorphic_relation: null
 fixture_depends_on:
@@ -44,5 +46,10 @@ notes: 'Minimum functionality for venue lookup where the member leaves the day i
   by the judge and not checked: the agent''s wrong-region guard is a continent-scale sanity check measured
   to the nearest trip anchor, so a Lisbon restaurant sits comfortably inside it and the guard would catch
   nothing here. search_places is bounded at one to three calls, because the agent may search once per
-  constraint the member gave, or re-query after a thin result set. Nothing is written, and the goal stops
-  at the list deliberately: a case''s tool constraints bind the mode the first turn opens in.'
+  constraint the member gave, or re-query after a thin result set; places_named then requires the reply
+  to have used what came back, which places_surfaced alone does not. Nothing is written, and the goal
+  ends by declining the offer to schedule, because the agent''s find-mode instruction requires it to make
+  that offer and a persona who accepted would make a correct agent write a draft on the next turn and
+  fail the mutation zeros. The criteria say "at least two" rather than a range because the agent is separately
+  instructed to offer three to five options. Which places it finds is not asserted (D32): the case requires
+  lunch in the right region, not a venue the author picked.'

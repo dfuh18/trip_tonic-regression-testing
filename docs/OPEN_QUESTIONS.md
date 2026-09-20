@@ -30,6 +30,65 @@ wait; one blocking a Phase A task cannot.
 
 ## Open
 
+### Q21 — The check vocabulary was invented rather than derived from the event model
+Raised: 2026-09-20 by agent · Blocks: B08, and the value of every case already
+written · Phase: B
+
+`declared_constraints.checks` was specified in B03 from the D19/D27 discussion
+of what a constraint is, and never cross-checked against
+`docs/event-model.md` and the Phase A tables that actually record a turn. The
+consequence is not a wrong vocabulary but a thin one: the application already
+writes several signals a case cannot currently assert, and two of them
+(`draft.slot_types`, `reply.place_refs`) were found by accident while fixing
+something else and became `draft_slot_types` and `places_named` the same day.
+Others are still unused. A case cannot say any of the following, though the
+data is already in the row:
+
+- **`resulting_state_shape.edits`** (`{move, unschedule, schedule}` counts) —
+  a direct statement of what a rescheduling turn did, which the tram case
+  currently approximates through `mutation_counts` on `itinerary_slots`.
+- **`resulting_state_shape.trip_after`** (`{blocks, slots}` after the turn) — a
+  read-only case could assert the trip is unchanged as a post-state rather than
+  as four mutation zeros, which is the same claim stated positively and does
+  not depend on the mutation trigger firing.
+- **`study_mutations.changed_keys`** — which columns a write touched. "The move
+  changed the day and the times and nothing else" is currently unsayable.
+- **`study_suggestions.error_code`** (`timeout | llm_call_limit | empty_reply |
+  llm_error | persist_failed`) — a case cannot require that the turn completed
+  cleanly. `empty_reply` in particular returns HTTP 200, so the simulator does
+  not stop and no check notices.
+- **`agent_intent` and `request_type`** — the app's own classification of the
+  turn. A case declares `intent` and `function`; comparing the two is free and
+  would catch a regression in the classifier that no case can currently see.
+- **`llm_calls`, `tool_calls`, `latency_ms`, `tokens_*`** — a turn that starts
+  needing eight LLM round trips has regressed in a way the pass rate hides.
+- **`reply.chars`** — "brief, a short paragraph" is judge-scored in the Alfama
+  case and is partly a number.
+- **`resulting_state_shape.draft.slot_types`** — slots per block type in the
+  latest draft. Defined as a check key on 2026-09-20 and withdrawn the same day
+  once `draft_reuses_blocks` carried what the Belem case actually needed: no
+  seed asserts a type composition, and by this question's own recommendation a
+  key without a case is a key nobody validates. It is the obvious first
+  addition if a later case wants "this day has somewhere to eat".
+
+Options: **(a)** adopt none, and record the thinness as a limitation in §3.7 ·
+**(b)** adopt only the keys a currently-written case would use — `edits`,
+`trip_after`, `error_code` · **(c)** adopt the full list above, and revise the
+eight seeds to use them · **(d)** adopt (b) now and hold the rest behind a rule
+that a key is added when a case needs it.
+Trade-off: every key is cheap to define and not free to keep — B08 has to
+evaluate it, a case that uses it has to justify it (criterion 4), and a
+vocabulary larger than the suite is a vocabulary nobody validates. Against
+that, a signal the application already records and the suite cannot assert is
+the cheapest possible detection being left on the floor, which is exactly what
+§2.6.1 claims structural verification is good at.
+Recommendation: (d). Adopt `edits`, `trip_after` and `error_code` now, because
+a seed would use each one today; leave the rest listed here and add one when a
+case needs it, so the vocabulary stays something every key of which is
+exercised. Either way B03 and B08 gain the derivation rule, so the next key is
+found by reading the event model rather than by accident.
+Status: open
+
 ### Q02 — §4.3 is scaffolding, not yet an analysis specification
 Raised: 2026-09-17 by agent · Updated: 2026-09-17 · Blocks: Phase C · Phase: C
 

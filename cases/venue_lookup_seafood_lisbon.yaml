@@ -5,9 +5,9 @@ run_priority: 1
 function: venue_lookup
 user_profile: Marta, 34, in Lisbon for a long weekend with two friends. Eats fish, budget-conscious, types
   short messages and does not explain herself.
-goal: See two or three well-rated seafood restaurants near Cais do Sodre that three people can afford.
-  She wants names to look at and is satisfied once she has them; she is not asking for anything to be
-  added to the trip.
+goal: 'See well-rated seafood restaurants near Cais do Sodre that three people can afford. She wants names
+  to look at and is satisfied once she has them. If Tonic offers to add any of them to the trip or asks
+  which day they fit, she says no thanks and stops there: she only wants the names.'
 opening_turn: /find good seafood places near Cais do Sodré, nothing too pricey
 intent: find
 expected_tool_sequence:
@@ -18,7 +18,6 @@ declared_constraints:
       search_places:
         min: 1
         max: 3
-    no_tool_errors: true
     places_surfaced:
       min: 1
     mutation_counts:
@@ -26,20 +25,30 @@ declared_constraints:
       itinerary_slots.INSERT: 0
       itinerary_slots.UPDATE: 0
       ai_suggestions.INSERT: 0
+    tool_errors: none
+    places_named:
+      min: 2
   predicates: []
 scoring_criteria:
-- Names two or three seafood restaurants, each with one reason it fits.
+- Names at least two real seafood restaurants, each with one reason it fits.
 - Stays in or beside Cais do Sodre; does not wander to another part of town or another city.
 - Reflects the budget cue without lecturing about it.
-- 'Gives enough per place to choose between them: what it is, why it fits, roughly where.'
+- 'Places each one well enough to choose between them: a neighbourhood or a landmark, not an address.'
 repetitions_n: 8
 metamorphic_relation: null
 fixture_depends_on: []
 notes: 'Minimum functionality for venue lookup: a grounded search that changes nothing. search_places
   is bounded at one to three calls, because the member gives two constraints and the agent may search
   once per constraint, or re-query after a thin result set; the wrong-region guard''s own refetch happens
-  inside a single call and never adds one. The four mutation zeros assert that /find is read-only in fact
-  and not only in policy, which is a second signal taken from the database rather than from the trace.
-  The goal stops at the list deliberately: a case''s tool constraints bind the mode the first turn opens
-  in, and a goal ending in something schedulable would invite a second turn where the agent legitimately
-  holds every tool and the counts would fail an agent doing as it was asked.'
+  inside a single call and never adds one. places_surfaced says the search returned something and places_named
+  says the reply used it - the first is satisfied by a search the agent never mentions, which is the hole
+  the second closes. The four mutation zeros assert that /find is read-only in fact and not only in policy,
+  which is a second signal taken from the database rather than from the trace. The goal ends by declining,
+  and that is load-bearing rather than colour: the agent''s find-mode instruction requires it to close
+  by offering to pre-schedule, the simulator answers in character for up to three turns, and a turn carrying
+  no slash command restores the whole toolset - so a persona who says yes would make a correct agent write
+  a draft and fail the zeros. The criteria say "at least two" rather than a range because the agent is
+  separately instructed to offer three to five options, and a case that punishes that is testing its own
+  preference rather than the system. Which restaurants it finds is not asserted anywhere (D32): the case
+  requires seafood places near a named neighbourhood, and naming the venues would make the suite''s taste
+  the pass criterion.'

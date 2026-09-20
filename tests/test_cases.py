@@ -19,7 +19,7 @@ VALID = {
     "intent": "find",
     "expected_tool_sequence": ["search_places"],
     "declared_constraints": {
-        "checks": {"tool_counts": {"search_places": {"min": 1, "max": 2}}, "no_tool_errors": True},
+        "checks": {"tool_counts": {"search_places": {"min": 1, "max": 2}}, "tool_errors": "none"},
         "predicates": [],
     },
     "scoring_criteria": ["Names real places.", "Stays in the area."],
@@ -155,7 +155,7 @@ def test_a_window_read_backwards_is_refused(tmp_path):
     and a constraint nothing can satisfy fails every correct agent silently."""
     with pytest.raises(CaseFileError) as exc:
         load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "declared_constraints": {
-            "checks": {"slot_moved": {"block": "x", "day": "2026-11-07",
+            "checks": {"slot_moved": {"block": "Tram 28 ride through Alfama", "day": "2026-11-07",
                                       "starts_between": ["16:30", "15:30"]}},
             "predicates": []}}))
     assert "earliest first" in str(exc.value)
@@ -164,7 +164,7 @@ def test_a_window_read_backwards_is_refused(tmp_path):
 def test_a_window_takes_clock_times(tmp_path):
     with pytest.raises(CaseFileError) as exc:
         load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "declared_constraints": {
-            "checks": {"slot_moved": {"block": "x", "day": "2026-11-07",
+            "checks": {"slot_moved": {"block": "Tram 28 ride through Alfama", "day": "2026-11-07",
                                       "starts_between": ["4pm", "5pm"]}},
             "predicates": []}}))
     assert "HH:MM" in str(exc.value)
@@ -175,7 +175,7 @@ def test_an_exact_time_is_written_as_a_window_of_one_minute(tmp_path):
     minute says so twice, so the tolerance it intends is never implied by the
     absence of one."""
     case = load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "declared_constraints": {
-        "checks": {"slot_moved": {"block": "x", "day": "2026-11-07",
+        "checks": {"slot_moved": {"block": "Tram 28 ride through Alfama", "day": "2026-11-07",
                                   "starts_between": ["09:00", "09:00"]}},
         "predicates": []}}))
     assert case.declared_constraints.checks.slot_moved.starts_between == ("09:00", "09:00")
@@ -375,3 +375,83 @@ def test_a_tool_bounded_at_zero_is_forbidden_rather_than_permitted():
 
     assert "get_weather" in built({"min": 0, "max": 1}).allowed_tools()
     assert "get_weather" not in built({"min": 0, "max": 0}).allowed_tools()
+
+
+def test_tool_errors_takes_only_the_two_policies(tmp_path):
+    """D33: none forbids, corrected permits a recovery, absent constrains
+    nothing. A boolean could say only the first."""
+    for value in ("none", "corrected"):
+        case = load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "declared_constraints": {
+            "checks": {"tool_errors": value}, "predicates": []}}))
+        assert case.declared_constraints.checks.tool_errors == value
+    with pytest.raises(CaseFileError):
+        load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "declared_constraints": {
+            "checks": {"tool_errors": True}, "predicates": []}}))
+
+
+def test_the_weather_case_permits_the_probe_and_requires_the_correction():
+    """The case permits get_weather at up to one call because reaching for the
+    wrong source is reasonable; it would contradict itself if it then forbade
+    the error that probe returns. `corrected` is what reconciles them: the
+    error passes only because a climate tool succeeds afterwards."""
+    case = {c.case_id: c for c in load_cases()}["factual_qa_lisbon_november_weather"]
+    checks = case.declared_constraints.checks
+    assert "get_weather" in case.allowed_tools()
+    assert checks.tool_errors == "corrected"
+    assert set(checks.tools_any_of) == {"get_region_climate", "get_climate_normals"}
+
+
+def test_the_only_places_a_case_names_are_ones_the_member_named():
+    """D32: which venue the agent finds is its judgement, so no case names one
+    — a case that did would make the author's taste the pass criterion and
+    would fail the day that restaurant closed. The exception is a place the
+    MEMBER named, and the two keys that carry it resolve against the fixture.
+
+    Only the fixture half is testable. Whether the member named the place is a
+    reading, not a string match: she says "the tram ride" and the stop is
+    titled "Tram 28 ride through Alfama", which is the whole point of writing
+    turns the way people type them. Criterion 9 asks a reviewer for it."""
+    from src.cases import fixture
+
+    titles = {b["title"] for b in fixture()["blocks"]}
+    for case in load_cases():
+        for title in case.named_fixture_stops():
+            assert title in titles, f"{case.case_id}: {title!r} is not a fixture stop"
+
+
+def test_the_belem_draft_has_to_be_built_on_the_stop_she_says_is_saved():
+    """"We already have the monastery saved" is an instruction, not a hint. A
+    draft that ignores it and finds its own Belem monument has answered a
+    different request, and a type count would not notice."""
+    case = {c.case_id: c for c in load_cases()}["scheduling_belem_morning"]
+    assert case.declared_constraints.checks.draft_reuses_blocks == ["Jerónimos Monastery"]
+
+
+def test_a_read_only_case_says_what_the_member_does_when_offered_a_schedule():
+    """The find-mode and free-text instructions both require Tonic to close by
+    offering to pre-schedule, and the free-text one names accepting that offer
+    as a reason to draft in the same turn. The simulator answers in character
+    for up to three turns, and a turn with no slash command restores the whole
+    toolset — so a case asserting that no draft is written needs a persona with
+    an answer to the offer, or a correct agent fails it.
+
+    Scoped to those two modes deliberately: the plan instruction makes no such
+    offer, and the reschedule one forbids asking anything at all, so requiring
+    a decline of the tram case would be a ritual rather than a reason.
+    """
+    exposed = {"find", None}
+    for case in load_cases():
+        counts = case.declared_constraints.checks.mutation_counts or {}
+        if counts.get("ai_suggestions.INSERT") == 0 and case.intent in exposed:
+            goal = case.goal.lower()
+            assert "no thanks" in goal or "declines" in goal, case.case_id
+
+
+def test_a_named_stop_the_fixture_lacks_is_refused(tmp_path):
+    """The two place-naming keys draw on the same vocabulary as
+    fixture_depends_on, so renaming a stop fails loudly here instead of leaving
+    a check nothing can satisfy."""
+    with pytest.raises(CaseFileError) as exc:
+        load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "declared_constraints": {
+            "checks": {"draft_reuses_blocks": ["A stop nobody saved"]}, "predicates": []}}))
+    assert "A stop nobody saved" in str(exc.value)

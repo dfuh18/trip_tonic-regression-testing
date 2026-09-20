@@ -4,7 +4,8 @@ provenance: seeded
 run_priority: 1
 function: factual_qa
 user_profile: Tom, 41, curious, asks one clear question and wants the answer, not a plan.
-goal: Learn the short version of Alfama's history before the tram ride.
+goal: Learn the short version of Alfama's history before the tram ride. He wants the answer and nothing
+  else; if Tonic offers to add anything to the trip he says no thanks.
 opening_turn: '@Tonic what''s the history of Alfama, briefly?'
 intent: null
 expected_tool_sequence: []
@@ -12,12 +13,12 @@ declared_constraints:
   checks:
     tools_any_of:
     - read_wikipedia
-    no_tool_errors: true
     mutation_counts:
       trip_blocks.INSERT: 0
       itinerary_slots.INSERT: 0
       itinerary_slots.UPDATE: 0
       ai_suggestions.INSERT: 0
+    tool_errors: none
   predicates: []
 scoring_criteria:
 - 'Facts agree with the reference: the Arabic origin of the name, Alfama as Lisbon''s oldest neighbourhood,
@@ -39,6 +40,9 @@ notes: 'Minimum functionality for factual question answering: read the article, 
   fact the first criterion asks for is text the agent actually had, including the etymology, which sits
   in the lead and not in the History section. The third criterion says "contradicts" rather than "does
   not support", so a true fact the agent knows and the article happens not to carry is not punished. The
-  message carries no slash command, so the agent keeps its whole toolset and could draft or schedule if
-  it chose to; the four mutation zeros are therefore a real constraint here rather than a restatement
-  of what the tool policy already guarantees.'
+  message carries no slash command, which has two consequences worth reading a failure against. The four
+  mutation zeros are a real constraint here rather than a restatement of the tool policy, because the
+  agent keeps its whole toolset and could draft or schedule if it chose to. And the tool constraint binds
+  that same free-text turn: a search for a fado bar to go with the answer is a structural failure even
+  though nothing forbade the tool at the API level, so a failure report naming an unexpected tool here
+  is not evidence of a missing slash command.'

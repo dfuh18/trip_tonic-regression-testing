@@ -70,9 +70,28 @@ Fourteen criteria, grouped. A case fails review on any one of them.
      minute silently rots as the starting trip gains stops.
    - **Assert the outcome, not the route to it** (D30). Where the application
      refuses a reasonable first attempt and the agent recovers inside the turn,
-     widen the bound and leave `no_tool_errors` off rather than failing the
-     recovery. Nothing is lost: the analysis reports tool errors and retries, so
+     widen the bound and write `tool_errors: corrected` rather than `none`, so
+     the recovery passes while an error the agent never fixes still fails
+     (D33). Nothing is lost: the analysis reports tool errors and retries, so
      first-try success stays readable without being a pass criterion.
+   - **Assert the kind of place, never which one** (D32). A request for lunch
+     near a palace implies a restaurant in a region, and the venue is the
+     agent's judgement — a case that named one would make the author's taste
+     the pass criterion and would break when that restaurant closed. Use
+     `places_surfaced` and `places_named`. The exception is about **who named
+     the place**: one the member named is hers, so a stop she pointed at goes
+     in `slot_moved.block` and one she said the trip already has goes in
+     `draft_reuses_blocks`, both exact. Check both directions — a case naming a
+     venue the member did not is too tight, and a case that answers "we already
+     have the monastery saved" with a type count is too loose.
+   - **Read the persona against what the agent is instructed to say.** Both the
+     find-mode and free-text instructions require Tonic to close by offering to
+     pre-schedule, and the free-text one names accepting that offer as a reason
+     to draft in the same turn. The simulator answers in character for up to
+     three turns and a turn with no slash command restores the whole toolset,
+     so a case asserting `ai_suggestions.INSERT: 0` needs a goal that says what
+     the member does when the offer comes. Saying when a member is satisfied is
+     not scripting them (criterion 2).
    - **Never encode an incidental fact about the fixture.** A count that holds
      only because of how the starting trip happens to be arranged tests the
      fixture, not the agent — `itinerary_days.INSERT` on a day the fixture left

@@ -4,7 +4,8 @@ provenance: seeded
 run_priority: 1
 function: advisory
 user_profile: Tom, 41, weighing the schedule, wants a recommendation with a reason.
-goal: Decide whether Sintra deserves the whole of the Sunday or half of it.
+goal: Decide whether Sintra deserves the whole of the Sunday or half of it. He wants a recommendation;
+  if Tonic offers to change the itinerary he says no thanks, he is only asking.
 opening_turn: '@Tonic is Sintra worth a full day or is half a day enough?'
 intent: null
 expected_tool_sequence: []
@@ -26,9 +27,12 @@ fixture_depends_on:
 - Pena Palace
 - '2026-11-08'
 notes: 'Advisory, and a question asking for a position rather than a list: the reply has to come down
-  on one side and say why, which is the thing worth scoring. The judge carries the case, because advice
-  leaves no structural trace (P4); it can score the second criterion because every judge call carries
-  a short summary of the fixture, which is where Pena Palace and its day come from. The member asks for
-  a recommendation and not a change, so the four mutation zeros assert that nothing is written. Tools
+  on one side and say why, which is the thing worth scoring and the criterion a bland reply genuinely
+  fails. The judge carries the case, because advice leaves no structural trace (P4); it can score the
+  second criterion because every judge call carries a short summary of the fixture, which is where Pena
+  Palace and its day come from. The member asks for a recommendation and not a change, so the four mutation
+  zeros assert that nothing is written, and the goal ends by declining, because the free-text instruction
+  has the agent close by offering to pre-schedule and names accepting that offer as a reason to edit the
+  itinerary in the same turn - a persona who said yes would make a correct agent fail the zeros. Tools
   stay unconstrained: the message carries no slash command, so which sources inform the recommendation
   is the agent''s call (D29).'

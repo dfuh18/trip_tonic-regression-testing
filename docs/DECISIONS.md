@@ -31,6 +31,52 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D33 — a tool error is forbidden or correctable, never just absent
+Date: 2026-09-20 · Decided by: author
+Options: keep `no_tool_errors: true|false` · drop the key where recovery is
+legitimate · replace it with `tool_errors: none | corrected`
+Chosen: the third. `none` forbids any tool error; `corrected` permits one only
+where the agent recovers inside the turn, so a later call to a tool the case
+names has to succeed; leaving the key out constrains nothing. The weather and
+tram cases use `corrected`.
+Reason: the author's. The boolean could only say "never happened", and D30 had
+already established that an agent which meets a refusal and recovers is
+behaving correctly — so the only way to permit the recovery was to drop the
+check, which also permits an agent that errors and gives up. The weather case
+made the gap concrete and self-contradictory: it permits the forecast probe at
+up to one call because trying the wrong source and noticing is reasonable,
+while `no_tool_errors: true` failed exactly that probe, since asking the
+forecast endpoint for a date seven weeks out returns an error object and the
+trace records a returned error like a thrown one. What the case wants to say is
+that the agent may reach for the wrong function provided it reads the error,
+recognises the mistake and calls the right one — which is a third state, not
+the absence of a constraint.
+Affects: src/cases.py (Checks.tool_errors), all eight cases,
+cases/README.md, cases/REVIEW_CRITERIA.md (criterion 9), B08 · Reverses: the
+`no_tool_errors` boolean from B03
+
+### D32 — a case asserts the kind of place, never which one
+Date: 2026-09-20 · Decided by: author
+Options: assert the venues a good answer would name · assert only counts ·
+assert the kind of place the request implies, with identity reserved for a stop
+the member named
+Chosen: the third. A draft is checked with `draft_slot_types` (slots per block
+type) and a search with `places_surfaced` and `places_named`; no case names a
+venue. The exception is `slot_moved.block`, which is exact.
+Reason: the author's. Which restaurant near Cais do Sodre or which monument in
+Belem is the agent's judgement, and a case that named one would make the
+author's taste the pass criterion — and would fail the day that venue closed or
+Google reranked it, which is a false regression arriving on someone else's
+schedule. The kind of place is what the request actually implies: "somewhere
+for lunch" is a restaurant in a region, and that is assertable, stable and
+still catches a plan of three museums and no food. Identity is different where
+the member supplied it: "the tram ride" is one stop, so any other stop landing
+in that window is an answer to a different question, and the exactness is the
+member's rather than the author's.
+Affects: src/cases.py (draft_slot_types, places_named, slot_moved),
+cases/scheduling_belem_morning.yaml, both venue-lookup cases, cases/README.md,
+cases/REVIEW_CRITERIA.md (criterion 9), B08 · Reverses: none
+
 ### D31 — a time is asserted as a window and a length, never a clock reading
 Date: 2026-09-19 · Decided by: author
 Options: assert the exact resolved time · assert the day only · assert the

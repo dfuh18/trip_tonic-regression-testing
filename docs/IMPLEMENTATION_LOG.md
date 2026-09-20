@@ -45,6 +45,27 @@ fact. Rough is fine; absent is not.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### L05 — The structural vocabulary was specified without reading the log schema
+Phase: B · Related tasks: B03, B08, A02
+Effort: not the issue; the cost is what was not asserted for two weeks
+What happened: `declared_constraints.checks` was designed from the manuscript's
+account of what a constraint is, and the Phase A instrumentation was designed
+from the event model. Nothing joined them. The application was already
+recording each draft's slot types, the number of places a reply referenced, the
+counts of move/unschedule/schedule edits, the post-turn size of the trip and
+the columns each write touched — and the case vocabulary could express none of
+it. Two of those became check keys only because an unrelated review sent me
+into `buildStateShape` for a different reason.
+Why it matters: §2.6.1 argues that structural verification is the cheap half of
+regression testing for agents, and the argument is right — each of these keys
+took minutes to define once found. The finding is about *where the cost
+actually sits*: not in evaluating a structural constraint but in discovering
+which ones the system can support. That discovery is a reading of the
+instrumentation, it does not fall out of the requirements, and specifying the
+two halves from two different documents is enough to lose it. Anyone building
+this should derive the assertion vocabulary from the log schema as a step, not
+assume the two will meet.
+
 ### L04 — An unattended run needs a timeout on every external call and a heartbeat outside its process
 Phase: B · Related tasks: B06, B07
 Effort: the runner itself came in under its estimate; the first dry run then

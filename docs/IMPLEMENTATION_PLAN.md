@@ -559,6 +559,14 @@ section + the stored text), `repetitions_n`, `metamorphic_relation` for
 follow-ups. `src/cases.py`: load, validate (pydantic), and compute
 `suite_version` = SHA-256 over the sorted case files. Advisory cases carry
 criteria and no constraints; the loader accepts that.
+**Amended 2026-09-20 (Q21):** the check vocabulary is *derived from*
+`docs/event-model.md` and the Phase A tables, not invented from the D19/D27
+discussion. Before adding or changing a key, read what a turn actually records
+— `study_suggestions.resulting_state_shape`, `.tool_call_trace`, `.error_code`,
+`.agent_intent`, `.request_type`, and `study_mutations.changed_keys` — and say
+in the key's docstring which logged field it reads. A case cannot assert what
+is not logged, and a signal that is logged and unassertable is detection left
+on the floor.
 Done when: the loader validates every file in `cases/` and rejects a file
 missing any required key with the key named; `suite_version` changes when a
 case file changes.
@@ -651,9 +659,16 @@ detected, findings: [...], checker_version}`.
 
 Evaluates three things, all of which must hold for `none`:
 (1) every key of `declared_constraints.checks` — `tool_counts`, `tools_any_of`,
-`no_tool_errors`, `places_surfaced`, `slot_days`, `slot_count`,
-`slot_moved {block, day, start_time?}`, `mutation_counts` (`table.OP`) — the
-closed vocabulary of D27, each one declarative and validated by the loader;
+`tool_errors` (`none | corrected`, D33), `places_surfaced`, `places_named`,
+`slot_days`, `slot_count`, `draft_slot_types` (D32),
+`slot_moved {block, day, starts_between?, duration_minutes?,
+clear_of_other_slots?}` (D31), `mutation_counts` (`table.OP`) — the closed
+vocabulary of D27, each one declarative and validated by the loader. Read
+`src/cases.py` for the current list rather than this line, and read
+`docs/event-model.md` for the field each key evaluates against (Q21): the draft
+keys read `resulting_state_shape.draft` (the *latest* draft), `places_named`
+reads `reply.place_refs`, `places_surfaced` reads `places_surfaced`, and
+`tool_errors` reads `result_error` across `tool_call_trace`;
 (2) `expected_tool_sequence` as an ordered subsequence of the tools called,
 and `Case.allowed_tools()` as deny by default (D28) — a call to any tool
 outside that set is `detected`, with the finding naming the tool;

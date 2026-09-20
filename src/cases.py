@@ -11,6 +11,12 @@ and the ``predicates`` list names functions in ``cases/predicates.py`` for the
 one thing a schema cannot state — a comparison with **another** execution, which
 is what every metamorphic relation is.
 
+A case asserts the **kind** of thing a request implies and not which one
+(D32) — a count of places, not a list of venues — with one exception: a place
+the **member** named is hers to name. ``slot_moved.block`` and
+``draft_reuses_blocks`` are exact for that reason, and they are the only keys
+that are.
+
 What a case constrains follows from **what its request asks for**, not from its
 function label (D29). An advisory request that asks for advice implies the trip
 does not change, so it says so; it does not constrain tools, because a message
@@ -161,18 +167,58 @@ class Checks(BaseModel):
     tool_counts: Optional[dict[str, BoundLike]] = None
     #: At least one of these ran — "answered from a source", not from memory.
     tools_any_of: Optional[list[str]] = None
-    #: No tool returned or threw an error (D11's tool-level failure).
-    no_tool_errors: Optional[bool] = None
+    #: How tool errors (D11's tool-level failure) are treated (D33).
+    #:
+    #: ``"none"``      no tool returned or threw an error.
+    #: ``"corrected"`` an error is permitted only where the agent recovers
+    #:                 inside the turn: a later call to a tool this case names
+    #:                 has to succeed. An error it does not correct fails, so
+    #:                 this is a weaker constraint than ``"none"`` and a much
+    #:                 stronger one than leaving the key out.
+    #: absent          tool errors are not constrained at all.
+    #:
+    #: ``"corrected"`` is what a case writes when the application legitimately
+    #: refuses a reasonable first attempt, or when a tool the agent may
+    #: sensibly try cannot answer the question it was tried for. Both happen,
+    #: and an agent that notices and switches is behaving well (D30).
+    tool_errors: Optional[Literal["none", "corrected"]] = None
 
     # --- what it surfaced ---
-    #: Google places the replies named, bounded.
+    #: Places ``search_places`` returned across the turn, bounded. This counts
+    #: the search's own results and NOT what the reply did with them: a search
+    #: whose results the agent never mentions still satisfies it. Use it to say
+    #: "it actually searched", and use ``places_named`` for "it actually
+    #: answered".
     places_surfaced: Optional[BoundLike] = None
+    #: Places the reply itself referenced (``resulting_state_shape.reply
+    #: .place_refs``), bounded. This is the venue-lookup assertion that bites:
+    #: a reply naming nothing passes every other check a read-only case has.
+    places_named: Optional[BoundLike] = None
 
     # --- the draft it proposed ---
+    #
+    # All three read the LATEST draft, which is the one the application itself
+    # records in ``resulting_state_shape.draft``. A case that permits a
+    # revision therefore has a defined target: the plan the member was left
+    # with, not whichever of two rows a checker happened to pick up.
+    #
     #: Every draft slot's day must be one of these (YYYY-MM-DD).
     slot_days: Optional[list[str]] = None
     #: Number of slots the draft holds.
     slot_count: Optional[BoundLike] = None
+    #: Stops the draft must be built on, by title. Read from the
+    #: ``reuse_block_id`` arguments of the ``propose_plan`` call, resolved
+    #: against the ids the rebuild produced for this execution (D26).
+    #:
+    #: This is D32's exception, and the exception is about **who named the
+    #: place**. A case never says which restaurant or which monument the agent
+    #: should find — that is the agent's judgement and the author's taste is
+    #: not a pass criterion. But a place the member herself named is hers, not
+    #: the author's: "we already have the monastery saved" is an instruction,
+    #: and a draft that ignores the saved stop and finds its own has answered a
+    #: different request. The other half of the exception is
+    #: ``slot_moved.block``, where the member pointed at a stop to move.
+    draft_reuses_blocks: Optional[list[str]] = None
 
     # --- what it changed on the live itinerary ---
     #: A named stop ends up in a named window.
@@ -268,6 +314,15 @@ class Case(BaseModel):
             if as_bound(bound).max == 0:
                 allowed.discard(tool)
         return allowed
+
+    def named_fixture_stops(self) -> list[str]:
+        """Stop titles this case names anywhere — for the loader's check that
+        a case cannot outlive the state it reads."""
+        checks = self.declared_constraints.checks
+        named = list(checks.draft_reuses_blocks or [])
+        if checks.slot_moved:
+            named.append(checks.slot_moved.block)
+        return named
 
     @model_validator(mode="after")
     def _coherent(self) -> "Case":
@@ -375,6 +430,14 @@ def load_case(
         raise CaseFileError(
             f"{path.name}: fixture_depends_on names {unknown_anchors}, which the fixture does not "
             f"have — a stop title from cases/fixture.json or a day inside the trip's range"
+        )
+    # The two keys that name a place (D32) draw from the same vocabulary, so a
+    # renamed stop fails here rather than becoming a check nothing can satisfy.
+    unknown_stops = [t for t in case.named_fixture_stops() if t not in anchors]
+    if unknown_stops:
+        raise CaseFileError(
+            f"{path.name}: names stop(s) {unknown_stops} the fixture does not have — "
+            f"slot_moved.block and draft_reuses_blocks take a title from cases/fixture.json"
         )
     return case
 
