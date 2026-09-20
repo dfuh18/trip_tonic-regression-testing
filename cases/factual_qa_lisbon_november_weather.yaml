@@ -30,7 +30,8 @@ scoring_criteria:
   low near 12 C.'
 - Places November among the wettest months of the Lisbon year.
 - Says which source or kind of data the figures come from.
-- Answers the question asked; does not turn it into a packing list unprompted.
+- 'Distinguishes a typical November from this November: does not present long-run averages as a forecast
+  for the trip''s own dates.'
 references:
 - title: Lisbon
   section: get_region_climate('Lisbon') - Climate prose and Weather box
@@ -57,4 +58,8 @@ notes: 'Minimum functionality for factual question answering where more than one
   has done the right thing twice. An error it does not correct still fails, so the case permits the recovery
   without permitting the mistake. Judged against stored climate data rather than a retrieved forecast,
   because D23 sends a day-by-day weather question to the forecast the agent fetched, and "usually, in
-  November" is a climate question.'
+  November" is a climate question. The goal ends by declining an offer to schedule, and the reason is
+  narrower than it looks: the free-text instruction scopes its closing offer to requests that ask purely
+  for ideas, and says in the same breath that informational questions are answered without a draft - so
+  this request is not supposed to attract the offer at all. The clause is insurance against the agent
+  making it anyway, which costs nothing, rather than a guard against behaviour the prompt requires.'

@@ -31,7 +31,7 @@ declared_constraints:
   predicates: []
 scoring_criteria:
 - Names at least two real seafood restaurants, each with one reason it fits.
-- Stays in or beside Cais do Sodre; does not wander to another part of town or another city.
+- Distinguishes them from each other, so the reasons are not interchangeable.
 - Reflects the budget cue without lecturing about it.
 - 'Places each one well enough to choose between them: a neighbourhood or a landmark, not an address.'
 repetitions_n: 8
@@ -51,4 +51,7 @@ notes: 'Minimum functionality for venue lookup: a grounded search that changes n
   separately instructed to offer three to five options, and a case that punishes that is testing its own
   preference rather than the system. Which restaurants it finds is not asserted anywhere (D32): the case
   requires seafood places near a named neighbourhood, and naming the venues would make the suite''s taste
-  the pass criterion.'
+  the pass criterion. The reference tools are permitted by /find at the API level and forbidden here by
+  absence (D28), which is deliberate: reading an encyclopedia article about a neighbourhood is not how
+  this request gets answered, and a case that permitted it would stop noticing an agent that reached for
+  it instead of searching.'

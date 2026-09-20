@@ -36,9 +36,16 @@ Date: 2026-09-20 · Decided by: author
 Options: keep `no_tool_errors: true|false` · drop the key where recovery is
 legitimate · replace it with `tool_errors: none | corrected`
 Chosen: the third. `none` forbids any tool error; `corrected` permits one only
-where the agent recovers inside the turn, so a later call to a tool the case
-names has to succeed; leaving the key out constrains nothing. The weather and
-tram cases use `corrected`.
+where the agent recovers from that error, so a later call to the tool that
+failed, or to one named in `tools_any_of`, has to succeed; leaving the key out
+constrains nothing. The weather, tram and Belem cases use `corrected`.
+Amended the same day: `corrected` first read "a later call to a tool this case
+names". That is too loose wherever a case names more than one source — in the
+weather case a failed climate lookup followed by a successful forecast call
+satisfied it, and the answer then came from a sixteen-day forecast, which is
+exactly what the case exists to forbid. `tools_any_of` was tightened in the
+same pass to mean ran *and returned without an error*, for the same reason: a
+source that failed supplied nothing.
 Reason: the author's. The boolean could only say "never happened", and D30 had
 already established that an agent which meets a refusal and recovers is
 behaving correctly — so the only way to permit the recovery was to drop the
@@ -60,9 +67,16 @@ Date: 2026-09-20 · Decided by: author
 Options: assert the venues a good answer would name · assert only counts ·
 assert the kind of place the request implies, with identity reserved for a stop
 the member named
-Chosen: the third. A draft is checked with `draft_slot_types` (slots per block
-type) and a search with `places_surfaced` and `places_named`; no case names a
-venue. The exception is `slot_moved.block`, which is exact.
+Chosen: the third. A search is checked with `places_surfaced` and
+`places_named`; no case names a venue. The exception is a place the *member*
+named: `slot_moved.block` for the stop she pointed at, and
+`draft_reuses_blocks` for one she said the trip already has. Both are exact and
+both are validated against the fixture by the loader.
+Amended the same day: this first read "a draft is checked with
+`draft_slot_types` (slots per block type)". That key was withdrawn before any
+case used one (Q21) — what the Belem case actually needed was the monastery by
+name, which is the exception rather than the rule, and a type composition no
+seed asserts is a key nobody validates.
 Reason: the author's. Which restaurant near Cais do Sodre or which monument in
 Belem is the agent's judgement, and a case that named one would make the
 author's taste the pass criterion — and would fail the day that venue closed or
@@ -73,7 +87,7 @@ still catches a plan of three museums and no food. Identity is different where
 the member supplied it: "the tram ride" is one stop, so any other stop landing
 in that window is an answer to a different question, and the exactness is the
 member's rather than the author's.
-Affects: src/cases.py (draft_slot_types, places_named, slot_moved),
+Affects: src/cases.py (draft_reuses_blocks, places_named, slot_moved),
 cases/scheduling_belem_morning.yaml, both venue-lookup cases, cases/README.md,
 cases/REVIEW_CRITERIA.md (criterion 9), B08 · Reverses: none
 

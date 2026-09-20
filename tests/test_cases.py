@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from src.cases import CaseFileError, by_priority, load_case, load_cases, suite_version
+from src.cases import CaseFileError, as_bound, by_priority, load_case, load_cases, suite_version
 
 VALID = {
     "case_id": "venue_lookup_seafood",
@@ -435,14 +435,15 @@ def test_a_read_only_case_says_what_the_member_does_when_offered_a_schedule():
     toolset — so a case asserting that no draft is written needs a persona with
     an answer to the offer, or a correct agent fails it.
 
-    Scoped to those two modes deliberately: the plan instruction makes no such
-    offer, and the reschedule one forbids asking anything at all, so requiring
-    a decline of the tram case would be a ritual rather than a reason.
+    This was scoped to find-mode and free text at first, on the reading that
+    the reschedule instruction forbids asking. It forbids asking *before
+    editing*; nothing stops the agent closing with "Friday morning is free now
+    — want me to fill it?", and the next turn restores the toolset either way.
+    So every case asserting no draft needs the clause, whatever its mode.
     """
-    exposed = {"find", None}
     for case in load_cases():
         counts = case.declared_constraints.checks.mutation_counts or {}
-        if counts.get("ai_suggestions.INSERT") == 0 and case.intent in exposed:
+        if counts.get("ai_suggestions.INSERT") == 0:
             goal = case.goal.lower()
             assert "no thanks" in goal or "declines" in goal, case.case_id
 
@@ -455,3 +456,46 @@ def test_a_named_stop_the_fixture_lacks_is_refused(tmp_path):
         load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "declared_constraints": {
             "checks": {"draft_reuses_blocks": ["A stop nobody saved"]}, "predicates": []}}))
     assert "A stop nobody saved" in str(exc.value)
+
+
+def test_a_tool_name_the_agent_does_not_have_is_refused(tmp_path):
+    """A misspelled tool is worse than a missing one: deny-by-default permits
+    it and it is never called, and in tools_any_of it is a requirement nothing
+    can ever meet."""
+    with pytest.raises(CaseFileError) as exc:
+        load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "declared_constraints": {
+            "checks": {"tools_any_of": ["serach_places"]}, "predicates": []}}))
+    assert "serach_places" in str(exc.value)
+
+
+def test_the_draft_window_is_validated_like_the_move_window(tmp_path):
+    """Same rule as slot_moved (D31): HH:MM, earliest first."""
+    case = load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "declared_constraints": {
+        "checks": {"draft_slot_starts_between": ["07:00", "12:00"]}, "predicates": []}}))
+    assert case.declared_constraints.checks.draft_slot_starts_between == ("07:00", "12:00")
+    with pytest.raises(CaseFileError) as exc:
+        load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "declared_constraints": {
+            "checks": {"draft_slot_starts_between": ["12:00", "07:00"]}, "predicates": []}}))
+    assert "earliest first" in str(exc.value)
+
+
+def test_a_drafting_case_checks_the_day_and_the_hours_and_the_grounding():
+    """The three silent passes the verification found, as one test. A draft on
+    the Sintra day, a draft of an afternoon called a morning, and a draft of
+    recalled venues after an empty search would each have passed."""
+    checks = {c.case_id: c for c in load_cases()}["scheduling_belem_morning"].declared_constraints.checks
+    assert checks.slot_days == ["2026-11-07"]
+    assert checks.draft_slot_starts_between == ("07:00", "12:00")
+    assert checks.places_surfaced is not None
+
+
+def test_a_case_permitting_a_probe_requires_the_recovery():
+    """Wherever a case permits a tool that cannot answer its question, it says
+    so with tool_errors: corrected — permitting the probe and forbidding an
+    agent that settles for what the probe returned (D33)."""
+    for case in load_cases():
+        checks = case.declared_constraints.checks
+        probes = [t for t, b in (checks.tool_counts or {}).items()
+                  if as_bound(b).min == 0 and t not in (checks.tools_any_of or [])]
+        if probes:
+            assert checks.tool_errors == "corrected", f"{case.case_id}: permits {probes}"

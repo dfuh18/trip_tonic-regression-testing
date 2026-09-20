@@ -5,8 +5,10 @@ run_priority: 1
 function: scheduling
 user_profile: Ines, 29, the organiser of the group. Wants a plan she can accept stop by stop, writes full
   sentences, names a day by its date the way people do — "the 7th", never a full calendar string.
-goal: Get a draft for the morning of the 7th in Belém with two or three stops, so the group can settle
-  them one by one.
+goal: 'Get a draft for the morning of the 7th in Belem with two or three stops, so the group can settle
+  them one by one. She is satisfied as soon as a draft for that morning exists: she settles the individual
+  stops herself on the itinerary rather than asking Tonic to revise it, and if Tonic offers anything further
+  she says that is all she needed.'
 opening_turn: /plan can you put together a Belém morning for the 7th? two or three stops, we already have
   the monastery saved
 intent: plan
@@ -22,6 +24,9 @@ declared_constraints:
       propose_plan:
         min: 1
         max: 2
+      get_weather:
+        min: 0
+        max: 1
     slot_days:
     - '2026-11-07'
     slot_count:
@@ -34,41 +39,50 @@ declared_constraints:
       ai_suggestions.INSERT:
         min: 1
         max: 2
-    tool_errors: none
+    tool_errors: corrected
     draft_reuses_blocks:
     - Jerónimos Monastery
+    places_surfaced:
+      min: 1
+    draft_slot_starts_between:
+    - 07:00
+    - '12:00'
   predicates: []
 scoring_criteria:
 - Summarises the morning in a few sentences and makes clear it is Belem, on the 7th, without reciting
   every stop back.
-- 'Presents it as a morning: any time it names falls before lunch.'
+- Gives a reason each stop belongs in this morning rather than listing them flat.
 - Treats the monastery as a stop the trip already has rather than as a new find.
-- Says the group can accept or discard the stops, not that they are already scheduled.
+- 'Sequences the stops so the morning is walkable: things near each other are near each other in the plan.'
 repetitions_n: 8
 metamorphic_relation: null
 fixture_depends_on:
 - Jerónimos Monastery
 - '2026-11-07'
 notes: 'Minimum functionality for drafting. The member writes the date as "the 7th", which is how people
-  write one, so resolving it against the trip''s dates is part of what is tested. expected_tool_sequence
-  carries both the grounding and the order, search before propose, which is what makes the plan real venues
-  rather than recalled ones (P5). The mutation counts say that a draft is a proposal: nothing reaches
-  the live itinerary until a member accepts. propose_plan and ai_suggestions.INSERT permit two rather
-  than one, because a member who asks for a morning may accept a revision within the turn cap and every
-  propose_plan call inserts a new row, so a revised plan is one more insert rather than a second plan;
-  the draft assertions read the latest one, which is the draft the application itself records and the
-  plan the member is left with. slot_count allows four because "two or three stops, we already have the
-  monastery saved" reads both as two or three including it and as two or three besides it, and the third
-  criterion actively encourages reusing it - a bound that forbade the second reading would fail an agent
-  doing what the rubric asks. draft_reuses_blocks names the monastery, and that is not a breach of the
-  rule against naming venues but its exception (D32): the member said "we already have the monastery saved",
-  so that stop is hers to name, and a draft that ignores it and finds its own Belem monument has answered
-  a different request. Which OTHER stops fill the morning is asserted nowhere, because that is the agent''s
-  judgement and the author''s taste is not a pass criterion. ai_suggestions.UPDATE is deliberately not
-  asserted, because propose_plan backfills plan_thread_id once the insert returns the id and expires a
-  previous pending draft, both implementation details a refactor may remove without changing anything
-  the member sees. KNOWN GAP: nothing checks the draft''s own times. There is no check key for a draft
-  slot''s time of day, the judge never sees the draft, and the reply is instructed to be a short summary
-  - so an agent that drafts an afternoon and calls it a morning is caught only if it names a time in the
-  reply, which is what the second criterion scores. A draft-time check is the single most valuable thing
-  to add to the vocabulary next.'
+  write one, so resolving it against the trip''s dates is part of what is tested - and slot_days is the
+  check that tests it, read from the propose_plan call''s own arguments in the trace, because the recorded
+  state shape carries counts and no dates. draft_slot_starts_between reads the same arguments and is the
+  check that tests the other half of the request: she asked for a morning, the drafting tool instructs
+  the reply not to repeat every slot, so without it an afternoon described as a morning passes and the
+  criterion about the times the reply names is vacuous exactly when it is needed. expected_tool_sequence
+  carries the grounding and the order, search before propose, and places_surfaced carries what the order
+  alone cannot: that the search actually returned something, so a draft of recalled venues after an empty
+  search fails rather than passing on the sequence (P5). The mutation counts say that a draft is a proposal:
+  nothing reaches the live itinerary until a member accepts. propose_plan and ai_suggestions.INSERT permit
+  two rather than one, because a member may accept a revision within the turn cap and every propose_plan
+  call inserts a new row; the goal then says when she is satisfied, because three legal revisions inside
+  the three-turn cap would fail a bound that exists for a different reason. slot_count allows four because
+  "two or three stops, we already have the monastery saved" reads both as two or three including it and
+  as two or three besides it, and the third criterion actively encourages reusing it. draft_reuses_blocks
+  names the monastery, and that is not a breach of the rule against naming venues but its exception (D32):
+  the member said the trip already has it, so that stop is hers to name, and a draft that ignores it and
+  finds its own Belem monument has answered a different request. Which OTHER stops fill the morning is
+  asserted nowhere, because that is the agent''s judgement and the author''s taste is not a pass criterion.
+  get_weather is permitted at up to one call with tool_errors "corrected": /plan keeps the reference tools
+  and the standing prompt tells the agent to check conditions during the trip dates, so looking before
+  drafting an outdoor morning is reasonable - and the trip is far outside the forecast''s sixteen-day
+  window, so the call returns an error the agent has to recover from rather than answer from. ai_suggestions.UPDATE
+  is deliberately not asserted, because propose_plan backfills plan_thread_id once the insert returns
+  the id and expires a previous pending draft, both implementation details a refactor may remove without
+  changing anything the member sees.'

@@ -45,6 +45,27 @@ fact. Rough is fine; absent is not.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### L06 — Advisory's minimum-functionality baseline is scored, not checked
+Phase: B · Related tasks: B03, B04, B09
+Effort: no effort; a limitation found by reviewing, and one §3.7 has to state
+What happened: the advisory pair constrains no tools, by ruling (D29 — a
+message with no slash command keeps the agent's whole toolset, so which sources
+inform advice is the agent's judgement), and asserts only that nothing is
+written. Everything else about an advisory reply is the judge's. A regression in
+which the agent stops consulting anything and advises from recall is therefore
+undetectable by either case: the structural checks pass unchanged and only the
+score moves, which P4 already predicts is the noisiest signal in the suite.
+Why it matters: §3.1 describes a minimum-functionality baseline per function,
+and for three of the four functions that baseline is structural and cheap to
+re-run. For advisory it is a scored baseline, which is a materially weaker
+claim — it needs the judge, it inherits the judge's variance, and a small
+regression will not clear it. The honest framing for §3.7 is that conversational
+regression testing covers the functions that leave a trace, and that the
+function which leaves none is covered by a different and weaker instrument. It
+is a consequence of D29 rather than a fault in it: constraining an advisory
+case's tools would have tested the author's idea of how advice should be
+grounded rather than whether the advice was good.
+
 ### L05 — The structural vocabulary was specified without reading the log schema
 Phase: B · Related tasks: B03, B08, A02
 Effort: not the issue; the cost is what was not asserted for two weeks

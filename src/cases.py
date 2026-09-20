@@ -61,6 +61,26 @@ Intent = Literal["find", "plan", "reschedule"]
 #: prompt context is not enough, which varies between runs of one case, so
 #: treating them as unexpected would fail a case on variance rather than on a
 #: regression. Mirrors READ_TOOLS in apps/api/src/routes/ai/agent/agent.tool-policy.ts.
+#: Every tool the agent has, mirrored from apps/api/src/routes/ai/agent/
+#: (agent.tools.ts and agent.itinerary-tools.ts). Mirrored rather than
+#: imported, for the reason the API mirrors the shared package: this subtree
+#: cannot resolve a TypeScript module. The loader checks a case's tool names
+#: against it — keep both in sync.
+ALL_TOOL_NAMES = frozenset({
+    "get_trip_details",
+    "list_trip_blocks",
+    "get_itinerary",
+    "search_places",
+    "get_weather",
+    "get_climate_normals",
+    "get_region_climate",
+    "read_wikipedia",
+    "propose_plan",
+    "move_slot",
+    "unschedule_block",
+    "schedule_block",
+})
+
 ALWAYS_ALLOWED_TOOLS = ("get_trip_details", "list_trip_blocks", "get_itinerary")
 
 #: The D22 catalogue. A follow-up case names exactly one.
@@ -165,16 +185,24 @@ class Checks(BaseModel):
     #: Calls per tool, exact or bounded. Under D28 a zero is never needed: a
     #: tool the case does not name is already forbidden.
     tool_counts: Optional[dict[str, BoundLike]] = None
-    #: At least one of these ran — "answered from a source", not from memory.
+    #: At least one of these ran **and returned without an error** — the
+    #: claim is "answered from a source", and a source that failed answered
+    #: nothing. Requiring only that the call happened let a failed climate
+    #: lookup followed by a successful forecast satisfy the weather case,
+    #: which is the one thing that case exists to forbid.
     tools_any_of: Optional[list[str]] = None
     #: How tool errors (D11's tool-level failure) are treated (D33).
     #:
     #: ``"none"``      no tool returned or threw an error.
     #: ``"corrected"`` an error is permitted only where the agent recovers
-    #:                 inside the turn: a later call to a tool this case names
-    #:                 has to succeed. An error it does not correct fails, so
-    #:                 this is a weaker constraint than ``"none"`` and a much
-    #:                 stronger one than leaving the key out.
+    #:                 from **that** error: a later call to the tool that
+    #:                 failed, or to one named in ``tools_any_of``, has to
+    #:                 succeed. An error it does not correct fails, so this is
+    #:                 a weaker constraint than ``"none"`` and a much stronger
+    #:                 one than leaving the key out. The narrowing matters: at
+    #:                 "any tool this case names" a failed climate lookup was
+    #:                 corrected by a successful forecast call, which answers
+    #:                 a different question.
     #: absent          tool errors are not constrained at all.
     #:
     #: ``"corrected"`` is what a case writes when the application legitimately
@@ -197,18 +225,39 @@ class Checks(BaseModel):
 
     # --- the draft it proposed ---
     #
-    # All three read the LATEST draft, which is the one the application itself
-    # records in ``resulting_state_shape.draft``. A case that permits a
-    # revision therefore has a defined target: the plan the member was left
-    # with, not whichever of two rows a checker happened to pick up.
+    # These read the arguments of the LATEST ``propose_plan`` call, recorded
+    # verbatim in ``study_suggestions.tool_call_trace``. Not
+    # ``resulting_state_shape.draft``, which carries counts only — how many
+    # days, how many slots, which block types — and no dates or times at all:
+    # pointing a checker there would have left ``slot_days`` unevaluable and a
+    # Belem morning drafted onto the Sintra day passing every check.
+    #
+    # Latest call, so a case that permits a revision has a defined target: the
+    # plan the member was left with, not whichever of two rows a checker
+    # happened to pick up.
     #
     #: Every draft slot's day must be one of these (YYYY-MM-DD).
     slot_days: Optional[list[str]] = None
     #: Number of slots the draft holds.
     slot_count: Optional[BoundLike] = None
-    #: Stops the draft must be built on, by title. Read from the
-    #: ``reuse_block_id`` arguments of the ``propose_plan`` call, resolved
-    #: against the ids the rebuild produced for this execution (D26).
+    #: Every draft slot starts inside this inclusive ``[earliest, latest]``
+    #: HH:MM window. A member who asks for a morning is asking about the
+    #: hours, and without this a draft of an afternoon described as a morning
+    #: passes: the drafting tool instructs the reply not to repeat every slot,
+    #: so the reply usually names no time and a criterion about the times it
+    #: names is vacuous exactly when it is needed. Same window rule as
+    #: ``slot_moved.starts_between`` (D31) — the member's words, not a clock
+    #: reading.
+    draft_slot_starts_between: Optional[tuple[str, str]] = None
+    #: Stops the draft must be built on, by title. Satisfied when a slot's
+    #: ``reuse_block_id`` argument resolves to that stop through the ids the
+    #: rebuild produced for this execution (D26), **or** when a slot's own
+    #: title would resolve to it the way the application does: case-folded,
+    #: either title containing the other, which is how ``matchExistingVenue``
+    #: attaches a saved venue when the model names it without passing the id.
+    #: The mirroring is deliberate — an agent that honours the member's "we
+    #: already have it" by title has honoured it, and failing that would be a
+    #: false regression.
     #:
     #: This is D32's exception, and the exception is about **who named the
     #: place**. A case never says which restaurant or which monument the agent
@@ -227,6 +276,23 @@ class Checks(BaseModel):
     # --- what the database recorded ---
     #: study_mutations rows per (table, op) — e.g. ``itinerary_slots.INSERT: 1``.
     mutation_counts: Optional[dict[str, BoundLike]] = None
+
+
+    @model_validator(mode="after")
+    def _draft_window_is_a_window(self) -> "Checks":
+        if self.draft_slot_starts_between is None:
+            return self
+        earliest, latest = self.draft_slot_starts_between
+        for value in (earliest, latest):
+            if not TIME_RE.match(value):
+                raise ValueError(
+                    f"draft_slot_starts_between takes HH:MM times, got {value!r}"
+                )
+        if minutes_of(earliest) > minutes_of(latest):
+            raise ValueError(
+                f"draft_slot_starts_between must read earliest first, got {earliest} to {latest}"
+            )
+        return self
 
 
 class Constraints(BaseModel):
@@ -430,6 +496,17 @@ def load_case(
         raise CaseFileError(
             f"{path.name}: fixture_depends_on names {unknown_anchors}, which the fixture does not "
             f"have — a stop title from cases/fixture.json or a day inside the trip's range"
+        )
+    # A misspelled tool is worse than a missing one: it is permitted (D28) and
+    # never called, and in tools_any_of it is a requirement nothing can meet.
+    named_tools = set(case.expected_tool_sequence)
+    named_tools |= set(case.declared_constraints.checks.tool_counts or {})
+    named_tools |= set(case.declared_constraints.checks.tools_any_of or [])
+    unknown_tools = sorted(named_tools - ALL_TOOL_NAMES)
+    if unknown_tools:
+        raise CaseFileError(
+            f"{path.name}: names tool(s) {unknown_tools} the agent does not have — "
+            f"see ALL_TOOL_NAMES, mirrored from apps/api/src/routes/ai/agent/"
         )
     # The two keys that name a place (D32) draw from the same vocabulary, so a
     # renamed stop fails here rather than becoming a check nothing can satisfy.

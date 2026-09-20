@@ -21,10 +21,11 @@ declared_constraints:
     tool_errors: none
   predicates: []
 scoring_criteria:
-- 'Facts agree with the reference: the Arabic origin of the name, Alfama as Lisbon''s oldest neighbourhood,
-  its extent under Moorish rule, and its survival of the 1755 earthquake.'
-- 'Brief: a short paragraph, not an essay.'
-- States no date or event the reference contradicts.
+- Every fact it gives agrees with the reference.
+- 'Covers at least two of: the Arabic origin of the name, Alfama as Lisbon''s oldest neighbourhood, its
+  extent under Moorish rule, its survival of the 1755 earthquake.'
+- 'Reads as a short history rather than a list of dates: says why the district matters, not only what
+  happened to it.'
 references:
 - title: Alfama
   section: read_wikipedia('Alfama') - the whole article, as the tool returns it
@@ -38,11 +39,15 @@ notes: 'Minimum functionality for factual question answering: read the article, 
   the case''s business, while whether it read at all is. The stored reference is what read_wikipedia(''Alfama'')
   returns verbatim - the whole article, which is under the tool''s six-thousand-character cap - so every
   fact the first criterion asks for is text the agent actually had, including the etymology, which sits
-  in the lead and not in the History section. The third criterion says "contradicts" rather than "does
-  not support", so a true fact the agent knows and the article happens not to carry is not punished. The
-  message carries no slash command, which has two consequences worth reading a failure against. The four
-  mutation zeros are a real constraint here rather than a restatement of the tool policy, because the
-  agent keeps its whole toolset and could draft or schedule if it chose to. And the tool constraint binds
-  that same free-text turn: a search for a fado bar to go with the answer is a structural failure even
-  though nothing forbade the tool at the API level, so a failure report naming an unexpected tool here
-  is not evidence of a missing slash command.'
+  in the lead and not in the History section. Agreement and coverage are two criteria rather than one,
+  because the tool takes an optional section argument and read_wikipedia(''Alfama'', ''History'') returns
+  a section that does not carry the etymology - so a brief, accurate answer drawn from it can satisfy
+  agreement completely while covering two of the four facts, and a single criterion demanding all four
+  would have forced the essay the brevity criterion forbids. Agreement is worded around what the reference
+  contradicts rather than what it supports, so a true fact the agent knows and the article happens not
+  to carry is not punished. The message carries no slash command, which has two consequences worth reading
+  a failure against. The four mutation zeros are a real constraint here rather than a restatement of the
+  tool policy, because the agent keeps its whole toolset and could draft or schedule if it chose to. And
+  the tool constraint binds that same free-text turn: a search for a fado bar to go with the answer is
+  a structural failure even though nothing forbade the tool at the API level, so a failure report naming
+  an unexpected tool here is not evidence of a missing slash command.'

@@ -5,7 +5,8 @@ run_priority: 1
 function: scheduling
 user_profile: 'Ines, 29, the organiser. Direct, and says when she means the way people do: a weekday and
   a rough time.'
-goal: Move the Tram 28 ride off Friday morning to Saturday afternoon, around four.
+goal: Move the Tram 28 ride off Friday morning to Saturday afternoon, around four. Once it has moved she
+  is done; if Tonic offers to fill the freed Friday morning or to add anything else, she says no thanks.
 opening_turn: /reschedule can you move the tram ride to Saturday afternoon instead? around 4
 intent: reschedule
 expected_tool_sequence:
@@ -37,8 +38,8 @@ declared_constraints:
   predicates: []
 scoring_criteria:
 - 'States exactly what changed: the stop, the new day and the new time.'
-- Does not ask which stop or which Saturday was meant; the trip has one of each.
-- Says the change is now on the shared itinerary, or that it can be undone.
+- Does not silently move or drop anything else on either day.
+- Reads as one short confirmation, not a re-listing of the itinerary.
 repetitions_n: 8
 metamorphic_relation: null
 fixture_depends_on:
@@ -67,6 +68,12 @@ notes: 'Minimum functionality for a live edit. The member says "Saturday" and "a
   - and that is a deliberate assertion about the route, not only the outcome: /reschedule also permits
   unschedule_block then schedule_block, which reaches the same end state, and the case rejects it because
   the agent''s own instruction is to prefer moving over unscheduling and because that path would write
-  an INSERT the zeros forbid. itinerary_days.INSERT is deliberately not asserted: the 7th is an empty
-  day in the fixture, so moving a stop onto it legitimately creates the day row, and a count would encode
-  which days the fixture happens to have rather than anything about the agent.'
+  an INSERT the zeros forbid. The goal ends by declining an offer, which will read as redundant to anyone
+  who has not traced the toolset: the reschedule instruction forbids asking before editing but not a closing
+  offer, and the next turn carries no slash command, so propose_plan is available again and the free-text
+  instruction names accepting an offer as a reason to draft in that same turn. No reference tool is named
+  either, which is a deliberate assertion rather than an oversight: moving one stop to a time the member
+  chose needs no forecast, so an agent that checks the weather first has done something this case says
+  is unnecessary. itinerary_days.INSERT is deliberately not asserted: the 7th is an empty day in the fixture,
+  so moving a stop onto it legitimately creates the day row, and a count would encode which days the fixture
+  happens to have rather than anything about the agent.'

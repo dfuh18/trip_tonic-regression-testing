@@ -27,8 +27,8 @@ repetitions_n: 8
 metamorphic_relation: null
 fixture_depends_on:
 - Pena Palace
-- Tram 28 ride through Alfama
-- Time Out Market lunch
+- '2026-11-06'
+- '2026-11-09'
 notes: 'Advisory: the judge carries most of this case, because advice leaves no structural trace to score
   against (P4). It can score the trip-specific criteria because every judge call carries a short summary
   of the fixture - the dates, the regions, the travellers, the stops and which of them are scheduled -
@@ -40,4 +40,11 @@ notes: 'Advisory: the judge carries most of this case, because advice leaves no 
   instruction has the agent close by offering to pre-schedule and names accepting that offer as a reason
   to draft in the same turn - a persona who said yes would make a correct agent fail the zeros. Tools
   stay unconstrained: the message carries no slash command, so the agent keeps everything, and whether
-  to ground the advice in a forecast is its call to make (D29).'
+  to ground the advice in a forecast is its call to make (D29). The goal ends by declining an offer to
+  schedule, and the reason is narrower than it looks: the free-text instruction scopes its closing offer
+  to requests that ask purely for ideas, and says in the same breath that informational questions are
+  answered without a draft - so this request is not supposed to attract the offer at all. The clause is
+  insurance against the agent making it anyway, which costs nothing, rather than a guard against behaviour
+  the prompt requires. fixture_depends_on names the palace and the trip''s two end dates and nothing else:
+  those are what the criteria read off the trip, and a longer list would fail the case when a stop nobody
+  scores against is renamed.'

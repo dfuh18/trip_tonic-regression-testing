@@ -660,15 +660,31 @@ detected, findings: [...], checker_version}`.
 Evaluates three things, all of which must hold for `none`:
 (1) every key of `declared_constraints.checks` — `tool_counts`, `tools_any_of`,
 `tool_errors` (`none | corrected`, D33), `places_surfaced`, `places_named`,
-`slot_days`, `slot_count`, `draft_slot_types` (D32),
-`slot_moved {block, day, starts_between?, duration_minutes?,
+`slot_days`, `slot_count`, `draft_slot_starts_between`, `draft_reuses_blocks`
+(D32), `slot_moved {block, day, starts_between?, duration_minutes?,
 clear_of_other_slots?}` (D31), `mutation_counts` (`table.OP`) — the closed
 vocabulary of D27, each one declarative and validated by the loader. Read
 `src/cases.py` for the current list rather than this line, and read
-`docs/event-model.md` for the field each key evaluates against (Q21): the draft
-keys read `resulting_state_shape.draft` (the *latest* draft), `places_named`
-reads `reply.place_refs`, `places_surfaced` reads `places_surfaced`, and
-`tool_errors` reads `result_error` across `tool_call_trace`;
+`docs/event-model.md` for the field each key evaluates against (Q21).
+
+Where each key reads from, which is the part that was wrong once and is worth
+stating: **the draft keys read the arguments of the latest `propose_plan` call
+in `tool_call_trace`**, NOT `resulting_state_shape.draft`, which carries counts
+only and no dates or times — pointed at the shape, `slot_days` cannot be
+evaluated and a draft on the wrong day passes. `draft_reuses_blocks` is
+satisfied by a `reuse_block_id` argument resolving through the execution's
+`fixture_ids` (D26) **or** by a slot title that would resolve to the same stop
+under the application's own containment rule, because an agent that honours
+"we already have it" by title has honoured it. `places_named` reads
+`resulting_state_shape.reply.place_refs`, `places_surfaced` reads
+`resulting_state_shape.places_surfaced`, and `tool_errors` reads `result_error`
+across `tool_call_trace`.
+
+**Scope: a check is a claim about the execution, not about one turn.**
+`tool_counts` and `mutation_counts` sum across the turns; `places_surfaced` and
+`places_named` take the maximum, so a closing "thanks, that's great" does not
+fail a case whose first turn answered well. `tools_any_of` requires at least
+one named tool to have run **and returned without an error**;
 (2) `expected_tool_sequence` as an ordered subsequence of the tools called,
 and `Case.allowed_tools()` as deny by default (D28) — a call to any tool
 outside that set is `detected`, with the finding naming the tool;

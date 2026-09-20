@@ -20,7 +20,7 @@ declared_constraints:
 scoring_criteria:
 - Comes down on full day or half day and gives the reason.
 - Refers to Pena Palace, which the summary shows is already on that day.
-- Does not claim to have changed the trip.
+- 'Names what the choice costs: what a half day gives up, or what a full day leaves no room for.'
 repetitions_n: 8
 metamorphic_relation: null
 fixture_depends_on:
@@ -35,4 +35,8 @@ notes: 'Advisory, and a question asking for a position rather than a list: the r
   has the agent close by offering to pre-schedule and names accepting that offer as a reason to edit the
   itinerary in the same turn - a persona who said yes would make a correct agent fail the zeros. Tools
   stay unconstrained: the message carries no slash command, so which sources inform the recommendation
-  is the agent''s call (D29).'
+  is the agent''s call (D29). The goal ends by declining an offer to schedule, and the reason is narrower
+  than it looks: the free-text instruction scopes its closing offer to requests that ask purely for ideas,
+  and says in the same breath that informational questions are answered without a draft - so this request
+  is not supposed to attract the offer at all. The clause is insurance against the agent making it anyway,
+  which costs nothing, rather than a guard against behaviour the prompt requires.'

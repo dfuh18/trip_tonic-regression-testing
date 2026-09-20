@@ -137,7 +137,8 @@ Both read the same recorded execution.
 
 The check keys the checker (B08) knows: `tool_counts`, `tools_any_of`,
 `tool_errors` (`none` | `corrected`), `places_surfaced`, `places_named`,
-`slot_days`, `slot_count`, `draft_reuses_blocks`, `slot_moved`
+`slot_days`, `slot_count`, `draft_slot_starts_between`,
+`draft_reuses_blocks`, `slot_moved`
 (`{block, day, starts_between?, duration_minutes?, clear_of_other_slots?}`),
 `mutation_counts` (`table.OP`). A count is an integer or `{min, max}`.
 
@@ -163,15 +164,40 @@ what `search_places` returned, the second what the reply referenced
 never mentions satisfies the first and not the second, which is why a
 venue-lookup case states both: one says it looked, the other says it answered.
 
-**The draft keys read the latest draft**, which is the one the application
-records in `resulting_state_shape.draft` and the plan the member is left with.
-A case that permits a revision therefore still has a defined target.
+**The draft keys read the latest `propose_plan` call's arguments**, recorded
+verbatim in the turn's tool-call trace. Not the recorded state shape, which
+carries counts only — how many days, how many slots, which block types — and no
+dates or times: a checker pointed there could not evaluate `slot_days` at all,
+and a Belém morning drafted onto the Sintra day would pass. Latest call, so a
+case that permits a revision still has a defined target.
+
+**A draft's times are checkable and should be checked.** `draft_slot_starts_
+between` takes the same kind of window as `slot_moved` (D31). Without it, an
+agent that drafts an afternoon and calls it a morning passes: the drafting tool
+instructs the reply not to repeat every slot, so a scoring criterion about the
+times the reply names is vacuous exactly when it is needed.
+
+**A check is a claim about the whole execution, not about one turn.** A case
+runs up to three turns and its checks are evaluated over all of them: counts in
+`tool_counts` and `mutation_counts` are **sums**, and `places_surfaced` and
+`places_named` are the **maximum** across turns, because a member's closing
+"thanks, that's great" is a turn that names no place and should not fail a case
+whose first turn answered well.
+
+**`tools_any_of` means ran *and returned without an error*.** The claim is that
+the reply came from a source, and a source that failed supplied nothing. Read
+as "ran", a failed climate lookup followed by a successful forecast call
+satisfied the weather case — which is the one behaviour that case exists to
+forbid.
 
 **`tool_errors` has three settings, and the middle one is the interesting
 one** (D33). `none` forbids any tool error. `corrected` permits one only where
-the agent recovers inside the turn — a later call to a tool the case names has
-to succeed — so an error it notices and fixes passes and an error it lives with
-does not. Leaving the key out constrains nothing. Write `corrected` where the
+the agent recovers from **that** error — a later call to the tool that failed,
+or to one named in `tools_any_of`, has to succeed — so an error it notices and
+fixes passes and an error it lives with does not. The narrowing is not
+pedantry: at "any tool the case names", a failed climate lookup was corrected
+by a successful forecast, and the case would have passed an answer about the
+wrong weeks. Leaving the key out constrains nothing. Write `corrected` where the
 application legitimately refuses a reasonable first attempt, or where a tool
 the agent may sensibly reach for cannot answer the question it was reached for:
 the weather case permits the forecast probe and requires the climate tool

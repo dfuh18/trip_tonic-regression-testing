@@ -52,4 +52,6 @@ notes: 'Minimum functionality for venue lookup where the member leaves the day i
   that offer and a persona who accepted would make a correct agent write a draft on the next turn and
   fail the mutation zeros. The criteria say "at least two" rather than a range because the agent is separately
   instructed to offer three to five options. Which places it finds is not asserted (D32): the case requires
-  lunch in the right region, not a venue the author picked.'
+  lunch in the right region, not a venue the author picked. The reference tools are permitted by /find
+  at the API level and forbidden here by absence (D28), deliberately: this request is answered by searching,
+  and permitting an article lookup would stop the case noticing an agent that reached for one instead.'
