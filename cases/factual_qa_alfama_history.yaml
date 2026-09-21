@@ -19,6 +19,10 @@ declared_constraints:
       itinerary_slots.UPDATE: 0
       ai_suggestions.INSERT: 0
     tool_errors: none
+    turn_errors: none
+    trip_after:
+      blocks: fixture
+      slots: fixture
   predicates: []
 scoring_criteria:
 - Says nothing the reference contradicts.
@@ -55,4 +59,9 @@ notes: 'Minimum functionality for factual question answering: read the article, 
   the agent keeps its whole toolset and could draft or schedule if it chose to. And the tool constraint
   binds that same free-text turn: a search for a fado bar to go with the answer is a structural failure
   even though nothing forbade the tool at the API level, so a failure report naming an unexpected tool
-  here is not evidence of a missing slash command.'
+  here is not evidence of a missing slash command. turn_errors and trip_after arrived with the derivation
+  of the check vocabulary from the event model (D37). turn_errors says the turn finished: an empty reply
+  comes back as HTTP 200, so the simulator answers it in character and every other check here passes against
+  a trip nothing touched. trip_after states the same read-only claim as a post-state rather than as four
+  zeros, so it holds whether or not the mutation trigger fired - two independent ways for the same fact
+  to be wrong.'

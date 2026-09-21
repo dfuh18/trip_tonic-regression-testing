@@ -26,8 +26,12 @@ declared_constraints:
       itinerary_slots.UPDATE: 0
       ai_suggestions.INSERT: 0
     tool_errors: none
+    turn_errors: none
     places_named:
       min: 2
+    trip_after:
+      blocks: fixture
+      slots: fixture
   predicates: []
 scoring_criteria:
 - Names at least two real seafood restaurants, each with one reason it fits.
@@ -54,4 +58,8 @@ notes: 'Minimum functionality for venue lookup: a grounded search that changes n
   the pass criterion. The reference tools are permitted by /find at the API level and forbidden here by
   absence (D28), which is deliberate: reading an encyclopedia article about a neighbourhood is not how
   this request gets answered, and a case that permitted it would stop noticing an agent that reached for
-  it instead of searching.'
+  it instead of searching. turn_errors and trip_after arrived with the derivation of the check vocabulary
+  from the event model (D37). turn_errors says the turn finished: an empty reply comes back as HTTP 200,
+  so the simulator answers it in character and every other check here passes against a trip nothing touched.
+  trip_after states the same read-only claim as a post-state rather than as four zeros, so it holds whether
+  or not the mutation trigger fired - two independent ways for the same fact to be wrong.'

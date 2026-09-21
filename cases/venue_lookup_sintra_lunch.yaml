@@ -27,8 +27,12 @@ declared_constraints:
       itinerary_slots.UPDATE: 0
       ai_suggestions.INSERT: 0
     tool_errors: none
+    turn_errors: none
     places_named:
       min: 2
+    trip_after:
+      blocks: fixture
+      slots: fixture
   predicates: []
 scoring_criteria:
 - Names at least two places in or near Sintra, not back in Lisbon.
@@ -54,4 +58,9 @@ notes: 'Minimum functionality for venue lookup where the member leaves the day i
   instructed to offer three to five options. Which places it finds is not asserted (D32): the case requires
   lunch in the right region, not a venue the author picked. The reference tools are permitted by /find
   at the API level and forbidden here by absence (D28), deliberately: this request is answered by searching,
-  and permitting an article lookup would stop the case noticing an agent that reached for one instead.'
+  and permitting an article lookup would stop the case noticing an agent that reached for one instead.
+  turn_errors and trip_after arrived with the derivation of the check vocabulary from the event model
+  (D37). turn_errors says the turn finished: an empty reply comes back as HTTP 200, so the simulator answers
+  it in character and every other check here passes against a trip nothing touched. trip_after states
+  the same read-only claim as a post-state rather than as four zeros, so it holds whether or not the mutation
+  trigger fired - two independent ways for the same fact to be wrong.'

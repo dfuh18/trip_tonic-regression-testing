@@ -16,6 +16,10 @@ declared_constraints:
       itinerary_slots.INSERT: 0
       itinerary_slots.UPDATE: 0
       ai_suggestions.INSERT: 0
+    trip_after:
+      blocks: fixture
+      slots: fixture
+    turn_errors: none
   predicates: []
 scoring_criteria:
 - Comes down on full day or half day and gives the reason.
@@ -37,4 +41,8 @@ notes: 'Advisory, and a question asking for a position rather than a list: the r
   offer to requests that ask purely for ideas, and says in the same breath that informational questions
   are answered without a draft - so this request is not supposed to attract the offer at all. The clause
   is insurance against the agent making it anyway, which costs nothing, rather than a guard against behaviour
-  the prompt requires.'
+  the prompt requires. turn_errors and trip_after arrived with the derivation of the check vocabulary
+  from the event model (D37). turn_errors says the turn finished: an empty reply comes back as HTTP 200,
+  so the simulator answers it in character and every other check here passes against a trip nothing touched.
+  trip_after states the same read-only claim as a post-state rather than as four zeros, so it holds whether
+  or not the mutation trigger fired - two independent ways for the same fact to be wrong.'

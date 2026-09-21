@@ -40,13 +40,17 @@ declared_constraints:
         min: 1
         max: 2
     tool_errors: corrected
+    turn_errors: none
     draft_reuses_blocks:
     - Jerónimos Monastery
     places_surfaced:
       min: 1
     draft_slot_starts_between:
     - 07:00
-    - '12:00'
+    - '13:00'
+    trip_after:
+      blocks: fixture
+      slots: fixture
   predicates: []
 scoring_criteria:
 - Summarises the morning in a few sentences and makes clear it is Belem, on the 7th, without reciting
@@ -87,4 +91,14 @@ notes: 'Minimum functionality for drafting. The member writes the date as "the 7
   draft does not lean on what the failed call did not return. An agent that treats the error as an answer
   fails on the draft''s own checks. ai_suggestions.UPDATE is deliberately not asserted, because propose_plan
   backfills plan_thread_id once the insert returns the id and expires a previous pending draft, both implementation
-  details a refactor may remove without changing anything the member sees.'
+  details a refactor may remove without changing anything the member sees. turn_errors and trip_after
+  arrived with the derivation of the check vocabulary from the event model (D37). turn_errors says the
+  turn finished rather than returning an empty reply with HTTP 200, which the simulator would answer in
+  character and no other check here would notice. trip_after says the draft stayed a draft: a proposal
+  writes no stop and no slot onto the live trip, which the mutation zeros claim from the trigger''s side
+  and this claims from the trip''s. The morning window ends at 13:00 rather than 12:00 (D42). The first
+  full seed run drafted Pasteis 09:00, the monastery 10:00-12:00 and Belem Tower 12:15-13:15 - a good
+  morning that runs into lunch, failed by fifteen minutes. The check is kept because without it a draft
+  of an afternoon called a morning passes: the drafting tool tells the reply not to repeat every slot,
+  so a scoring criterion about the times the reply names is vacuous exactly when it is needed. Only the
+  boundary moved, and an afternoon draft still fails it.'

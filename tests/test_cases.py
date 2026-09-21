@@ -485,7 +485,7 @@ def test_a_drafting_case_checks_the_day_and_the_hours_and_the_grounding():
     recalled venues after an empty search would each have passed."""
     checks = {c.case_id: c for c in load_cases()}["scheduling_belem_morning"].declared_constraints.checks
     assert checks.slot_days == ["2026-11-07"]
-    assert checks.draft_slot_starts_between == ("07:00", "12:00")
+    assert checks.draft_slot_starts_between == ("07:00", "13:00")
     assert checks.places_surfaced is not None
 
 
@@ -511,3 +511,53 @@ def test_a_case_permitting_a_probe_requires_the_recovery():
             for tool in probes:
                 assert as_bound(checks.tool_counts[tool]).max == 1 or checks.tools_any_of, (
                     f"{case.case_id}: {tool} is neither a capped probe nor backed by a source")
+
+
+def test_every_seed_says_the_turn_finished_and_the_trip_is_the_size_it_was():
+    """D37, the two keys the derivation from the event model put on every case.
+
+    `turn_errors` is the one that catches `empty_reply`: the turn returns HTTP
+    200 with nothing in it, the simulator answers the blank in character, and
+    every other check of a read-only case passes against a trip that was never
+    touched. `trip_after` is the post-state twin of the mutation zeros — the
+    same claim read off the trip instead of off the trigger.
+    """
+    for case in load_cases():
+        checks = case.declared_constraints.checks
+        assert checks.turn_errors == "none", case.case_id
+        assert checks.trip_after is not None, case.case_id
+        assert checks.trip_after.blocks == "fixture", case.case_id
+        assert checks.trip_after.slots == "fixture", case.case_id
+
+
+def test_the_move_case_says_what_the_move_was_allowed_to_touch():
+    """The three keys the tram case gained (D37): the agent's own journal of
+    the move, the columns the write was allowed to change, and the trip being
+    the size it was afterwards — a move moves, it does not add."""
+    checks = {c.case_id: c for c in load_cases()}["scheduling_move_tram"].declared_constraints.checks
+    assert as_bound(checks.edits.move).min == 1
+    assert as_bound(checks.edits.unschedule).max == 0
+    assert as_bound(checks.edits.schedule).max == 0
+    allowed = checks.mutation_changed_keys["itinerary_slots.UPDATE"]
+    assert "itinerary_day_id" in allowed and "start_time" in allowed
+    # What the case is for: a move that also unlocks the slot or re-points it.
+    assert "is_locked" not in allowed and "trip_block_id" not in allowed
+
+
+def test_a_mutation_key_that_names_no_table_is_refused(tmp_path):
+    """Same argument as the tool names: a misspelled table is a count of rows
+    that can never exist, so a zero passes and a minimum fails, silently."""
+    with pytest.raises(CaseFileError) as exc:
+        load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "declared_constraints": {
+            "checks": {"mutation_counts": {"itinerary_slot.INSERT": 0}}, "predicates": []}}))
+    assert "itinerary_slot.INSERT" in str(exc.value)
+
+
+def test_changed_keys_on_anything_but_an_update_is_refused(tmp_path):
+    """The trigger records `changed_keys` for an UPDATE alone, so the key is
+    unevaluable anywhere else and says so at load time rather than passing
+    vacuously at check time."""
+    with pytest.raises(CaseFileError) as exc:
+        load_case(write(tmp_path, "venue_lookup_seafood", {**VALID, "declared_constraints": {
+            "checks": {"mutation_changed_keys": {"trip_blocks.INSERT": ["title"]}}, "predicates": []}}))
+    assert "only an UPDATE has changed keys" in str(exc.value)

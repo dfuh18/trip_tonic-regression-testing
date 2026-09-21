@@ -136,11 +136,55 @@ Both read the same recorded execution.
   `same_tool_sequence_as_base`.
 
 The check keys the checker (B08) knows: `tool_counts`, `tools_any_of`,
-`tool_errors` (`none` | `corrected`), `places_surfaced`, `places_named`,
-`slot_days`, `slot_count`, `draft_slot_starts_between`,
-`draft_reuses_blocks`, `slot_moved`
+`tool_errors` (`none` | `corrected`), `turn_errors` (`none`),
+`places_surfaced`, `places_named`, `slot_days`, `slot_count`,
+`draft_slot_starts_between`, `draft_reuses_blocks`, `slot_moved`
 (`{block, day, starts_between?, duration_minutes?, clear_of_other_slots?}`),
-`mutation_counts` (`table.OP`). A count is an integer or `{min, max}`.
+`edits` (`{move, unschedule, schedule}`), `mutation_counts` (`table.OP`),
+`mutation_changed_keys` (`table.UPDATE` → the columns the write may touch) and
+`trip_after` (`{blocks, slots}`). A count is an integer or `{min, max}`.
+
+**Where a new key comes from** (D37). Every key exists because the application
+already records the field it reads, and `src/cases.py` names that field in the
+key's docstring. The first eleven were not derived that way — they came out of
+the discussion of what a constraint is, and two more were then found by
+accident while fixing something else (Q21). The rule that replaces the accident
+has two halves: a candidate is found by **reading `docs/event-model.md`**, and
+it is **added when a case needs it**, so every key in the vocabulary is
+exercised by at least one case. A key nobody asserts is a key nobody validates.
+
+**What is recorded and deliberately not assertable.** `reply.chars`,
+`latency_ms`, the token counts, `llm_calls` and `tool_calls` are carried on
+every execution and reported per case, but no case may bound them: there is no
+baseline yet to bound them against, and a window invented before the first run
+is a threshold nobody can defend (Q22, revisited after B10). `request_type` and
+`agent_intent` are the participant round's labels and the coverage signature's
+field, not a case's assertion.
+
+**`turn_errors` is the one that catches a turn that did not happen.** An
+`empty_reply` comes back as HTTP 200, so the simulator reads the blank, answers
+it in character, and a read-only case then passes every other check against a
+trip nothing touched. It reads `study_suggestions.error_code`, D11's closed
+set, across the execution's turns.
+
+**`trip_after` is the mutation zeros read off the trip instead of the
+trigger.** `blocks: fixture` and `slots: fixture` mean "as many as the fixture
+has" rather than a number that silently stops matching when the fixture
+changes. Every seed states both claims, because they fail differently: a write
+the trigger missed leaves the zeros true and the counts wrong.
+
+**`edits` is the agent's journal; `mutation_counts` is the database.** Also
+kept as a pair, and for the same reason — an edit journalled but not written,
+or written but not journalled, is a fault neither signal sees alone.
+
+**`mutation_changed_keys` is "and nothing else", over columns.** Read like D28
+reads tools: every row of that table and op must have changed only keys drawn
+from the list, and a listed key nothing changed is not a failure. It is what
+lets the tram case say the move touched the day, the times, the span and the
+precision — and catches one that also cleared the lock or re-pointed the slot
+at another stop. `UPDATE` only: the trigger records changed keys for nothing
+else, and the loader refuses the key on an `INSERT` rather than letting it pass
+vacuously.
 
 **A case asserts the kind of place, never which one** (D32). "Somewhere for
 lunch near Pena Palace" is a type and a region; the venue the agent picks is

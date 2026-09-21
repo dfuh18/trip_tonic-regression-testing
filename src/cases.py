@@ -83,6 +83,19 @@ ALL_TOOL_NAMES = frozenset({
 
 ALWAYS_ALLOWED_TOOLS = ("get_trip_details", "list_trip_blocks", "get_itinerary")
 
+#: The tables the mutation triggers watch (D13). A ``mutation_counts`` or
+#: ``mutation_changed_keys`` key names one of these and an operation: a
+#: misspelled table is a count of rows that can never exist, which passes a
+#: zero and fails a minimum, silently, forever.
+MUTATION_TABLES = frozenset({
+    "trip_blocks",
+    "itinerary_slots",
+    "itinerary_days",
+    "ai_suggestions",
+    "branches",
+})
+MUTATION_OPS = frozenset({"INSERT", "UPDATE", "DELETE"})
+
 #: The D22 catalogue. A follow-up case names exactly one.
 METAMORPHIC_RELATIONS = (
     "INV-1", "INV-2", "INV-3", "INV-4",
@@ -171,12 +184,70 @@ class SlotMoved(BaseModel):
         return self
 
 
+class EditCounts(BaseModel):
+    """Live itinerary edits the agent journalled this execution (D10's
+    ``resulting_state_shape.edits``), summed across its turns.
+
+    The agent's own account of what it did, beside ``mutation_counts``, which
+    is the database's. Both are kept because they fail differently: an edit
+    journalled but not written, or written but not journalled, is a fault
+    either way and neither signal alone sees it.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    move: Optional[BoundLike] = None
+    unschedule: Optional[BoundLike] = None
+    schedule: Optional[BoundLike] = None
+
+
+#: ``trip_after`` counts may be written as the fixture's own, so the case says
+#: what it means — "as many stops as we started with" — rather than a number
+#: that silently stops matching when the fixture changes.
+FIXTURE_COUNT = "fixture"
+CountLike = Union[int, Bound, Literal["fixture"]]
+
+
+class TripAfter(BaseModel):
+    """How much trip there is when the execution ends
+    (``resulting_state_shape.trip_after`` of the last turn, D10).
+
+    The positive form of "nothing was written". ``mutation_counts`` says no
+    row was recorded; this says the trip is the size it was, which is the same
+    claim from the other side and does not depend on the mutation trigger
+    having fired. A read-only case wants both.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    #: Stops on the trip afterwards. ``fixture`` means the fixture's own count.
+    blocks: Optional[CountLike] = None
+    #: Scheduled slots afterwards. ``fixture`` means the fixture's own count.
+    slots: Optional[CountLike] = None
+
+
 class Checks(BaseModel):
     """What a case asserts about an execution, declaratively (D19, D27).
 
     Every key is optional and an absent key is not a constraint. The checker
     (B08) knows exactly these; a case cannot invent one, because a constraint
     nothing evaluates is worse than no constraint.
+
+    **Where a new key comes from (D37).** The vocabulary is derived from
+    ``docs/event-model.md``: a key exists because the application already
+    records the field it reads, and the docstring of each one names that
+    field. It was not derived that way originally, and two keys were found by
+    accident as a result (Q21). The rule that replaces the accident has two
+    halves — a candidate key is found by reading the event model, and it is
+    added when a case needs it, so that every key in this class is exercised
+    by at least one case. A key nobody asserts is a key nobody validates.
+
+    **What is recorded but deliberately not assertable.** ``reply.chars``,
+    ``latency_ms``, the token counts, ``llm_calls`` and ``tool_calls`` are
+    carried on every execution and reported per case by the checker, but no
+    case may bound them: there is no baseline yet to bound them against, and a
+    window invented before the first run is a threshold nobody can defend
+    (Q22, deferred to B10). ``request_type`` and ``agent_intent`` are the
+    participant round's labels and B12's signature field, not a case's
+    assertion.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -220,6 +291,16 @@ class Checks(BaseModel):
     #: sensibly try cannot answer the question it was tried for. Both happen,
     #: and an agent that notices and switches is behaving well (D30).
     tool_errors: Optional[Literal["none", "corrected"]] = None
+    #: ``"none"``: no turn of this execution ended with a
+    #: ``study_suggestions.error_code`` (D11's closed set — ``timeout |
+    #: llm_call_limit | empty_reply | llm_error | persist_failed | other``).
+    #:
+    #: The turn-level counterpart of ``tool_errors``, and the one that catches
+    #: a failure nothing else does: ``empty_reply`` returns HTTP 200, so the
+    #: simulator reads a blank reply, answers it in character and the case
+    #: goes on to pass every check about a trip that was never touched. A
+    #: read-only case is exactly where that is invisible.
+    turn_errors: Optional[Literal["none"]] = None
 
     # --- what it surfaced ---
     #: Places ``search_places`` returned across the turn, bounded. This counts
@@ -282,11 +363,48 @@ class Checks(BaseModel):
     # --- what it changed on the live itinerary ---
     #: A named stop ends up in a named window.
     slot_moved: Optional[SlotMoved] = None
+    #: The agent's own journal of its live edits, summed over the execution.
+    edits: Optional[EditCounts] = None
 
     # --- what the database recorded ---
     #: study_mutations rows per (table, op) — e.g. ``itinerary_slots.INSERT: 1``.
     mutation_counts: Optional[dict[str, BoundLike]] = None
+    #: Which columns a write was allowed to touch, per ``table.OP`` — the
+    #: ``changed_keys`` array the mutation trigger records (UPDATE only; an
+    #: INSERT has no meaningful one). Read as deny by default over columns,
+    #: the way D28 reads tools: **every** row of that table and op must have
+    #: changed only keys drawn from this list, and a key in the list that
+    #: nothing changed is not a failure. That is what states "the move changed
+    #: the day and the times and nothing else" — the part that was previously
+    #: unsayable, and the part that catches a move which also quietly cleared
+    #: a lock, a precision or a block link.
+    mutation_changed_keys: Optional[dict[str, list[str]]] = None
 
+    # --- how much trip there is afterwards ---
+    trip_after: Optional[TripAfter] = None
+
+
+    @model_validator(mode="after")
+    def _mutation_keys_name_a_table_and_an_op(self) -> "Checks":
+        for field, mapping in (
+            ("mutation_counts", self.mutation_counts),
+            ("mutation_changed_keys", self.mutation_changed_keys),
+        ):
+            for key in mapping or {}:
+                table, _, op = key.partition(".")
+                if table not in MUTATION_TABLES or op not in MUTATION_OPS:
+                    raise ValueError(
+                        f"{field} key {key!r} must read <table>.<OP> — table one of "
+                        f"{', '.join(sorted(MUTATION_TABLES))}, OP one of "
+                        f"{', '.join(sorted(MUTATION_OPS))}"
+                    )
+                if field == "mutation_changed_keys" and op != "UPDATE":
+                    raise ValueError(
+                        f"mutation_changed_keys key {key!r}: only an UPDATE has changed keys — "
+                        f"the trigger records them for UPDATE alone. Use mutation_counts for "
+                        f"{op}."
+                    )
+        return self
 
     @model_validator(mode="after")
     def _draft_window_is_a_window(self) -> "Checks":
@@ -449,6 +567,16 @@ def fixture_anchors(data: Optional[dict] = None) -> set[str]:
         anchors.add(day.isoformat())
         day += timedelta(days=1)
     return anchors
+
+
+def fixture_counts(data: Optional[dict] = None) -> dict[str, int]:
+    """How much trip the fixture is — what ``trip_after: fixture`` resolves to.
+
+    One definition, used by the checker and by the notebook, so "as many stops
+    as we started with" cannot mean two things.
+    """
+    data = data or fixture()
+    return {"blocks": len(data["blocks"]), "slots": len(data["slots"])}
 
 
 def _predicate_names() -> set[str]:

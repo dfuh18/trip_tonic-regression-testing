@@ -38,6 +38,23 @@ declared_constraints:
         max: 2
       ai_suggestions.INSERT: 0
     tool_errors: corrected
+    turn_errors: none
+    edits:
+      move:
+        min: 1
+        max: 2
+      unschedule: 0
+      schedule: 0
+    mutation_changed_keys:
+      itinerary_slots.UPDATE:
+      - itinerary_day_id
+      - start_time
+      - end_time
+      - end_day_date
+      - time_precision
+    trip_after:
+      blocks: fixture
+      slots: fixture
   predicates: []
 scoring_criteria:
 - 'States exactly what changed: the stop, the new day and the new time.'
@@ -81,4 +98,10 @@ notes: 'Minimum functionality for a live edit. The member says "Saturday" and "a
   Forbidding it here while permitting it there would have been two answers to one question. Nothing else
   is permitted: no search, no draft, no unschedule. itinerary_days.INSERT is deliberately not asserted:
   the 7th is an empty day in the fixture, so moving a stop onto it legitimately creates the day row, and
-  a count would encode which days the fixture happens to have rather than anything about the agent.'
+  a count would encode which days the fixture happens to have rather than anything about the agent. Three
+  keys arrived with the derivation of the check vocabulary from the event model (D37). edits is the agent''s
+  own journal of the move, beside itinerary_slots.UPDATE which is the database''s: an edit journalled
+  but not written, or written but not journalled, is a fault and neither signal sees it alone. mutation_changed_keys
+  is the ''and nothing else'' - a move may touch the day, the two times, the span and the precision, and
+  one that also clears the lock or re-points the slot at another stop has done something nobody asked
+  for. trip_after says the move moved rather than added. turn_errors says the turn finished at all.'

@@ -16,6 +16,10 @@ declared_constraints:
       itinerary_slots.INSERT: 0
       itinerary_slots.UPDATE: 0
       ai_suggestions.INSERT: 0
+    trip_after:
+      blocks: fixture
+      slots: fixture
+    turn_errors: none
   predicates: []
 scoring_criteria:
 - Ties at least one item to something specific about this trip - the Sintra hills, the cobbled streets,
@@ -44,4 +48,9 @@ notes: 'Advisory: the judge carries most of this case, because advice leaves no 
   is not supposed to attract the offer at all. The clause is insurance against the agent making it anyway,
   which costs nothing, rather than a guard against behaviour the prompt requires. fixture_depends_on names
   the palace and the trip''s two end dates and nothing else: those are what the criteria read off the
-  trip, and a longer list would fail the case when a stop nobody scores against is renamed.'
+  trip, and a longer list would fail the case when a stop nobody scores against is renamed. turn_errors
+  and trip_after arrived with the derivation of the check vocabulary from the event model (D37). turn_errors
+  says the turn finished: an empty reply comes back as HTTP 200, so the simulator answers it in character
+  and every other check here passes against a trip nothing touched. trip_after states the same read-only
+  claim as a post-state rather than as four zeros, so it holds whether or not the mutation trigger fired
+  - two independent ways for the same fact to be wrong.'

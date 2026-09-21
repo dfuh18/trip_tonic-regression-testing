@@ -24,6 +24,10 @@ declared_constraints:
       itinerary_slots.UPDATE: 0
       ai_suggestions.INSERT: 0
     tool_errors: corrected
+    turn_errors: none
+    trip_after:
+      blocks: fixture
+      slots: fixture
   predicates: []
 scoring_criteria:
 - 'Gives typical November figures for Lisbon that agree with a reference: a daily high near 18 C and a
@@ -62,4 +66,9 @@ notes: 'Minimum functionality for factual question answering where more than one
   narrower than it looks: the free-text instruction scopes its closing offer to requests that ask purely
   for ideas, and says in the same breath that informational questions are answered without a draft - so
   this request is not supposed to attract the offer at all. The clause is insurance against the agent
-  making it anyway, which costs nothing, rather than a guard against behaviour the prompt requires.'
+  making it anyway, which costs nothing, rather than a guard against behaviour the prompt requires. turn_errors
+  and trip_after arrived with the derivation of the check vocabulary from the event model (D37). turn_errors
+  says the turn finished: an empty reply comes back as HTTP 200, so the simulator answers it in character
+  and every other check here passes against a trip nothing touched. trip_after states the same read-only
+  claim as a post-state rather than as four zeros, so it holds whether or not the mutation trigger fired
+  - two independent ways for the same fact to be wrong.'
