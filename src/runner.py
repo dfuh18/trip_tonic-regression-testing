@@ -3,16 +3,25 @@ everything Table 11 asks for at run and test-case level.
 
 Order of one execution, and the two things that make it a measurement:
 
-  1. ``reset`` the fixture trip, then ``assert_clean`` — the precondition gate
-     (invariant 1, D03). A refusal aborts the whole run and is logged; no
-     execution row is written for a repetition that did not start clean.
+  1. ``provision`` a fixture trip **of this repetition's own** (D38), then
+     ``assert_clean`` — the precondition gate (invariant 1, D03). A refusal
+     aborts the whole run and is logged; no execution row is written for a
+     repetition that did not start clean.
   2. simulate the case (B06), then collect what the application logged for it
      (A02's suggestion rows, A04's mutation rows) and what the simulator spent.
 
+Nothing is deleted between repetitions. Isolation is by construction — a new
+trip has no chat, no run, no draft and no edit to inherit — and the record of
+every execution survives the run, which is what the checker, the judge and the
+analysis all read afterwards.
+
 Concurrency is one: the Vertex spacing and the per-minute quota are per user,
-and independence between repetitions is the point. Resumable: every finished
-execution is a row keyed by (run, case, repetition), so a run that stopped
-continues from the next repetition it has not recorded.
+and independence between repetitions is the point. Concurrency alone was not
+enough — serial requests still exhausted the key's per-minute quota, so every
+model call the run causes, its own and the agent's, is paced against one
+budget (D39, ``src/ratelimit.py``). Resumable: every finished execution is a
+row keyed by (run, case, repetition), so a run that stopped continues from the
+next repetition it has not recorded.
 """
 
 from __future__ import annotations
@@ -29,6 +38,7 @@ from src.auth import SimUser
 from src.cases import Case, by_priority, load_cases, suite_version
 from src.config import settings
 from src.pricing import PRICING_VERSION, llm_cost_usd
+from src.ratelimit import limiter
 from src.simulator import SimulationResult, Simulator
 
 SIMULATOR_PROMPT = "simulator_v1"
@@ -40,8 +50,10 @@ class RunAborted(RuntimeError):
 
 @dataclass
 class RunHandle:
+    """What every execution of one run shares. Not the trip: since D38 each
+    repetition builds its own, and the id belongs to the execution row."""
+
     run_id: str
-    trip_id: str
     user: SimUser
     token: str
 
@@ -86,8 +98,13 @@ def executions_done(run_id: str) -> set[tuple[str, int]]:
     return {(r["case_id"], r["repetition"]) for r in rows}
 
 
-def collect(trip_id: str, suggestion_ids: list[str]) -> dict:
-    """What the application logged for this execution."""
+def collect(trip_id: str, suggestion_ids: list[str], exclude_mutations: tuple[str, ...] = ()) -> dict:
+    """What the application logged for this execution.
+
+    ``exclude_mutations`` are the rows the fixture build wrote before the case
+    began (D38): the trip is this repetition's alone, so every other mutation
+    row on it is the case's.
+    """
     a = db.admin()
     suggestions = (
         a.table("study_suggestions")
@@ -99,21 +116,45 @@ def collect(trip_id: str, suggestion_ids: list[str]) -> dict:
         if suggestion_ids
         else []
     )
-    mutations = a.table("study_mutations").select("table_name, op, origin_kind, origin_suggestion_id, projection").eq("trip_id", trip_id).order("occurred_at").execute().data
+    mutations = [
+        m
+        for m in a.table("study_mutations")
+        .select("id, table_name, op, origin_kind, origin_suggestion_id, changed_keys, projection")
+        .eq("trip_id", trip_id)
+        .order("occurred_at")
+        .execute()
+        .data
+        if m["id"] not in exclude_mutations
+    ]
     return {"suggestions": suggestions, "mutations": mutations}
 
 
-def execute_case(handle: RunHandle, case: Case, repetition: int, simulator: Simulator, log: Callable[[str], None]) -> dict:
-    """One repetition: gate, simulate, collect, record. Returns the row written."""
-    rebuilt = reset.reset(handle.trip_id, handle.token)
-    try:
-        reset.assert_clean(handle.trip_id)
-    except reset.DirtyState as exc:
-        raise RunAborted(str(exc)) from exc
+def execute_case(
+    handle: RunHandle,
+    case: Case,
+    repetition: int,
+    simulator: Simulator,
+    log: Callable[[str], None],
+    provisioned: Optional[reset.ResetResult] = None,
+) -> dict:
+    """One repetition: provision, gate, simulate, collect, record.
+
+    A trip of its own per repetition (D38), so nothing this execution recorded
+    is destroyed to make room for the next one. ``provisioned`` lets the
+    caller hand over a trip it already built and gated — the run's own opening
+    gate, which must pass before there is a run row at all (D03).
+    """
+    rebuilt = provisioned or reset.provision(handle.user, handle.token, f"{case.case_id} r{repetition}")
+    trip_id = rebuilt.trip_id
+    if provisioned is None:
+        try:
+            reset.assert_clean(trip_id)
+        except reset.DirtyState as exc:
+            raise RunAborted(str(exc)) from exc
 
     started = time.time()
-    result: SimulationResult = simulator.run(case, handle.user, handle.token, handle.trip_id)
-    collected = collect(handle.trip_id, result.suggestion_ids)
+    result: SimulationResult = simulator.run(case, handle.user, handle.token, trip_id)
+    collected = collect(trip_id, result.suggestion_ids, rebuilt.build_mutation_ids)
     agent_in = sum(s["tokens_input"] or 0 for s in collected["suggestions"])
     agent_out = sum(s["tokens_output"] or 0 for s in collected["suggestions"])
     agent_model = next((s["model_version"] for s in collected["suggestions"] if s.get("model_version")), None)
@@ -127,7 +168,7 @@ def execute_case(handle: RunHandle, case: Case, repetition: int, simulator: Simu
         "repetition": repetition,
         "repetitions_n": case.repetitions_n,
         "session_id": handle.user.session_id,
-        "trip_id": handle.trip_id,
+        "trip_id": trip_id,
         "declared_constraints": case.declared_constraints.model_dump(),
         "expected_tool_sequence": case.expected_tool_sequence,
         "scoring_criteria": case.scoring_criteria,
@@ -135,6 +176,9 @@ def execute_case(handle: RunHandle, case: Case, repetition: int, simulator: Simu
         # The ids this repetition built. New every time, and the only way to
         # read a study_mutations row_id back to the stop it touched (D26).
         "fixture_ids": rebuilt.ids,
+        # Which mutation rows were the build's, so the checker can exclude
+        # them when it reads the trip back after the run (D38).
+        "build_mutation_ids": list(rebuilt.build_mutation_ids),
         "cost_usd": cost,
         "latency_ms": int((time.time() - started) * 1000),
         "token_count": agent_in + agent_out + result.simulator_tokens_input + result.simulator_tokens_output,
@@ -159,6 +203,7 @@ def run(
     baseline_ref: Optional[str] = None,
     resume_run_id: Optional[str] = None,
     simulator: Optional[Simulator] = None,
+    notes: str = "",
     log: Callable[[str], None] = print,
 ) -> str:
     """Execute the suite. Returns the run id. Raises RunAborted on a dirty start."""
@@ -167,18 +212,23 @@ def run(
         cases = [c for c in cases if c.run_priority == 1]
     user = auth.ensure_sim_users(1)[0]
     token = auth.sign_in(user)
-    trip_id = reset.ensure_trip(user, token)
-    # The gate before there is a run: a dirty start produces no run row at all
-    # (D03). The per-repetition gate below then guards every later start.
+    # The gate before there is a run: a start the harness cannot vouch for
+    # produces no run row at all (D03). The trip it builds is handed to the
+    # first execution rather than thrown away, so the gate is a real
+    # provisioning of a real repetition and not a rehearsal of one.
+    opening: Optional[reset.ResetResult] = None
     if not resume_run_id:
-        reset.reset(trip_id, token)
+        opening = reset.provision(user, token, "gate")
         try:
-            reset.assert_clean(trip_id)
+            reset.assert_clean(opening.trip_id)
         except reset.DirtyState as exc:
             reset.harness_log(f"RUN NOT OPENED: {exc}")
             raise RunAborted(str(exc)) from exc
-    run_id = resume_run_id or open_run(user, token, cases, baseline_ref)
-    handle = RunHandle(run_id=run_id, trip_id=trip_id, user=user, token=token)
+    # A run that is not the baseline says so in its own row. `notes` is the
+    # only field that can carry it, and a probe run mistaken for the reference
+    # run later is not a mistake anything else would catch.
+    run_id = resume_run_id or open_run(user, token, cases, baseline_ref, notes)
+    handle = RunHandle(run_id=run_id, user=user, token=token)
     simulator = simulator or Simulator()
     done = executions_done(run_id) if resume_run_id else set()
     log(f"run {run_id[:8]}: {len(cases)} case(s), {len(done)} execution(s) already recorded")
@@ -189,7 +239,8 @@ def run(
             if (case.case_id, repetition) in done:
                 continue
             try:
-                row = execute_case(handle, case, repetition, simulator, log)
+                row = execute_case(handle, case, repetition, simulator, log, provisioned=opening)
+                opening = None  # the gate's trip belongs to the first execution only
             except RunAborted as exc:
                 reset.harness_log(f"RUN {run_id} ABORTED at {case.case_id} rep {repetition}: {exc}")
                 db.admin().table("study_runs").update({"notes": f"aborted: {exc}", "finished_at": _now()}).eq("id", run_id).execute()
@@ -204,5 +255,10 @@ def run(
         "latency_ms": sum(r["latency_ms"] or 0 for r in existing),
         "token_count": sum(r["token_count"] or 0 for r in existing),
     }).eq("id", run_id).execute()
-    log(f"run {run_id[:8]} finished: {len(existing)} executions")
+    # What the pacing cost, stated rather than inferred from the wall clock
+    # (D39). If this is most of a run's duration the key's budget is set too
+    # low, and VERTEX_CALLS_PER_MINUTE is the one line to change.
+    paced = limiter().waited_s
+    log(f"run {run_id[:8]} finished: {len(existing)} executions, {paced / 60:.1f} min spent pacing")
+    reset.harness_log(f"RUN {run_id[:8]} finished: {len(existing)} executions, paced {paced:.0f}s")
     return run_id

@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Optional, Protocol
 
 from src.config import settings
+from src.ratelimit import limiter
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 _VERSION_RE = re.compile(r"<!--\s*version:\s*([^\s]+)\s*-->")
@@ -104,6 +105,11 @@ class Gemini:
         retries = 0
         for attempt in range(1, _MAX_ATTEMPTS + 1):
             try:
+                # One permit, one call, against the budget the agent turns draw
+                # on too (D39). Claimed per attempt, because a retry is another
+                # call and a retry that jumps the queue is how a run that had
+                # nearly recovered exhausts the window again.
+                limiter().acquire(1)
                 response = self._client.models.generate_content(model=self.model, contents=user, config=config)
                 break
             except errors.APIError as exc:

@@ -25,6 +25,7 @@ from src import db
 from src.auth import SimUser
 from src.cases import Case
 from src.config import settings
+from src.ratelimit import limiter
 from src.llm import Llm, load_prompt, simulator_llm
 
 #: D21: the simulator's turn cap.
@@ -140,6 +141,12 @@ class Simulator:
             body = {"trip_id": trip_id, "message": content, "message_id": message_id}
             if intent:
                 body["intent"] = intent
+            # This request is about to make model calls the harness does not
+            # make itself, against the same key's quota (D39). It claims them
+            # before sending, at the worst case a turn was observed to cost:
+            # under-claiming is what exhausted the window in the B15 probe, and
+            # the application's own retry cannot recover from a 429 it caused.
+            limiter().acquire(settings.AGENT_CALLS_PER_TURN)
             response = httpx.post(f"{settings.API_BASE_URL}/ai/agent/chat", json=body, headers=headers, timeout=200)
             data = response.json().get("data", {}) if response.status_code == 200 else {}
             suggestion = _wait_for_suggestion(message_id)

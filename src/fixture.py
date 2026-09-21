@@ -66,8 +66,14 @@ def load_fixture(path: Path = FIXTURE_FILE) -> dict[str, Any]:
     return data
 
 
-def trip_name(fixture: dict[str, Any], user: SimUser) -> str:
-    return f"{fixture['trip']['name_prefix']} sim-{user.index:02d}"
+def trip_name(fixture: dict[str, Any], user: SimUser, label: str = "") -> str:
+    """The trip's name, carrying the repetition it was built for (D38).
+
+    One trip per repetition, so the name has to tell them apart: the id is in
+    the execution row, but a person looking at a list of trips has only this.
+    """
+    base = f"{fixture['trip']['name_prefix']} sim-{user.index:02d}"
+    return f"{base} {label}" if label else base
 
 
 def expected_digest(fixture: dict[str, Any]) -> str:
@@ -175,31 +181,18 @@ def _digest(blocks: list, slots: list) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def find_trip(fixture: dict[str, Any], user: SimUser) -> str | None:
-    rows = (
-        db.admin()
-        .table("trips")
-        .select("id")
-        .eq("created_by", user.id)
-        .eq("name", trip_name(fixture, user))
-        .limit(1)
-        .execute()
-        .data
-    )
-    return rows[0]["id"] if rows else None
-
-
 def _api(token: str) -> httpx.Client:
     return httpx.Client(base_url=settings.API_BASE_URL, headers=db.api_headers(token), timeout=60)
 
 
-def create_trip(fixture: dict[str, Any], user: SimUser, token: str) -> str:
-    """The trip row itself, once. Children are the rebuild's job."""
+def create_trip(fixture: dict[str, Any], user: SimUser, token: str, label: str = "") -> str:
+    """The trip row itself. One per repetition (D38) — there is no finding an
+    existing one, because reusing a trip is exactly what this stopped doing."""
     with _api(token) as api:
         r = api.post(
             "/trips",
             json={
-                "name": trip_name(fixture, user),
+                "name": trip_name(fixture, user, label),
                 "description": fixture["trip"]["description"],
                 "start_date": fixture["trip"]["start_date"],
                 "end_date": fixture["trip"]["end_date"],

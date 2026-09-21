@@ -49,6 +49,8 @@ HARNESS_VARS = (
     "SIM_USER_PASSWORD",
     "SIM_USER_COUNT",
     "SIM_USER_DOMAIN",
+    "VERTEX_CALLS_PER_MINUTE",
+    "AGENT_CALLS_PER_TURN",
 )
 
 _REDACTED = "Settings(<redacted>)"
@@ -76,6 +78,18 @@ class Settings(BaseModel):
     SIM_USER_COUNT: int = 2
     #: A reserved, undeliverable domain: these accounts never receive mail.
     SIM_USER_DOMAIN: str = "sim.triptonic.invalid"
+    #: Every Vertex call the harness causes, per minute, across the simulator,
+    #: the judge and the agent turns it triggers — one budget for one key
+    #: (D39, `src/ratelimit.py`). The default is the express tier's documented
+    #: floor rather than a measurement: exceeding it costs an execution, and
+    #: staying under it costs seconds. Raise it if the key's quota is known to
+    #: be higher.
+    VERTEX_CALLS_PER_MINUTE: int = 10
+    #: What one agent turn is assumed to cost in model calls, claimed by the
+    #: simulator before it sends. The B15 probe observed one to four
+    #: (`llm_calls` on `study_suggestions`); the budget takes the worst case,
+    #: because under-claiming is what exhausts the quota.
+    AGENT_CALLS_PER_TURN: int = 4
 
     def __repr__(self) -> str:  # noqa: D105 - see module docstring
         return _REDACTED
