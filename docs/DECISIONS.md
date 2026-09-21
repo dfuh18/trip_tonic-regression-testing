@@ -31,6 +31,350 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D47 — Fixture trips are retired by run, keeping the latest and its baseline
+Date: 2026-09-21 · Decided by: author (proposed the rule directly)
+Options: never delete until submission · keep the latest run and its baseline ·
+delete on a time-based retention window
+Chosen: the second, as `src/cleanup.py` (B17). Keep the most recent run and any
+run a kept run names as its `baseline_ref` — exactly the pair stage 3.2
+compares (D23) — and retire every other run's fixture trips. The rule falls out
+of the data rather than being a list someone maintains.
+Every fixture trip is traceable to its run through
+`study_case_executions.trip_id` + `run_id`, which is what makes this possible
+at all.
+What is lost, stated because it is irreversible: `chat_messages` cascades with
+the trip, and it is the only copy of the agent's reply text **and** of the
+Google place ids the metamorphic predicates compare. A retired run cannot be
+re-judged or re-checked. What survives: `study_case_executions` keeps its
+outcome, findings, costs and constraints, and `study_suggestions.trip_id` is
+`ON DELETE SET NULL`, so the record of what happened outlives the trip.
+Safety: dry run unless `--apply`, and three independent guards — a trip must
+belong to a simulated account, carry the fixture name prefix, and not belong to
+a kept run. Any trip failing one is skipped and reported.
+**Not applied yet.** There is no baseline run, so today the rule would retire
+every probe run except the newest, and several decisions (D38, D41, D42) cite
+those runs. Storage is not a reason to hurry: two full runs are ~256 trips.
+Affects: src/cleanup.py, tests/test_cleanup.py, B17 · Reverses: none
+
+### D46 — The harness is kept out of the product's analytics
+Date: 2026-09-21 · Decided by: author (asked for directly)
+Chosen: `public.is_simulated_account(uuid)`, and a `NOT` of it in
+`analytics_cost_rollup`, `analytics_event_rollup`, `analytics_active_users`
+and `analytics_funnel`. An account counts as simulated on either of two
+signals, neither of which depends on configuration: a `.invalid` email (RFC
+2606 reserves the TLD as permanently undeliverable, so it can never be a
+person) or a study session with `run_type = 'simulation'`.
+Reason: D15 puts everything in one Supabase project, so the harness's accounts
+sit beside real users and every product rollup was counting them. At the point
+this was found that was already **297 `api_usage_events` worth $10.89 and 292
+`ux_events`** from one fake account, and a baseline plus a regression run would
+add ~256 agent turns and ~256 trips more — enough to visibly distort DAU,
+cost-per-user and the funnel.
+`analytics_agent_reliability` is **deliberately not** filtered: it measures how
+often the model provider is busy, and harness turns are evidence for exactly
+that question.
+Affects: supabase migration 20260921075038, admin dashboard · Reverses: none
+Note: the same two signals identify which trips `src/cleanup.py` may delete
+(D47), so "is this the harness" has one definition rather than two.
+
+### D45 — A member is told when the model is overloaded, and an admin can count it
+Date: 2026-09-21 · Decided by: author (asked for directly)
+Chosen: three additive pieces. (1) A capacity failure returns **503** with
+"Tonic is overloaded at the moment — this is not your message. Please wait
+about a minute and send it again." and `details.retryAfterSeconds`; the web
+shows the server's wording for 503 only, since the other failure messages
+("Agent reached its reasoning limit") are internal. (2) Every failed agent turn
+records `metadata.failureKind` ∈ `capacity | timeout | call_limit |
+empty_reply | other` on its `api_usage_events` row — the `status` column is
+constrained to `ok|error`, so the reason rides in the metadata and needs no
+enum migration. (3) `analytics_agent_reliability` rolls it up per day and an
+**Agent reliability** tile on the admin dashboard shows turns, failure rate,
+overload rate and the worst day.
+Reason: the author's. Overload is not something a member can fix by rewording,
+so "please try again" alone reads as blaming them for a queue they cannot see;
+and without a number nobody can tell whether a bad week was Google's or ours,
+which is the decision that would justify paying for reserved throughput.
+The wait is **our estimate and is worded as one** — Vertex sends no
+`Retry-After` and the 429 carries no `RetryInfo`, so a precise countdown would
+be a fabricated number.
+Privacy: the rollup is counts only — no user id, no trip, no message content —
+so it stays inside `docs/DECISION_ai_conversation_privacy.md`.
+Caught in review: the first migration granted EXECUTE to `authenticated`, which
+both failed for the only real caller (the service-key client, 42501) and would
+have let any signed-in member call an admin aggregate straight through
+PostgREST, where `requireSuperAdmin` is not in the path. Corrected to
+`service_role` only, matching every other analytics rollup
+(`20260921073500_analytics_agent_reliability_grant_fix`).
+Extended the same day, after D43's verification exposed the gap: the panel
+counted *failed* turns, so the 429 the new backoff waited out left a
+successful turn and the panel read `capacity = 0` on a run that had hit
+capacity. `retryCount` now rides on the usage metadata of every agent turn,
+successful or not, and the rollup carries `turns_retried`, `retries` and
+`retry_rate` with a **Retried** stat beside Overloaded. Retries climb before
+anything fails, which is the point at which a capacity decision is still
+cheap. Verified end to end: a fresh turn's usage row carries
+`"retryCount": 0`.
+Affects: agent.service.ts (all three usage log sites), adk-llm.ts,
+api-client.ts (new `ApiError` carrying status and details), use-agent-chat.ts,
+analytics.{routes,service,schema}.ts, admin-analytics-api.ts,
+agent-reliability-tile.tsx, four migrations
+Reverses: none · **Rule 4: this changes what a member sees on a failed turn**,
+so it is frozen now and both rounds run against this version.
+
+### D44 — An execution lost to provider overload counts as a failure
+Date: 2026-09-21 · Decided by: author (escalated by agent as Q24)
+Options: count it, reporting how many were capacity · re-run it once and score
+the completed attempt · re-run up to twice · exclude it and report an
+availability rate separately
+Chosen: count it. No re-run policy; a turn that failed is a failed execution,
+and C02 reports the capacity share separately from the trace.
+Reason: the author's, taking the methodologically strictest option. The agent
+recommended a capped re-run to keep the pass rate about the agent rather than
+about Google's capacity; the author chose the raw measure, which needs no
+retry policy declared in advance and keeps every execution an independent
+draw. The consequence is accepted and should be stated in §3.7: under D23's
+8/8 seed criterion, a capacity failure anywhere in a seed's eight repetitions
+fails that seed, so a published pass rate carries some of the provider's
+availability in it. D43 is what makes that acceptable — it should make the
+event rare — and D45's rollup is how we will know whether it did.
+Affects: B07, B10, B11, C02, §3.7 · Reverses: none · Closes: Q24
+
+### D43 — The agent waits a capacity error out instead of giving up in eight seconds
+Date: 2026-09-21 · Decided by: author (escalated by agent after researching the 429)
+Options: adopt Google's documented backoff · a milder version capped near 10s ·
+leave the application alone and absorb it in the harness
+Chosen: Google's, fitted to the turn budget. `MAX_CAPACITY_ATTEMPTS = 6` with
+equal-jitter waits of about 1, 2, 4, 8 and 16 seconds (~31s worst case, inside
+`CHAT_TIMEOUT_MS` of 85s). A `MALFORMED_FUNCTION_CALL` keeps its short
+three-attempt retry: it is sampling noise that usually succeeds immediately,
+and waiting sixteen seconds for it would spend the turn budget on nothing.
+Reason: **the premise of D39 was wrong, and this entry corrects it.** Newer
+Gemini models are served from a *dynamic shared quota* — Google's own guidance
+calls the 429 "basically a 'server is too busy' error" — so there is no fixed
+per-project ceiling to budget under, and no client-side rate limit can prevent
+it. Our own measurements say the same: across four runs, failures did not
+track our request rate at all (the run with the highest sustained throughput
+passed; the lowest failed), and at 3–5 requests a minute we were nowhere near
+any plausible RPM limit. The old policy retried three times, one and two
+seconds apart, entirely inside the same bad window. Google's published
+evidence is 4-of-5 attempts failing without backoff and 5-of-5 succeeding with
+it.
+Deviation from the vendor example, deliberately: it caps the wait at 60s and
+retries until success, which suits a batch job. An interactive turn has 85
+seconds in total, so the cap is 16s and `abortSignal` remains the real ceiling.
+Equal jitter rather than the example's full jitter, because a wait that
+randomises down to almost nothing lands back in the window being waited out.
+What this means for D39: the limiter stays — it bounds our own contribution and
+smooths bursts, and it cost 0.0 minutes of pacing in practice — but it is no
+longer claimed to prevent 429s, and its 10-calls-a-minute budget is a bound we
+chose rather than a quota we measured.
+Verified live (run `8b6f3e7b`, eight seeds at n = 1, the same suite that lost
+an execution twice under the old policy): **0 failed turns, 8/8 structurally
+clean** — the suite's first fully passing run. A capacity error still occurred
+and is the evidence that matters, because it shows the mechanism working
+rather than the weather being kind: one turn retried **once** and completed
+(`error_code` null), where the equivalent turn in the previous run retried
+three times and died (`error_code = llm_error`). Shared capacity cannot be
+prevented; being killed by it now can.
+Affects: apps/api/src/routes/ai/lib/adk-llm.ts (+ new adk-llm.test.ts, 9
+tests), D39 · Reverses: the three-attempt / 1s-2s retry policy
+**Rule 4: this changes how the application handles every request**, including a
+participant's, so it is frozen now and both the simulation runs and the
+participant round run against this version. The four probe runs of 2026-09-20/21
+were made against the old policy and are not comparable to later runs on
+reliability grounds.
+
+### D42 — A Belém morning may run to 13:00
+Date: 2026-09-21 · Decided by: author (escalated by agent as Q25)
+Options: widen `draft_slot_starts_between` to 12:30 · assert only that the
+first slot is in the morning · widen to 13:00 · keep 12:00
+Chosen: `[07:00, 13:00]` in `cases/scheduling_belem_morning.yaml`. The agent
+recommended 12:30 as the smallest change; the author took the wider boundary.
+Reason: the first full eight-seed run under the repaired pipeline (`11af8ef7`)
+flagged a good plan — Pastéis 09:00, the monastery 10:00–12:00, Belém Tower
+12:15–13:15 — because the third slot began fifteen minutes past noon. A morning
+of two or three stops that runs into lunch is what the member asked for, and
+failing it is a false regression, which D30 calls the worse of the two errors a
+constraint can make; under D23's 8/8 seed criterion one occurrence in eight
+would fail a minimum-functionality case.
+Only the boundary moved. The check stays, because without it a draft of an
+afternoon described as a morning passes: the drafting tool instructs the reply
+not to repeat every slot, so a scoring criterion about the times the reply
+names is vacuous exactly when it is needed. An afternoon draft still fails at
+13:00.
+Timing matters here: this had to be settled before B05, because sixteen
+follow-ups inherit their seed's constraints and would have propagated the false
+failure sixteen times.
+Affects: cases/scheduling_belem_morning.yaml, tests/test_cases.py, B05, B10
+Reverses: the 12:00 boundary set in B04 · Closes: Q25
+
+### D41 — An execution's structural verdict lives on the execution row
+Date: 2026-09-21 · Decided by: author (escalated by agent while writing B08)
+Options: add `structural_findings` to `study_case_executions` · anchor the
+findings to the execution's first turn in `study_verdicts` · give
+`study_verdicts` a nullable `execution_id` and two mutually exclusive keys
+Chosen: the first. Migration `20260921063256_study_execution_structural_
+findings` adds a `jsonb` `structural_findings` beside the `structural_outcome`
+the table already had. A second migration in the same change,
+`20260921063446_study_execution_build_mutation_ids`, records which mutation
+rows were the fixture build's — agent-decided, and the mechanism D38 already
+specified ("excluded by id, not by timestamp"): the runner excluded them in
+memory, but the checker also runs after the fact, and re-reading the trip then
+would have counted the fixture as the case's work. `study_verdicts` is left entirely
+to the participant round, which is what A01's own comment on it says it is for:
+post-hoc verdicts over rows that have no case. `study_suggestions
+.structural_check_outcome` stays null in simulation, which A13 had already
+exempted by design.
+Reason: `study_verdicts` is unique on `(suggestion_id, checker_version)` and
+cascades from `study_suggestions`, so it is keyed to a **turn** — while D27
+says a check is a claim about the **execution**. Anchoring an execution's
+findings to one of its turns files a finding about turn three under turn one.
+Affects: supabase migration, src/checker.py, docs/event-model.md, B08, C02
+Reverses: B08's "writes `study_verdicts`" · Note: additive, one nullable
+column on a harness-written simulation-only table; no grant needed, privileges
+are per table.
+
+### D40 — The trace records whether a lookup found anything
+Date: 2026-09-21 · Decided by: author (escalated by agent while writing B08)
+Options: add `result_found` to a tool trace entry · infer a miss from
+`result_chars` · weaken `tools_any_of` to "ran without error"
+Chosen: `result_found: boolean | null` on `ToolTraceEntry` — the tool's own
+`found` flag where it has one (`read_wikipedia`, `get_region_climate`), null
+for every other tool and for a call that threw.
+Reason: B08's spec assumed the checker could see `found: false`. It could not.
+`agent.study-trace.core.ts` reduces a result to its size on purpose — "they
+carry trip content that already lives in the trip's own tables" — and that
+reasoning holds for `search_places`, whose results reach the reply's refs, but
+not for the reference tools, whose miss lands nowhere. So the record could not
+tell "answered from a source" from "asked a source and it had nothing", which
+is the one distinction `factual_qa_lisbon_november_weather` exists to make.
+A boolean is not trip content, so the size-only rule is intact.
+Rejected: inferring from `result_chars` needs a cut-off nobody can defend — a
+`found: false` article miss carries alternatives and a note and runs to a
+couple of hundred characters — and a false regression costs the suite its
+credibility (D30). Weakening the check gives up the case.
+Rule 4: additive to a fire-and-forget logging path. No request path, no
+response shape, no behaviour change; three tests added to
+`agent.study-trace.test.ts`, 158 API tests pass.
+Affects: apps/api/src/routes/ai/agent/agent.study-trace.core.ts (+ its test),
+docs/event-model.md, src/checker.py, B08 · Reverses: none
+
+### D39 — One Vertex budget for every call the harness causes
+Date: 2026-09-21 · Decided by: agent
+Options: pace in the harness against one shared budget · lengthen the
+application's own 429 backoff in `adk-llm.ts` · leave the rate alone and
+handle the failures with a re-run policy
+Chosen: the first. `src/ratelimit.py` holds one process-wide sliding-window
+limiter, `VERTEX_CALLS_PER_MINUTE` (default 10, configurable). `src/llm.py`
+claims one permit per model call **per attempt**; `src/simulator.py` claims
+`AGENT_CALLS_PER_TURN` (default 4) before it posts a turn, because that
+request makes model calls the harness does not make itself against the same
+key. The run logs the seconds it spent pacing, so a budget set too low shows
+up as a number rather than as a slow evening.
+Reason: the B15 probe lost an execution to `429 RESOURCE_EXHAUSTED`. The rate
+was ours — roughly 30-40 model calls in 150 seconds from two clients that did
+not know about each other. `VERTEX_MIN_INTERVAL_MS` had not failed: it is
+enforced on an instance field of a `Gemini` the API builds per request, so it
+paces calls *within* one turn and says nothing about the next.
+The budget is counted in model calls rather than in harness actions because a
+turn that searches twice and drafts costs four calls where one that answers
+from the prompt costs one; counting turns would budget the wrong unit.
+Recorded as an agent decision under "do not ask about": it is a harness
+parameter, reversible by editing a file, and it changes nothing about what is
+measured. The alternative that would have been the author's is explicitly
+rejected — lengthening the application's backoff changes how it handles every
+member's request (root `CLAUDE.md`, rule 4) and would alter what the
+participant round measures.
+Cost, stated because it is not small: at 10 calls a minute an execution of two
+agent turns and two simulator calls is a full minute, so a 128-execution run
+is hours rather than tens of minutes. Runs are unattended and resumable, so
+this is accepted; if the key's real quota is higher, one line raises it.
+What it does not fix: a 429 that still gets through is retried three times a
+second or two apart by the application and then returned as a 502, and the
+execution is lost. That is Q24's second half and the author's.
+Affects: src/ratelimit.py (new), src/config.py, src/llm.py, src/simulator.py,
+src/runner.py, B10, B11 · Reverses: none · Partly closes: Q24
+
+### D38 — a repetition gets a trip of its own, and nothing is ever deleted
+Date: 2026-09-20 · Decided by: author (escalated by agent on the B15 probe)
+Options: a fresh fixture trip per repetition, deleting nothing · keep one trip,
+stop deleting the study rows, and copy the reply text onto `study_suggestions`
+· keep the reset and snapshot each execution's record into
+`study_case_executions`
+Chosen: the first. `reset.provision()` builds a new fixture trip for every
+repetition; `reset()`, `ensure_trip()`, `find_trip()` and both delete helpers
+are gone. `RunHandle` no longer carries a trip. The opening gate provisions a
+real trip and hands it to the first execution rather than rehearsing on one.
+`study_mutations` leaves `MUST_BE_EMPTY` — building the fixture through the
+member's API writes mutation rows by construction — and the build's own rows
+are excluded from the execution **by id** (`ResetResult.build_mutation_ids`),
+not by timestamp, because those rows carry the database's clock and the
+harness reads its own.
+Reason: the B15 probe run found that the reset was deleting the record. Of
+eight executions, seven had no `study_suggestions` rows left: each repetition's
+reset wiped `chat_messages`, `study_suggestions` and `study_mutations` for the
+trip, and only the last execution survived. Two consequences, the second
+fatal. The checker and the analysis read `tool_call_trace` and
+`resulting_state_shape` *after* a run, and would have found almost nothing.
+And the reply text exists **only** in `chat_messages` — `study_suggestions`
+copies the user turn verbatim (D06) but keeps the reply as a
+`reply_message_id` — so a baseline run would have destroyed its own replies as
+it went, and D23's pair-wise comparison against the baseline would have had
+nothing to compare with. B07's dry run did not catch it because its done-when
+read `study_case_executions`, which is keyed to the run and survives; the rows
+it *points at* did not.
+Why a fresh trip over the other two: isolation by construction is a stronger
+reading of invariant 1 than deleting the right list of tables, and it removes
+the mechanism that was destroying the record rather than working around it. It
+needs **no application change at all** (rule 4 is best satisfied by not
+touching `apps/`) and no migration, because the reply text simply stays in
+`chat_messages` where `reply_message_id` already points. The costs are
+accepted: ~128 fixture trips per full run in a disposable database (the API
+has no per-user trip limit), and the gate's emptiness check becomes the
+assertion that provisioning really did hand back a new trip. D26 is unaffected
+— the ids were already new every repetition.
+Affects: src/reset.py, src/fixture.py, src/runner.py, B02, B07, B08, B10, B11,
+C02 · Reverses: the delete-and-rebuild reset of B02, and `MUST_BE_EMPTY`
+containing `study_mutations`
+
+### D37 — the check vocabulary is derived from the event model, and telemetry is reported rather than bounded
+Date: 2026-09-20 · Decided by: author (escalated by agent as Q21)
+Options: adopt none and record the thinness as a limitation · adopt only the
+keys a written case would use today · adopt the full list of unused signals ·
+adopt the three and hold the rest behind a rule
+Chosen: adopt the full list, split by what can be judged now. Four become check
+keys the loader validates and B08 evaluates — `edits`
+(`resulting_state_shape.edits`), `trip_after` (`resulting_state_shape
+.trip_after`), `mutation_changed_keys` (`study_mutations.changed_keys`) and
+`turn_errors` (`study_suggestions.error_code`). Five are **recorded and
+reported per execution but not assertable**: `reply.chars`, `latency_ms`, the
+token counts, `llm_calls` and `tool_calls` — a window over them is a threshold,
+and there is no baseline to set one against until B10 has run (carried as Q22).
+`request_type` and `agent_intent` stay out of the case vocabulary: they are the
+participant round's labels and B12's signature field, not something a case
+asserts.
+And the rule that replaces the accident: a candidate key is found by reading
+`docs/event-model.md`, and it is added when a case needs it, so every key in
+the vocabulary is exercised by at least one case.
+Reason: the author's. The vocabulary was written from the D19/D27 discussion
+and never cross-checked against what the application records, so two keys were
+found by accident and the rest were not found at all. A signal the app already
+logs and no case can assert is the cheapest possible detection left on the
+floor, which is what §2.6.1 claims structural verification is good at. Against
+that, a key with no case behind it is a key nobody validates — hence the second
+half of the rule, and hence the telemetry being reported rather than guessed at.
+The eight seeds were revised in the same change: all eight gained `turn_errors:
+none` and `trip_after: {blocks: fixture, slots: fixture}`, and
+`scheduling_move_tram` gained `edits` and `mutation_changed_keys`. `turn_errors`
+closes a real hole — `empty_reply` returns HTTP 200, so the simulator answers
+the blank in character and every other check of a read-only case passes against
+a trip nothing touched.
+Affects: src/cases.py, cases/*.yaml (all eight), cases/README.md,
+cases/reviewed.json, B03, B04, B08, C02 · Reverses: none · Closes: Q21
+Note: the revision changes eight cases the author marked reviewed on
+2026-09-20. The marks are left standing for the case text, which is unchanged;
+the added keys are the author's own ruling here.
+
 ### D36 — the weather tool's dated calls are fixed before the baseline
 Date: 2026-09-20 · Decided by: author
 Options: fix before the baseline · leave it for the whole study and document

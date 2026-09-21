@@ -46,7 +46,7 @@ that cannot be skipped or reordered.
 | Phase | Tasks | Done | Blocked |
 |---|---|---|---|
 | A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 13 | 0 |
-| B — pipeline stages 1 to 3.2 | 14 (11 `[FABLE]`, 3 `[STANDARD]`) | 9 | 0 |
+| B — pipeline stages 1 to 3.2 | 17 (14 `[FABLE]`, 3 `[STANDARD]`) | 13 | 0 |
 | C — analysis and pilot | 6 (6 `[FABLE]`, 0 `[STANDARD]`) | 0 | 1 |
 
 Estimate total: about 152 h (A 51.5 h · B 73.5 h · C 27 h). Vertex compute for
@@ -537,6 +537,20 @@ rows in each of those tables except the rebuilt fixture rows, whose digest
 (sorted titles, types, day/time) must equal the fixture's; on failure raise
 `DirtyState` with the offending table and write one line to the harness log
 (`runs/harness.log`) — D03: a refusal is recorded, a run is not.
+
+**Superseded by D38 (2026-09-20), after the B15 probe.** The delete-and-rebuild
+reset above was deleting each repetition's own record along with the state:
+`study_suggestions`, `study_mutations` and the `chat_messages` that hold the
+only copy of the reply text. `reset()` is replaced by
+`reset.provision(user, token, label)`, which builds a **new fixture trip per
+repetition** and deletes nothing; `ensure_trip`, `find_trip` and both delete
+helpers are gone. `assert_clean` survives unchanged except that
+`study_mutations` leaves `MUST_BE_EMPTY` (the fixture build writes mutation
+rows by construction), and on a fresh trip it is the assertion that
+provisioning really did hand back a new one. The build's own mutation rows are
+excluded from the execution by id, not by timestamp. The `tonic_runs`
+reasoning above is now moot rather than wrong — a new trip has no run to
+resume into.
 Done when: `reset` followed by `assert_clean` passes; a turn followed by
 `assert_clean` fails naming `chat_messages`; a second `reset` returns the trip
 to a state whose digest equals the first.
@@ -589,7 +603,7 @@ has marked each case reviewed in the notebook.
 ### B05 — Stage 2: metamorphic expansion and `sim/02_expand`
 Phase: B
 Tier: [FABLE]
-Depends on: B04
+Depends on: B04, B15
 Estimate: 6h
 Status: not started
 Spec: `src/metamorphic.py`: one function per relation in D22 (INV-1..4,
@@ -630,7 +644,7 @@ Phase: B
 Tier: [FABLE]
 Depends on: B02, B03, B06
 Estimate: 8h
-Status: done (2026-09-18; dry run of two cases at n = 2: one run row, four execution rows, a kill after the first execution and a resume with no duplicate; every run-level field recorded except `baseline_ref` (null on a baseline run by definition) and `judge_prompt_version` (written when the judge runs in B10); `structural_outcome` on executions is B08's. The first attempt exposed two faults, both fixed: a model call with no timeout hung the run for forty minutes, and the run row was opened before the first gate — see L03, L04)
+Status: done (2026-09-18; dry run of two cases at n = 2: one run row, four execution rows, a kill after the first execution and a resume with no duplicate; every run-level field recorded except `baseline_ref` (null on a baseline run by definition) and `judge_prompt_version` (written when the judge runs in B10); `structural_outcome` on executions is B08's. The first attempt exposed two faults, both fixed: a model call with no timeout hung the run for forty minutes, and the run row was opened before the first gate — see L03, L04. **Revised 2026-09-20 under D38**: `RunHandle` no longer carries a trip, `execute_case` provisions one per repetition, `collect` excludes the build's mutation rows by id, and the opening gate's trip is handed to the first execution. The done-when was re-verified — and note that it had passed while the record it points at was being deleted, which is L08)
 Spec: `src/runner.py run(suite, n_override=None, priority_only=False)`: opens
 a `study_runs` row (run level per event-model.md: `model_version`,
 `model_released_on`, `prompt_version`, `tool_version` from
@@ -651,9 +665,22 @@ mid-run and restarting completes without duplicating an execution.
 ### B08 — Structural checker
 Phase: B
 Tier: [FABLE]
-Depends on: B03, B07
+Depends on: B03, B07, B15
 Estimate: 8h
-Status: not started
+Status: done (2026-09-21). `src/execution.py` assembles an execution from the
+record; `src/checker.py` evaluates it and writes the verdict to
+`study_case_executions`. 13 offline tests, including the two the done-when
+names. Verified against live rows twice over: the three executions of run
+`04741d62` all come back `none`, and the same executions perturbed case by case
+all come back `detected` with the finding named — a check that cannot fail on
+real data is a check that is not reading it. Two premises in the spec below
+did not survive contact with what is actually recorded, both escalated and
+ruled on: the trace stores a result's **size**, not the result (D40,
+`result_found`), and `study_verdicts` is keyed per turn while a check describes
+an execution (D41). Two further gaps found while building: the place ids the
+metamorphic predicates compare live only in `chat_messages.metadata.refs[]
+.googlePlaceId` — a second thing D38 saved — and the build's mutation rows had
+to be recorded by id for the checker to exclude them after the fact
 Spec: `src/checker.py check(case, execution) -> Verdict{outcome: none |
 detected, findings: [...], checker_version}`.
 
@@ -662,7 +689,13 @@ Evaluates three things, all of which must hold for `none`:
 `tool_errors` (`none | corrected`, D33), `places_surfaced`, `places_named`,
 `slot_days`, `slot_count`, `draft_slot_starts_between`, `draft_reuses_blocks`
 (D32), `slot_moved {block, day, starts_between?, duration_minutes?,
-clear_of_other_slots?}` (D31), `mutation_counts` (`table.OP`) — the closed
+clear_of_other_slots?}` (D31), `mutation_counts` (`table.OP`), and the four
+D37 added from the event model — `turn_errors` (`study_suggestions.error_code`
+across the turns), `edits` (`resulting_state_shape.edits`, summed),
+`mutation_changed_keys` (every row of that `table.UPDATE` changed only keys
+drawn from the list; a listed key nothing changed is not a failure) and
+`trip_after` (the **last** turn's `resulting_state_shape.trip_after`, with
+`fixture` resolving through `cases.fixture_counts()`) — the closed
 vocabulary of D27, each one declarative and validated by the loader. Read
 `src/cases.py` for the current list rather than this line, and read
 `docs/event-model.md` for the field each key evaluates against (Q21).
@@ -705,7 +738,20 @@ repetition's fixture rebuild produced, mapped to titles, read from
 `study_case_executions.fixture_ids` — D26) and `base`. The docstring of
 `cases/predicates.py` is the contract for it.
 
+The verdict also carries the execution's **reported telemetry** — `reply_chars`,
+`latency_ms`, tokens, `llm_calls`, `tool_calls`, `retry_count` — which no case
+may bound (D37): there is no baseline to bound them against until B10, and
+Q22 revisits it on that run's numbers.
+
 Writes `study_verdicts` (append-only; never updates `study_suggestions`).
+
+**Open on the schema, to settle before writing it:** `study_verdicts` is unique
+on `(suggestion_id, checker_version)` and cascades from `study_suggestions`, so
+it is keyed to a **turn** — while a check is a claim about the **execution**
+(D27). `study_case_executions.structural_outcome` and
+`study_suggestions.structural_check_outcome` both exist and are both nullable
+and harness-set. Which row carries the execution's outcome is a question about
+the event model, not an implementation detail, and it is the author's.
 Findings are strings a reader can act on ("expected search_places before
 propose_plan; got propose_plan first").
 Done when: a hand-constructed passing execution and a failing one (a slot on
@@ -850,6 +896,92 @@ Done when: `pip install -r requirements.txt` succeeds in a fresh venv; `pytest
 tests/test_config.py` passes; `python -c "from src.config import settings;
 print(settings)"` prints the redacted form.
 
+### B15 — Seed probe run: what a seed execution actually is
+Phase: B
+Tier: [FABLE]
+Depends on: B07
+Estimate: 2h
+Status: done (2026-09-20). Two runs. The **first** (`e8c1e936`) found that the
+reset was deleting each repetition's own record — seven of eight executions had
+no readable `study_suggestions` rows left, and the reply text was gone with the
+`chat_messages` that held it. That is D38 and L08, and it is the finding that
+justifies the task. The **second** (`ed925b11`), after the repair, recorded
+eight executions on eight separate trips with every turn's row and reply text
+intact. Answers to the three questions: (1) the mutation checks **are**
+evaluable — `scheduling_move_tram` produced `itinerary_slots.UPDATE
+[agent_live_edit] changed=[end_time, itinerary_day_id, start_time]` and
+`scheduling_belem_morning` produced `ai_suggestions` INSERT and UPDATE, both
+`agent_live_edit` with the turn's id on them; only `user_manual` is out of
+reach of a simulator, and in simulation every such row is the fixture build's.
+(2) The execution shapes are recorded above and in the two new questions below.
+(3) Variation is not answerable at n = 1 and is deferred to the baseline —
+noted on B05, which is what it gates. Raised Q23 (`get_weather` cannot succeed
+against this fixture) and Q24 (a transient 502 cost one of eight executions,
+which at n = 8 and 8/8 would fail a seed on infrastructure)
+Spec: Run the eight seeds **once each** (`n_override=1`) against the simulation
+environment, with no judge and no pass criterion. An observation, not a
+measurement: the run row says so in its `notes` (`PROBE … NOT the baseline`),
+so it cannot later be read as the reference run. Report per execution: the tool
+calls in order and which returned an error, `request_type` and `agent_intent`,
+`error_code`, the `resulting_state_shape`, every `study_mutations` row with its
+`origin_kind` and `changed_keys`, and the telemetry Q22 defers
+(`reply.chars`, `latency_ms`, tokens, `llm_calls`, `tool_calls`,
+`retry_count`).
+Three questions it answers, each of which was being guessed at:
+(1) **Are the mutation checks evaluable in simulation at all?** The simulator
+drives the agent and never edits by hand, so `user_manual` rows cannot occur —
+but the agent's own writes are stamped `agent_live_edit`, and whether those
+appear on a `run_type = simulation` session has never been observed. If they do
+not, every `mutation_counts` zero in the suite passes vacuously and the keys
+come out.
+(2) **What shape does a real execution have?** B08 evaluates the checks against
+recorded fields, and `L05` is the entry about what happens when that shape is
+specified without reading it.
+(3) **How much does one input vary between two runs of it?** Which is what
+decides whether `same_venues_as_base` is an invariance relation or a false-
+regression machine (B05).
+Done when: eight executions recorded under one probe run, the report produced,
+and each of the three questions answered in `DECISIONS.md` or
+`OPEN_QUESTIONS.md`.
+
+### B16 — One Vertex budget for every call a run causes
+Phase: B
+Tier: [FABLE]
+Depends on: B15
+Estimate: 2h
+Status: done (2026-09-21; 7 offline tests with an injected clock, so the pacing
+is asserted rather than waited for. Not yet exercised against a live run — the
+dev API was reaped for memory pressure. The first paced run is the evidence
+that matters, and B10 is where it lands)
+Spec: `src/ratelimit.py` — one process-wide sliding-window limiter over model
+calls, `VERTEX_CALLS_PER_MINUTE` (default 10). `src/llm.py` claims one permit
+per attempt; `src/simulator.py` claims `AGENT_CALLS_PER_TURN` (default 4)
+before posting a turn, since that request makes calls the harness does not make
+itself against the same key. The run reports the seconds it spent pacing. A
+sliding window rather than a fixed minute, because a burst across a boundary
+exhausts both sides of it; a claim larger than the whole budget is clamped
+rather than waiting for ever. See D39, including what this does **not** fix.
+Done when: the offline tests pass; a run reports its pacing cost; a full run
+completes without a `429`-caused execution failure (outstanding — needs B10).
+
+### B17 — Retire the fixture trips of superseded runs
+Phase: B
+Tier: [FABLE]
+Depends on: B15
+Estimate: 2h
+Status: done (2026-09-21; 5 offline tests of the retention rule, dry run
+verified against live data — 1 run kept, 8 trips kept, 12 retired. **Not
+applied**: there is no baseline yet, and the probe runs it would retire are
+cited by D38, D41 and D42)
+Spec: `src/cleanup.py` — keep the most recent run and any run a kept run names
+as `baseline_ref` (D47), retire every other run's fixture trips. Dry run unless
+`--apply`. Three guards, each sufficient alone: simulated owner, fixture name
+prefix, not a kept run. Reports what would be lost, naming `chat_messages` as
+the only copy of the reply text and the compared place ids.
+Done when: the rule is unit-tested without a database; a dry run names what it
+would delete and why; nothing outside the fixture prefix and a simulated
+account can be reached.
+
 ---
 
 ## Phase C — analysis and pilot
@@ -881,7 +1013,7 @@ Phase: C
 Tier: [FABLE]
 Depends on: B11, B12, C01
 Estimate: 12h
-Status: blocked — Q02 (§4.3 unwritten), Q19 (signature tolerance), Q03
+Status: blocked — Q02 (§4.3 unwritten). Q19 and Q03 were ruled on (D24, D17/D18/D13) and no longer block it
 (survey scales)
 Spec: `notebooks/study/06_analysis.ipynb`, outputs stripped, parameterised on
 the participant `run_type` and the simulation run ids to compare against.

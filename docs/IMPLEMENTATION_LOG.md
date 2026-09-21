@@ -45,6 +45,78 @@ fact. Rough is fine; absent is not.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### L09 — A field existing is not the same as a field carrying what a check needs
+Phase: B · Related tasks: B08, A02, B03
+Effort: B08 came in near its 8h estimate; the two premise failures cost about
+an hour between them, because both were found by reading a recorded row before
+writing the code rather than by debugging afterwards
+
+What happened: B08's spec said the checker would read a tool's `found: false`
+out of the trace, and would write its verdict to `study_verdicts`. Neither was
+possible. The trace reduces every tool result to `result_chars` and
+`result_error` — deliberately, and with a good reason written down beside it:
+"they carry trip content that already lives in the trip's own tables." That
+reasoning is sound for `search_places`, whose results reach the reply's refs,
+and silently wrong for `read_wikipedia`, whose miss reaches nothing. And
+`study_verdicts` is keyed `(suggestion_id, checker_version)` — a turn — while
+D27 had settled that a check describes an execution. A third gap surfaced the
+same way: the place ids the metamorphic predicates compare exist only in
+`chat_messages.metadata.refs[].googlePlaceId`, not in any study table.
+
+Why it matters: this is the **second** instance of the same class after L05,
+and the recurrence is the finding rather than either instance. L05's lesson was
+"derive the assertion vocabulary from the log schema" — which was done, and was
+not enough. A field can be present, correctly named and still not carry what an
+oracle needs, because a logging decision that is right for volume (store a
+size, not a payload) is invisible to anyone reading a schema. The question that
+would have caught all three is narrower than "what does the log contain": it is
+**"take each assertion the suite can make, and name the recorded field it will
+be evaluated from"** — a table with one row per check key, filled in before the
+checker is written. Two of the three gaps here are entries that could not have
+been filled in.
+
+It generalises past this study. Any oracle built over an existing telemetry
+pipeline inherits that pipeline's reductions, and those reductions were chosen
+against a different question. Verify evaluability per assertion, not coverage
+per field.
+
+### L08 — The state reset was deleting the evidence, and only running it showed that
+Phase: B · Related tasks: B02, B07, B15, B10, B11
+Effort: the probe itself was two minutes of wall clock and $0.18; the repair
+was about two hours, against a B15 estimate of 2h that did not exist until the
+probe was proposed
+
+What happened: invariant 1 says each repetition must start from a clean state,
+and B02 implemented it the obvious way — delete the trip's children and
+rebuild the fixture. The delete list grew to include `study_suggestions` and
+`study_mutations`, because the precondition gate demanded the trip hold no
+study rows and the fixture build itself writes mutation rows. So each
+repetition deleted the previous repetition's record. A probe run of the eight
+seeds at n = 1 showed it immediately: seven of eight executions had no
+readable `study_suggestions` row left. Worse, the reply text lives only in
+`chat_messages`, which went the same way — so a baseline run would have
+deleted its own replies as it produced them, and the pair-wise comparison that
+the whole regression stage rests on (D23) would have had nothing on the other
+side.
+
+Why it matters, and what generalises: **the cleanup that enforces one
+invariant destroyed the data another one depends on**, and the two invariants
+are written in different places — state reset in §3.4, complete logging in
+§3.3. Nothing in either says "and the reset must not delete the log", because
+from inside either one it is obvious. Isolation by *construction* — a new
+fixture trip per repetition — satisfies the first invariant more strongly and
+cannot violate the second, because it deletes nothing. If you are building
+this, provision rather than clean up wherever the cost allows it.
+
+The second half is about verification, and it is the part that would have cost
+the study a round. B07's "done when" was one run row and four execution rows
+with every field non-null, and it passed honestly: `study_case_executions` is
+keyed to the run, so it survives; the rows it *points at* do not. A
+done-when that checks the rows a component writes, and not the rows a later
+stage will read back from them, will not catch a deletion downstream of
+itself. The cheapest fix is the one that found this: run the thing once,
+end to end, and read the record back afterwards rather than during.
+
 ### L07 — "LLM-generated and human-reviewed" took three adversarial rounds
 Phase: B · Related tasks: B04, B03
 Effort: several times the 6h estimate, almost all of it in review rather than
@@ -119,6 +191,18 @@ instrumentation, it does not fall out of the requirements, and specifying the
 two halves from two different documents is enough to lose it. Anyone building
 this should derive the assertion vocabulary from the log schema as a step, not
 assume the two will meet.
+How it closed (D37, 2026-09-20): the reading was done, and it produced four
+keys, not one — `edits`, `trip_after`, `mutation_changed_keys` and
+`turn_errors`. The last of those is the one that justifies the whole exercise:
+an `empty_reply` comes back as HTTP 200, so the simulator answers the blank in
+character and a read-only case passes every other check against a turn that
+never happened. Two halves of a rule came out of it, and the second is the one
+that is easy to miss: derive candidates from the log schema, **and add a key
+only when a case needs it**, because a vocabulary larger than the suite is a
+vocabulary nobody validates. Five signals the application records
+(`reply.chars`, latency, tokens, `llm_calls`, `tool_calls`) stayed out for a
+third reason — a bound on any of them is a threshold, and there was no baseline
+to set one against.
 
 ### L04 — An unattended run needs a timeout on every external call and a heartbeat outside its process
 Phase: B · Related tasks: B06, B07

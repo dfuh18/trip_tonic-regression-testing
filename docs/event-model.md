@@ -112,7 +112,7 @@ recommend 1..7.
 | `tool_version` | text | Table 11 | |
 | `suite_version` | text | Table 11 | Regression test suite version |
 | `baseline_ref` | text | Table 11 | Which baseline this run is compared against |
-| `tool_call_trace` | jsonb | Table 11 | Ordered; the coverage signature in P1 is built from it |
+| `tool_call_trace` | jsonb | Table 11 | Ordered; the coverage signature in P1 is built from it. One tool entry is `{kind, seq, tool, args, started_at, duration_ms, result_error, result_chars, result_found}`. Results are reduced to a size — they carry trip content that lives in the trip's own tables — with two exceptions kept because they exist nowhere else: `result_error` (D11's tool-level failure, the `error` key a tool returns instead of throwing) and **`result_found`** (the tool's own `found` flag, for `read_wikipedia` and `get_region_climate`; null elsewhere). A miss is not an error, and without `result_found` a case asserting "answered from a source" is satisfied by a source that had nothing (D40) |
 | `cost` | numeric | Table 11 | |
 | `latency_ms` | integer | Table 11 | |
 | `token_count` | integer | Table 11 | |
@@ -154,7 +154,9 @@ enough; this is not a schema question.
 | `scoring_criteria` | — | Table 11 | Point-wise for baseline, pair-wise for regression (§3.4) |
 | `provenance` | enum `seeded` \| `metamorphic` \| `retained` | Table 11 | |
 | `repetitions_n` | integer | extension | 8 for seeds, 4 for expanded (D21) |
-| `fixture_ids` | jsonb | extension (D26) | The ids the fixture rebuild produced for this repetition — trip, blocks, days, slots, regions by name. New every repetition, and the only way to resolve a `study_mutations` `row_id` or a slot id in `resulting_state_shape` back to the stop it names |
+| `fixture_ids` | jsonb | extension (D26) | The ids the fixture build produced for this repetition — trip, blocks, days, slots, regions by name. New every repetition, and the only way to resolve a `study_mutations` `row_id` or a slot id in `resulting_state_shape` back to the stop it names |
+| `build_mutation_ids` | uuid[] | extension (D38) | The `study_mutations` rows this repetition's fixture build wrote, before the case began. Since D38 nothing is deleted between repetitions, so the build's own writes sit on the trip beside the case's; the runner and the checker both exclude these by id. Recorded rather than inferred — the inference is available but an argument, and the ids are a fact |
+| `structural_findings` | jsonb | extension (D41) | The checker's findings for this execution, an ordered array of strings. Empty when `structural_outcome` is `none`. A check is a claim about the execution and not about one turn (D27), so the findings sit beside `structural_outcome` on this row rather than on `study_verdicts`, which is keyed per suggestion |
 
 **Representation (D19):** hybrid — declarative YAML keys for the common checks,
 named Python predicates in `cases/predicates.py` for sequence-dependent ones.
@@ -267,7 +269,7 @@ task. A13 verifies each writer actually wrote.
 | `suggestion_id`, `conversation_id`, `turn_index`, `user_turn` | `study_suggestions.id / run_id / turn_index / user_turn` (+ `user_message_id`) | turn logger at turn start (A02) |
 | `resulting_state_shape`, `request_type`, `retry_count`, `error_code`, tokens, latency, model, trace | `study_suggestions.resulting_state_shape / request_type (+ _rule_version) / retry_count / error_code / tokens_* / latency_ms / model_version / model_released_on / tool_call_trace / llm_calls / tool_calls / completed_at / reply_message_id` | turn logger at turn end (A02); `request_type` via A03 |
 | `session_id` (suggestion) | `study_suggestions.session_id` | turn logger, from the caller's consented session (A02) |
-| `structural_check_outcome` | `study_suggestions.structural_check_outcome` for simulation rows (harness, B07/B08); `study_verdicts` for every post-hoc verdict (B08, C02) | harness / analysis — never the app |
+| `structural_check_outcome` | **`study_case_executions.structural_outcome` + `.structural_findings`** for simulation, because a check describes the execution and not a turn (D27, D41); `study_verdicts` for post-hoc verdicts over participant rows, which have no case. `study_suggestions.structural_check_outcome` is left null in simulation — A13 already exempts it | harness / analysis — never the app |
 | `user_action` | `study_suggestions.user_action`, with the per-target record in `study_user_actions` | A05 on accept/reject/revert; the `study-finalize-ignored` job after 24 h (D17) |
 | `thumb_feedback` | `study_feedback.value`, keyed by `chat_message_id` = the reply row | thumbs control via the study API (A06, A12) |
 | `mutation_id`, `origin_suggestion_id`, `origin_kind` | `study_mutations.id / origin_suggestion_id / origin_kind` (+ `table_name`, `row_id`, `op`, `changed_keys`, `projection`, `actor_user_id`, `session_id`) | triggers on the plan tables reading `x-study-origin` (A04) |

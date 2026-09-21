@@ -30,64 +30,63 @@ wait; one blocking a Phase A task cannot.
 
 ## Open
 
-### Q21 — The check vocabulary was invented rather than derived from the event model
-Raised: 2026-09-20 by agent · Blocks: B08, and the value of every case already
-written · Phase: B
+### Q23 — `get_weather` cannot succeed against the fixture trip
+Raised: 2026-09-20 by agent · Blocks: nothing hard; bears on B04, B10 · Phase: B
 
-`declared_constraints.checks` was specified in B03 from the D19/D27 discussion
-of what a constraint is, and never cross-checked against
-`docs/event-model.md` and the Phase A tables that actually record a turn. The
-consequence is not a wrong vocabulary but a thin one: the application already
-writes several signals a case cannot currently assert, and two of them
-(`draft.slot_types`, `reply.place_refs`) were found by accident while fixing
-something else and became `draft_slot_types` and `places_named` the same day.
-Others are still unused. A case cannot say any of the following, though the
-data is already in the row:
+The B15 probe showed `get_weather` returning `Weather forecast unavailable:
+Open-Meteo error: 400` on the packing-list case. This is not the D36 defect
+returning: the fixture trip runs 2026-11-06 to 2026-11-09, about seven weeks
+out, and a forecast API answers roughly sixteen days. The agent recovered by
+calling `get_region_climate`, which is exactly the probe-and-abandon behaviour
+D33 permits, so nothing failed. But the consequence is that **one of the
+agent's twelve tools can never return a success against this fixture**, and no
+case can ever assert one.
 
-- **`resulting_state_shape.edits`** (`{move, unschedule, schedule}` counts) —
-  a direct statement of what a rescheduling turn did, which the tram case
-  currently approximates through `mutation_counts` on `itinerary_slots`.
-- **`resulting_state_shape.trip_after`** (`{blocks, slots}` after the turn) — a
-  read-only case could assert the trip is unchanged as a post-state rather than
-  as four mutation zeros, which is the same claim stated positively and does
-  not depend on the mutation trigger firing.
-- **`study_mutations.changed_keys`** — which columns a write touched. "The move
-  changed the day and the times and nothing else" is currently unsayable.
-- **`study_suggestions.error_code`** (`timeout | llm_call_limit | empty_reply |
-  llm_error | persist_failed`) — a case cannot require that the turn completed
-  cleanly. `empty_reply` in particular returns HTTP 200, so the simulator does
-  not stop and no check notices.
-- **`agent_intent` and `request_type`** — the app's own classification of the
-  turn. A case declares `intent` and `function`; comparing the two is free and
-  would catch a regression in the classifier that no case can currently see.
-- **`llm_calls`, `tool_calls`, `latency_ms`, `tokens_*`** — a turn that starts
-  needing eight LLM round trips has regressed in a way the pass rate hides.
-- **`reply.chars`** — "brief, a short paragraph" is judge-scored in the Alfama
-  case and is partly a number.
-- **`resulting_state_shape.draft.slot_types`** — slots per block type in the
-  latest draft. Defined as a check key on 2026-09-20 and withdrawn the same day
-  once `draft_reuses_blocks` carried what the Belem case actually needed: no
-  seed asserts a type composition, and by this question's own recommendation a
-  key without a case is a key nobody validates. It is the obvious first
-  addition if a later case wants "this day has somewhere to eat".
-
-Options: **(a)** adopt none, and record the thinness as a limitation in §3.7 ·
-**(b)** adopt only the keys a currently-written case would use — `edits`,
-`trip_after`, `error_code` · **(c)** adopt the full list above, and revise the
-eight seeds to use them · **(d)** adopt (b) now and hold the rest behind a rule
-that a key is added when a case needs it.
-Trade-off: every key is cheap to define and not free to keep — B08 has to
-evaluate it, a case that uses it has to justify it (criterion 4), and a
-vocabulary larger than the suite is a vocabulary nobody validates. Against
-that, a signal the application already records and the suite cannot assert is
-the cheapest possible detection being left on the floor, which is exactly what
-§2.6.1 claims structural verification is good at.
-Recommendation: (d). Adopt `edits`, `trip_after` and `error_code` now, because
-a seed would use each one today; leave the rest listed here and add one when a
-case needs it, so the vocabulary stays something every key of which is
-exercised. Either way B03 and B08 gain the derivation rule, so the next key is
-found by reading the event model rather than by accident.
+Options: **(a)** accept it — `get_weather` stays a permitted probe that never
+satisfies a check, and §3.7 records that the forecast path is untested ·
+**(b)** move the fixture trip inside the forecast horizon, which means dating
+it *relative to the run* rather than fixing it, since a fixed near date drifts
+out of the horizon within a fortnight · **(c)** add a ninth seed with a
+near-dated trip of its own, so the forecast path has one case.
+Trade-off: (b) buys coverage of one tool and costs the fixture its fixed dates
+— every case that names `2026-11-07`, every `fixture_depends_on` entry and the
+`suite_version` hash would become run-dependent, and a case could no longer be
+read against a trip anyone can look at. (c) is the smaller version of the same
+thing, contained to one case, but it breaks the rule that every case runs
+against one fixture.
+Recommendation: (a) for this round, and say so in §3.7. The forecast tool is
+one of twelve, the agent's fallback to climate normals is itself the behaviour
+worth testing, and a relative-dated fixture would make every case harder to
+read for one tool's sake.
 Status: open
+
+### Q22 — Bounds on the recorded telemetry, once a baseline exists
+Raised: 2026-09-20 by agent · Blocks: nothing yet · Phase: B, C
+
+D37 adopted the assertable half of the signals the application records and left
+five out on purpose: `reply.chars`, `latency_ms`, the token counts, `llm_calls`
+and `tool_calls`. Each is carried on every execution and reported per case, and
+none is a check key, because a bound on any of them is a threshold and there is
+nothing yet to set it against. A turn that starts needing eight LLM round trips
+where it needed three has regressed in a way the pass rate hides, but "eight is
+too many" is not a statement anyone can defend before the baseline run has said
+what three looks like.
+
+The question to answer after B10, on that run's own numbers: does any of the
+five earn a bound, and what shape — an absolute window per case, a multiple of
+the case's baseline median, or a reported rate with no pass criterion at all.
+
+Options: **(a)** leave all five reported, never asserted, and let C02 show the
+drift · **(b)** bound the ones whose baseline spread turns out narrow, per case,
+as a multiple of the baseline median · **(c)** bound them globally, one window
+for the suite.
+Trade-off: a bound catches a regression the pass rate hides; a bound set on a
+noisy signal manufactures false failures, and a false regression costs the
+suite its credibility the first time someone chases one (D30).
+Recommendation: decide on the B10 numbers, not before. (a) is the honest
+default if the spread is wide.
+Status: open — deferred by construction until B10 has produced a baseline.
+
 
 ### Q02 — §4.3 is scaffolding, not yet an analysis specification
 Raised: 2026-09-17 by agent · Updated: 2026-09-17 · Blocks: Phase C · Phase: C
@@ -615,6 +614,194 @@ Status: resolved — D25 (agent, 2026-09-18)
 ---
 
 ## Resolved
+
+### Q24 — The harness exhausts its own Vertex quota, and a lost execution fails a seed at 8/8
+Raised: 2026-09-20 by agent · Updated: 2026-09-20 after reading the API log ·
+Blocks: B10, B11 · Phase: B
+
+In the B15 probe, `factual_qa_lisbon_november_weather` ended with
+`error_code = llm_error`, `retry_count = 2`, and the API returning 502. The
+tool call before it had succeeded; the model call after it did not.
+
+**The cause is not flakiness, which is how this was first written here.** The
+API log names it: `429 RESOURCE_EXHAUSTED` from Vertex, retried to
+`MAX_LLM_ATTEMPTS = 3` with 1s and 2s of backoff, all three attempts inside the
+same exhausted window, then `collectRun` throws and `AgentService.chat` turns
+it into `AppError 502`. The harness runs two Vertex clients against one express
+key and neither knows about the other: `VERTEX_MIN_INTERVAL_MS` is enforced on
+an instance field of a `Gemini` built per request, so it spaces calls **within
+one turn** and nothing spaces them across turns or executions; and the
+harness's own path (`src/llm.py`, simulator and judge) has no spacing at all,
+only retry backoff. Run 2 issued roughly 30-40 model calls in about 150
+seconds. The rate is ours, and so is the fix.
+
+D11 defines P2's execution failure as a turn-level error or any tool-level
+error, and D23 requires a seed case to pass **8/8**. Taken together, a single
+transient 502 anywhere in a seed's eight repetitions fails that seed — and at
+128 executions per full run, at the rate observed, that is not a rare event.
+The pass rate would then be measuring Vertex's availability alongside the
+agent's consistency, and §4.3's failure-rate comparison would carry both
+without distinguishing them.
+
+D30 already settled the shape of the answer for *tools*: assert the outcome,
+report the retries. The open question is whether the same reading extends to a
+turn-level failure the agent had no part in.
+
+**Update, 2026-09-21, after D39 shipped the pacing.** It was not enough. Run
+`11af8ef7` lost `advisory_packing_list` to the same 429 — on the **first turn
+of the run**, roughly seven seconds into a window that had been idle for
+twenty-three minutes, on that turn's third model call. The limiter is working
+(it blocks correctly in isolation) and it never reached its cap, so the key's
+real quota is below ten calls a minute, or it is not counted in calls at all: a
+Tonic turn carries four to sixteen thousand input tokens, and three of them in
+seven seconds is a lot of tokens for a small window.
+
+Two things follow. The failure is a **burst**, not an average — a per-minute
+budget grants its whole allowance at the start of every window, and the agent
+spends four permits in seven seconds — so the budget needs a minimum interval
+as well as a cap, or it needs to count tokens. And the agent's own spacing,
+`VERTEX_MIN_INTERVAL_MS`, is **already an environment variable** (default
+1500), so raising it spreads a turn's internal calls without touching a line of
+application code, which makes it the cheapest lever available and no rule-4
+concern at all.
+
+There are two questions here and the first one is not the author's.
+
+**Pacing (agent's, under "do not ask about" — it is a harness change,
+reversible by editing a file, and touches no application code).** One rate
+limiter in the harness, shared by the path that drives the agent and the path
+that runs the simulator and the judge, set below the key's per-minute quota;
+and a 429-specific wait that clears the window rather than three attempts
+inside it. Doing this in the harness and not in `adk-llm.ts` keeps rule 4
+intact — a change to the application's retry behaviour is a change to how it
+handles a request, and would also alter what the participant round measures.
+
+**What to do with an execution that fails anyway — the author's**, because it
+is a pass criterion. Options: **(a)** count it, and report how many failures
+were quota rather than the agent · **(b)** re-run an execution that ended in
+`llm_error`, `timeout` or `persist_failed`, up to a fixed cap, record both
+attempts and score the completed one · **(c)** exclude such executions from the
+pass rate and report a separate availability rate.
+Trade-off: (a) is the honest raw measure, but with D23's 8/8 it lets one quota
+error fail a minimum-functionality seed, and a false regression in the record
+costs the suite its credibility (D30). (b) keeps the pass rate about the agent,
+at the cost of a retry policy that must be declared in advance and reported,
+and of executions that are not independent draws in the strict sense. (c) is
+(b) without the re-run, so a case can end a run with fewer than n observations.
+Recommendation: pace first, then **(b)** with a cap of one re-run per
+execution, both attempts recorded and the count reported in C02. With pacing in
+place the re-run should be rare, and its rarity is itself the evidence that the
+pass rate is about the agent. Worth deciding only after the paced baseline
+shows how often it still happens.
+Status: resolved — D43 (the backoff, after research established the 429 is shared capacity) and D44 (a lost execution counts as a failure; the author chose the raw measure over the recommended capped re-run)
+
+
+### Q25 — The Belém morning window fails a good plan by fifteen minutes
+Raised: 2026-09-21 by agent · Blocks: B05, B10 · Phase: B
+
+The first full eight-seed run under the repaired pipeline (`11af8ef7`) produced
+six clean executions and two `detected`. One is the quota failure below. The
+other is `scheduling_belem_morning`, and the plan it flagged is a good one:
+
+```
+09:00-09:45  Pastéis de Belém
+10:00-12:00  Jerónimos Monastery     (matched by title, not reuse_block_id)
+12:15-13:15  Belém Tower             <- flagged
+```
+
+`draft_slot_starts_between: [07:00, 12:00]` fails the third slot. The member
+asked for "a Belém morning for the 7th, two or three stops"; three stops whose
+last begins at 12:15 is a morning that runs into lunch, not an afternoon
+mislabelled as a morning. That is a **false regression**, which D30 calls the
+worse of the two errors a constraint can make, and under D23's 8/8 seed
+criterion a single occurrence in eight repetitions fails the case.
+
+The check is worth keeping: without it an agent that drafts an afternoon and
+calls it a morning passes, because the drafting tool instructs the reply not to
+repeat every slot and so a criterion about the times the reply names is vacuous
+exactly when it is needed. The question is the boundary, not the check.
+
+This blocks B05 as well as B10: sixteen follow-ups inherit their seed's
+constraints, so deriving them from a window that false-fails propagates it
+sixteen times.
+
+Options: **(a)** widen to `[07:00, 12:30]` — a morning's last stop may begin
+around noon, and an afternoon draft still fails · **(b)** assert the draft's
+**first** slot is in the morning and drop the per-slot window, so the claim is
+"this is a morning plan" rather than "every part of it is before noon" ·
+**(c)** widen to `[07:00, 13:00]` · **(d)** keep `12:00` and treat 12:15 as a
+miss.
+Trade-off: (a) is the smallest change that removes the false failure and keeps
+the detection; the 12:30 boundary is a judgement, but so was 12:00, and this
+one has an observed plan behind it. (b) is the most faithful reading of what
+the case means and the weakest check — a plan whose first stop is at 09:00 and
+whose rest is at 16:00 would pass. (c) is (a) with more room and starts to
+admit genuine afternoons. (d) keeps the suite strict and accepts that this seed
+will fail runs for a reason nobody will defend when they chase it.
+Recommendation: (a). The check exists to catch a draft that starts in the
+afternoon, and 12:30 still catches every one of those.
+Status: resolved — D42 (2026-09-21); the author chose 13:00 over the recommended 12:30
+
+
+### Q21 — The check vocabulary was invented rather than derived from the event model
+Raised: 2026-09-20 by agent · Blocks: B08, and the value of every case already
+written · Phase: B
+
+`declared_constraints.checks` was specified in B03 from the D19/D27 discussion
+of what a constraint is, and never cross-checked against
+`docs/event-model.md` and the Phase A tables that actually record a turn. The
+consequence is not a wrong vocabulary but a thin one: the application already
+writes several signals a case cannot currently assert, and two of them
+(`draft.slot_types`, `reply.place_refs`) were found by accident while fixing
+something else and became `draft_slot_types` and `places_named` the same day.
+Others are still unused. A case cannot say any of the following, though the
+data is already in the row:
+
+- **`resulting_state_shape.edits`** (`{move, unschedule, schedule}` counts) —
+  a direct statement of what a rescheduling turn did, which the tram case
+  currently approximates through `mutation_counts` on `itinerary_slots`.
+- **`resulting_state_shape.trip_after`** (`{blocks, slots}` after the turn) — a
+  read-only case could assert the trip is unchanged as a post-state rather than
+  as four mutation zeros, which is the same claim stated positively and does
+  not depend on the mutation trigger firing.
+- **`study_mutations.changed_keys`** — which columns a write touched. "The move
+  changed the day and the times and nothing else" is currently unsayable.
+- **`study_suggestions.error_code`** (`timeout | llm_call_limit | empty_reply |
+  llm_error | persist_failed`) — a case cannot require that the turn completed
+  cleanly. `empty_reply` in particular returns HTTP 200, so the simulator does
+  not stop and no check notices.
+- **`agent_intent` and `request_type`** — the app's own classification of the
+  turn. A case declares `intent` and `function`; comparing the two is free and
+  would catch a regression in the classifier that no case can currently see.
+- **`llm_calls`, `tool_calls`, `latency_ms`, `tokens_*`** — a turn that starts
+  needing eight LLM round trips has regressed in a way the pass rate hides.
+- **`reply.chars`** — "brief, a short paragraph" is judge-scored in the Alfama
+  case and is partly a number.
+- **`resulting_state_shape.draft.slot_types`** — slots per block type in the
+  latest draft. Defined as a check key on 2026-09-20 and withdrawn the same day
+  once `draft_reuses_blocks` carried what the Belem case actually needed: no
+  seed asserts a type composition, and by this question's own recommendation a
+  key without a case is a key nobody validates. It is the obvious first
+  addition if a later case wants "this day has somewhere to eat".
+
+Options: **(a)** adopt none, and record the thinness as a limitation in §3.7 ·
+**(b)** adopt only the keys a currently-written case would use — `edits`,
+`trip_after`, `error_code` · **(c)** adopt the full list above, and revise the
+eight seeds to use them · **(d)** adopt (b) now and hold the rest behind a rule
+that a key is added when a case needs it.
+Trade-off: every key is cheap to define and not free to keep — B08 has to
+evaluate it, a case that uses it has to justify it (criterion 4), and a
+vocabulary larger than the suite is a vocabulary nobody validates. Against
+that, a signal the application already records and the suite cannot assert is
+the cheapest possible detection being left on the floor, which is exactly what
+§2.6.1 claims structural verification is good at.
+Recommendation: (d). Adopt `edits`, `trip_after` and `error_code` now, because
+a seed would use each one today; leave the rest listed here and add one when a
+case needs it, so the vocabulary stays something every key of which is
+exercised. Either way B03 and B08 gain the derivation rule, so the next key is
+found by reading the event model rather than by accident.
+Status: resolved — D37 (2026-09-20)
+
 
 <!-- Moved to DECISIONS.md. Keep the id and a one-line pointer. -->
 
