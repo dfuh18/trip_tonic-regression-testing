@@ -1,0 +1,42 @@
+case_id: factual_qa_alfama_history__dir1_the_earthquake
+base_case_id: factual_qa_alfama_history
+provenance: metamorphic
+run_priority: 1
+function: factual_qa
+user_profile: Tom, 41, curious, asks one clear question and wants the answer, not a plan.
+goal: Learn how Alfama fared in the 1755 earthquake. He wants the answer and nothing else; if Tonic offers
+  to add anything to the trip he says no thanks.
+opening_turn: '@Tonic what happened to Alfama in the 1755 earthquake?'
+intent: null
+expected_tool_sequence: []
+declared_constraints:
+  checks:
+    tools_any_of:
+    - read_wikipedia
+    tool_errors: none
+    turn_errors: none
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 0
+      ai_suggestions.INSERT: 0
+    trip_after:
+      blocks: fixture
+      slots: fixture
+  predicates: []
+scoring_criteria:
+- Says nothing the reference contradicts.
+- Answers the earthquake question specifically rather than giving the district's whole history.
+- 'Says what survived: the district kept its labyrinth of narrow streets and small squares rather than
+  being rebuilt to a new plan.'
+references:
+- title: Alfama
+  section: read_wikipedia('Alfama') - the whole article, as the tool returns it
+  path: alfama_history.md
+repetitions_n: 4
+metamorphic_relation: DIR-1
+fixture_depends_on: []
+notes: 'A different fact from the same stored article, so no new reference is needed and the seed''s reference
+  still governs. Structurally this is identical to its seed by design: the same tool answers it and nothing
+  is written, so the delta is entirely in the content and only the judge can see it. That is the honest
+  limit of a factual-QA directional relation.'

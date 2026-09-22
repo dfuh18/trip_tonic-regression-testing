@@ -1,0 +1,55 @@
+case_id: venue_lookup_sintra_lunch__dir2_lisbon_day
+base_case_id: venue_lookup_sintra_lunch
+provenance: metamorphic
+run_priority: 1
+function: venue_lookup
+user_profile: Tom, 41, travelling with his partner. Likes a proper sit-down lunch, says which day he means
+  the way people do — by what is on it.
+goal: See lunch places near the hotel in Baixa for the last day of the trip that are not tourist traps.
+  He wants somewhere to consider and is satisfied once he has the names. If Tonic offers to add any of
+  them to the trip or asks which day they fit, he says no thanks and stops there.
+opening_turn: /find where should we eat lunch on the last day? near the hotel in Baixa, proper local food
+intent: find
+expected_tool_sequence:
+- search_places
+declared_constraints:
+  checks:
+    tool_counts:
+      search_places:
+        min: 1
+        max: 3
+    tool_errors: none
+    turn_errors: none
+    places_surfaced:
+      min: 1
+    places_named:
+      min: 2
+    places_near:
+      anchor: Hotel near Baixa
+      within_km: 5
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 0
+      ai_suggestions.INSERT: 0
+    trip_after:
+      blocks: fixture
+      slots: fixture
+  predicates: []
+scoring_criteria:
+- Names at least two places in or near Baixa, not out in Sintra.
+- Works out which day is meant instead of asking, and answers for the last day.
+- Answers the 'local food' cue with something specific.
+- Places each one by a neighbourhood or a landmark, so they can be told apart on a map.
+references: []
+repetitions_n: 4
+metamorphic_relation: DIR-2
+fixture_depends_on:
+- Hotel near Baixa
+- '2026-11-09'
+notes: 'A day change that is also a region change, which is what makes it checkable: the seed''s answers
+  are in Sintra and this one''s must be in Lisbon. The delta is geographic and is asserted as such — the
+  seed requires every named place within 8 km of Pena Palace, this one within 5 km of the hotel in Baixa,
+  and the two anchors are 23.5 km apart so no answer can satisfy both. different_venues_from_base rides
+  along, but it is the weaker half: a venue set can differ from the seed''s and still be in the wrong
+  town, which is what made this case read weak before the geographic check existed.'

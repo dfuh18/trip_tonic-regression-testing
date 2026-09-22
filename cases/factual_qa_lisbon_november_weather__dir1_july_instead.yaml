@@ -1,0 +1,55 @@
+case_id: factual_qa_lisbon_november_weather__dir1_july_instead
+base_case_id: factual_qa_lisbon_november_weather
+provenance: metamorphic
+run_priority: 1
+function: factual_qa
+user_profile: Marta, 34, practical, packing this week.
+goal: Know what the weather is usually like in Lisbon in July. She wants the figures and nothing else;
+  if Tonic offers to change anything on the trip she says no thanks.
+opening_turn: '@Tonic what''s the weather usually like in Lisbon in July?'
+intent: null
+expected_tool_sequence: []
+declared_constraints:
+  checks:
+    tool_counts:
+      get_weather:
+        min: 0
+        max: 1
+    tools_any_of:
+    - get_region_climate
+    - get_climate_normals
+    tool_errors: corrected
+    turn_errors: none
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 0
+      ai_suggestions.INSERT: 0
+    trip_after:
+      blocks: fixture
+      slots: fixture
+  predicates: []
+scoring_criteria:
+- 'Gives typical July figures for Lisbon that agree with a reference: a daily high near 28 C and a low
+  near 18 C.'
+- Places July among the driest months of the Lisbon year, not the wettest.
+- Says which source or kind of data the figures come from.
+- Distinguishes a typical July from any particular one.
+references:
+- title: Lisbon
+  section: get_region_climate('Lisbon') - Climate prose and Weather box
+  path: lisbon_climate.md
+- title: Lisbon
+  section: get_climate_normals(38.7434, -9.1604) - monthly averages
+  path: lisbon_climate_normals.md
+repetitions_n: 4
+metamorphic_relation: DIR-1
+fixture_depends_on: []
+notes: 'The month is the perturbation, and the stored climate references carry every month, so the seed''s
+  references still serve. It is also the sharper half of the pair: November and July sit at opposite ends
+  of the Lisbon year, so an agent answering from the wrong month is obvious in the scoring rather than
+  arguable.Structurally this case is its seed: the same tools run, the same nothing is written, and what
+  changed is the content of the answer. Its structural verdict is inherited and will read ''none'' whether
+  or not the agent answered the new question - only the judge sees the delta. That is where structural
+  verification stops and scoring starts, and it is said here because a reader meeting ''none'' in a failure
+  report would otherwise believe something was checked.'

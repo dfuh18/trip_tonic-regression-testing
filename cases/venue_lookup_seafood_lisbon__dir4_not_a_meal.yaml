@@ -1,0 +1,56 @@
+case_id: venue_lookup_seafood_lisbon__dir4_not_a_meal
+base_case_id: venue_lookup_seafood_lisbon
+provenance: metamorphic
+run_priority: 1
+function: venue_lookup
+user_profile: Marta, 34, in Lisbon for a long weekend with two friends. Eats fish, budget-conscious, types
+  short messages and does not explain herself.
+goal: 'See bars near Cais do Sodre with a river view where three people can have a drink - not restaurants,
+  not a meal. She wants names to look at and is satisfied once she has them. If Tonic offers to add any
+  of them to the trip or asks which day they fit, she says no thanks and stops there: she only wants the
+  names.'
+opening_turn: /find where can we get a drink by the river near Cais do Sodre?
+intent: find
+expected_tool_sequence:
+- search_places
+declared_constraints:
+  checks:
+    tool_counts:
+      search_places:
+        min: 1
+        max: 5
+    tool_errors: none
+    turn_errors: none
+    places_surfaced:
+      min: 1
+    places_named:
+      min: 2
+    places_near:
+      anchor: Time Out Market lunch
+      within_km: 3.0
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 0
+      ai_suggestions.INSERT: 0
+    trip_after:
+      blocks: fixture
+      slots: fixture
+    places_named_types:
+    - bar
+  predicates: []
+scoring_criteria:
+- Names at least two bars or drinking spots rather than restaurants.
+- Answers the river cue rather than only the neighbourhood.
+- Distinguishes them from each other, so the reasons are not interchangeable.
+- Places each one by a neighbourhood or a landmark, so they can be told apart on a map.
+references: []
+repetitions_n: 4
+metamorphic_relation: DIR-4
+fixture_depends_on:
+- Time Out Market lunch
+notes: A negation that changes what kind of place is wanted, which is the only form of negation a venue-lookup
+  case can state structurally. The earlier version inverted the price cue and asserted nothing a check
+  could see. Types do not move between runs the way venues do - 'restaurant' and 'seafood_restaurant'
+  appeared in every run of the seed - so this catches an agent that hears 'near Cais do Sodre' and returns
+  its usual seafood list regardless of being told it is not a meal.

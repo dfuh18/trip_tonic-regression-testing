@@ -1,0 +1,68 @@
+case_id: scheduling_move_tram__dir1_put_the_monastery_on
+base_case_id: scheduling_move_tram
+provenance: metamorphic
+run_priority: 1
+function: scheduling
+user_profile: 'Ines, 29, the organiser. Direct, and says when she means the way people do: a day and a
+  rough time.'
+goal: Get the monastery the trip already has, and which is not on the itinerary yet, put on the 7th at
+  10. Once it is on she is done; if Tonic offers to add anything else or to fill the rest of the morning,
+  she says no thanks.
+opening_turn: /reschedule can you put the monastery on the itinerary on the 7th at 10?
+intent: reschedule
+expected_tool_sequence:
+- schedule_block
+declared_constraints:
+  checks:
+    tool_counts:
+      schedule_block:
+        min: 1
+        max: 2
+      get_weather:
+        min: 0
+        max: 1
+    tool_errors: corrected
+    turn_errors: none
+    edits:
+      schedule:
+        min: 1
+        max: 1
+      move: 0
+      unschedule: 0
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      itinerary_slots.INSERT:
+        min: 1
+        max: 1
+      itinerary_slots.UPDATE: 0
+      ai_suggestions.INSERT: 0
+    trip_after:
+      blocks: fixture
+      slots: 4
+    slot_scheduled:
+      block: Jerónimos Monastery
+      day: '2026-11-07'
+      starts_between:
+      - 09:30
+      - '10:30'
+      duration_minutes:
+        min: 60
+        max: 180
+  predicates: []
+scoring_criteria:
+- Confirms the monastery is on the 7th at 10, in one short confirmation.
+- Treats it as a stop the trip already has rather than as a new find.
+- Does not move or drop anything else on the itinerary.
+references: []
+repetitions_n: 4
+metamorphic_relation: DIR-1
+fixture_depends_on:
+- Jerónimos Monastery
+- '2026-11-07'
+notes: 'The seed moves a stop that is already on the itinerary; this one puts on a stop that is saved
+  and not scheduled, which is the other half of what a rescheduling request can mean and the only case
+  in the suite that exercises schedule_block. It replaced a follow-up that moved the same stop to a different
+  hour of the same day: that case isolated time resolution from date resolution, which is real, but move_slot
+  was already covered by the seed and by the day-change follow-up, while schedule_block was covered by
+  nothing. The trade is stated rather than hidden. The monastery is saved but unscheduled in the fixture,
+  which is what makes the request answerable without inventing a stop.'

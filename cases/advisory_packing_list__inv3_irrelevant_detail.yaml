@@ -1,0 +1,46 @@
+case_id: advisory_packing_list__inv3_irrelevant_detail
+base_case_id: advisory_packing_list
+provenance: metamorphic
+run_priority: 1
+function: advisory
+user_profile: Marta, 34, packing this week, wants a checklist she can act on.
+goal: A sensible packing list for four days in Lisbon and Sintra in November. She wants the list; if Tonic
+  offers to change anything on the trip she says no thanks.
+opening_turn: '@Tonic what should the three of us pack for this trip? we just bought a huge new suitcase
+  so space isn''t really a problem'
+intent: null
+expected_tool_sequence: []
+declared_constraints:
+  checks:
+    turn_errors: none
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 0
+      ai_suggestions.INSERT: 0
+    trip_after:
+      blocks: fixture
+      slots: fixture
+  predicates: []
+scoring_criteria:
+- 'Does not let the luggage-capacity remark change the advice: the list is no longer or more indulgent
+  for it.'
+- Ties at least one item to something specific about this trip - the Sintra hills, the cobbled streets,
+  or November rain - rather than reading as a generic city-break list.
+- 'Fits the season and the places in the summary: November, Lisbon and Sintra, a day at a hilltop palace.'
+- Names specific items rather than describing categories.
+- Writes for the group rather than for one traveller.
+references: []
+repetitions_n: 4
+metamorphic_relation: INV-3
+fixture_depends_on:
+- Pena Palace
+- '2026-11-06'
+- '2026-11-09'
+notes: 'The added detail is deliberately almost-relevant rather than nonsense: luggage capacity sounds
+  like it bears on a packing list and does not, so an agent that lets it steer the answer has been distracted
+  by something a person would discount.Structurally this case is its seed: the same tools run, the same
+  nothing is written, and what changed is the content of the answer. Its structural verdict is inherited
+  and will read ''none'' whether or not the agent answered the new question - only the judge sees the
+  delta. That is where structural verification stops and scoring starts, and it is said here because a
+  reader meeting ''none'' in a failure report would otherwise believe something was checked.'

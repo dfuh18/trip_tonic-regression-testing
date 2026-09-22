@@ -1,0 +1,34 @@
+case_id: advisory_sintra_full_or_half_day__inv1_paraphrase
+base_case_id: advisory_sintra_full_or_half_day
+provenance: metamorphic
+run_priority: 1
+function: advisory
+user_profile: Tom, 41, weighing the schedule, wants a recommendation with a reason.
+goal: Decide whether Sintra deserves the whole of the Sunday or half of it. He wants a recommendation;
+  if Tonic offers to change the itinerary he says no thanks, he is only asking.
+opening_turn: '@Tonic do you reckon Sintra needs a whole day, or would half of one do?'
+intent: null
+expected_tool_sequence: []
+declared_constraints:
+  checks:
+    turn_errors: none
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 0
+      ai_suggestions.INSERT: 0
+    trip_after:
+      blocks: fixture
+      slots: fixture
+  predicates: []
+scoring_criteria:
+- Comes down on full day or half day and gives the reason.
+- Refers to Pena Palace, which the summary shows is already on that day.
+- 'Names what the choice costs: what a half day gives up, or what a full day leaves no room for.'
+references: []
+repetitions_n: 4
+metamorphic_relation: INV-1
+fixture_depends_on:
+- Pena Palace
+- '2026-11-08'
+notes: The same question in the register a person actually uses.

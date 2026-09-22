@@ -1,0 +1,69 @@
+case_id: scheduling_belem_morning__dir3_a_full_day
+base_case_id: scheduling_belem_morning
+provenance: metamorphic
+run_priority: 1
+function: scheduling
+user_profile: Ines, 29, the organiser of the group. Wants a plan she can accept stop by stop, writes full
+  sentences, names a day by its date the way people do — "the 7th", never a full calendar string.
+goal: 'Get a draft for the whole of the 7th in Belem with five or six stops, so the group can settle them
+  one by one. She is satisfied as soon as a draft for that day exists: she settles the individual stops
+  herself on the itinerary rather than asking Tonic to revise it, and if Tonic offers anything further
+  she says that is all she needed.'
+opening_turn: /plan can you put together a full Belém day for the 7th? five or six stops, we already have
+  the monastery saved
+intent: plan
+expected_tool_sequence:
+- search_places
+- propose_plan
+declared_constraints:
+  checks:
+    tool_counts:
+      search_places:
+        min: 1
+        max: 7
+      propose_plan:
+        min: 1
+        max: 2
+      get_weather:
+        min: 0
+        max: 1
+    tool_errors: corrected
+    turn_errors: none
+    places_surfaced:
+      min: 1
+    slot_days:
+    - '2026-11-07'
+    slot_count:
+      min: 5
+      max: 7
+    draft_slot_starts_between:
+    - 07:00
+    - '19:00'
+    draft_reuses_blocks:
+    - Jerónimos Monastery
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 0
+      ai_suggestions.INSERT:
+        min: 1
+        max: 2
+    trip_after:
+      blocks: fixture
+      slots: fixture
+  predicates: []
+scoring_criteria:
+- Summarises the day in a few sentences and makes clear it is Belem, on the 7th, without reciting every
+  stop back.
+- Gives a reason each stop belongs in this day rather than listing them flat.
+- Treats the monastery as a stop the trip already has rather than as a new find.
+- Paces the day so it is walkable and leaves room to eat.
+references: []
+repetitions_n: 4
+metamorphic_relation: DIR-3
+fixture_depends_on:
+- Jerónimos Monastery
+- '2026-11-07'
+notes: The count the member asks for is the delta, and the morning window has to go with it — a perturbation
+  that makes one of the seed's checks untrue must drop it rather than leave it to fail. More stops is
+  also more searching, so that bound widens too.

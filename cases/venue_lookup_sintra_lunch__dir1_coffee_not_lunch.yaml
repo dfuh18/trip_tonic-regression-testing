@@ -1,0 +1,56 @@
+case_id: venue_lookup_sintra_lunch__dir1_coffee_not_lunch
+base_case_id: venue_lookup_sintra_lunch
+provenance: metamorphic
+run_priority: 1
+function: venue_lookup
+user_profile: Tom, 41, travelling with his partner. Likes a proper sit-down lunch, says which day he means
+  the way people do — by what is on it.
+goal: See cafes or pastry shops near Pena Palace for the Sintra day. He wants somewhere to consider for
+  a mid-morning stop and is satisfied once he has the names. If Tonic offers to add any of them to the
+  trip or asks which day they fit, he says no thanks.
+opening_turn: /find where can we get a coffee and a pastry near the palace on the Sintra day?
+intent: find
+expected_tool_sequence:
+- search_places
+declared_constraints:
+  checks:
+    tool_counts:
+      search_places:
+        min: 1
+        max: 3
+    tool_errors: none
+    turn_errors: none
+    places_surfaced:
+      min: 1
+    places_named:
+      min: 2
+    places_near:
+      anchor: Pena Palace
+      within_km: 8.0
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 0
+      ai_suggestions.INSERT: 0
+    trip_after:
+      blocks: fixture
+      slots: fixture
+    places_named_types:
+    - cafe
+  predicates: []
+scoring_criteria:
+- Names at least two cafes or pastry shops rather than full restaurants.
+- Names at least two places in or near Sintra, not back in Lisbon.
+- Works out which day is meant instead of asking, and answers for the Sintra day.
+- Places each one by a neighbourhood or a landmark, so they can be told apart on a map.
+references: []
+repetitions_n: 4
+metamorphic_relation: DIR-1
+fixture_depends_on:
+- Pena Palace
+- '2026-11-08'
+notes: 'The constraint that changes is the kind of place, so the delta is checkable: the seed''s answers
+  are restaurants and this one''s must be cafes or pastry shops. The earlier version added a dietary constraint,
+  which changed no check except to loosen a search bound - its constraints were strictly weaker than its
+  seed''s, so it could not detect anything the seed missed. The geographic anchor is inherited unchanged,
+  because the perturbation did not move the place: 8 km of Pena Palace still applies.'

@@ -1,0 +1,46 @@
+case_id: factual_qa_alfama_history__inv1_paraphrase
+base_case_id: factual_qa_alfama_history
+provenance: metamorphic
+run_priority: 1
+function: factual_qa
+user_profile: Tom, 41, curious, asks one clear question and wants the answer, not a plan.
+goal: Learn the short version of Alfama's history before the tram ride. He wants the answer and nothing
+  else; if Tonic offers to add anything to the trip he says no thanks.
+opening_turn: '@Tonic give me the short version of how Alfama came to be what it is'
+intent: null
+expected_tool_sequence: []
+declared_constraints:
+  checks:
+    tools_any_of:
+    - read_wikipedia
+    tool_errors: none
+    turn_errors: none
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 0
+      ai_suggestions.INSERT: 0
+    trip_after:
+      blocks: fixture
+      slots: fixture
+  predicates: []
+scoring_criteria:
+- Says nothing the reference contradicts.
+- 'Covers at least two of: the Arabic origin of the name, Alfama as Lisbon''s oldest neighbourhood, its
+  extent under Moorish rule, its survival of the 1755 earthquake.'
+- 'Reads as a short history rather than a list of dates: says why the district matters, not only what
+  happened to it.'
+references:
+- title: Alfama
+  section: read_wikipedia('Alfama') - the whole article, as the tool returns it
+  path: alfama_history.md
+repetitions_n: 4
+metamorphic_relation: INV-1
+fixture_depends_on: []
+notes: 'Paraphrase is the stronger of the two wording relations — a model that handles typos may still
+  latch onto surface phrasing — so it is the invariance relation this seed gets.Structurally this case
+  is its seed: the same tools run, the same nothing is written, and what changed is the content of the
+  answer. Its structural verdict is inherited and will read ''none'' whether or not the agent answered
+  the new question - only the judge sees the delta. That is where structural verification stops and scoring
+  starts, and it is said here because a reader meeting ''none'' in a failure report would otherwise believe
+  something was checked.'

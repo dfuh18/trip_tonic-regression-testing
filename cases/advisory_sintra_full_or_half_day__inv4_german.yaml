@@ -1,0 +1,47 @@
+case_id: advisory_sintra_full_or_half_day__inv4_german
+base_case_id: advisory_sintra_full_or_half_day
+provenance: metamorphic
+run_priority: 1
+function: advisory
+user_profile: 'Tom, 41, weighing the schedule, wants a recommendation with a reason. Writes to Tonic in
+  German, which is his first language.Structurally this case is its seed: the same tools run, the same
+  nothing is written, and what changed is the content of the answer. Its structural verdict is inherited
+  and will read ''none'' whether or not the agent answered the new question - only the judge sees the
+  delta. That is where structural verification stops and scoring starts, and it is said here because a
+  reader meeting ''none'' in a failure report would otherwise believe something was checked.'
+goal: Decide whether Sintra deserves the whole of the Sunday or half of it. He asks in German and expects
+  an answer he can read. He wants a recommendation; if Tonic offers to change the itinerary he says no
+  thanks, he is only asking.
+opening_turn: '@Tonic lohnt sich Sintra für einen ganzen Tag oder reicht ein halber?'
+intent: null
+expected_tool_sequence: []
+declared_constraints:
+  checks:
+    turn_errors: none
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 0
+      ai_suggestions.INSERT: 0
+    trip_after:
+      blocks: fixture
+      slots: fixture
+  predicates: []
+scoring_criteria:
+- Answers in the language the member wrote in.
+- Comes down on full day or half day and gives the reason.
+- Refers to Pena Palace, which the summary shows is already on that day.
+- 'Names what the choice costs: what a half day gives up, or what a full day leaves no room for.'
+references: []
+repetitions_n: 4
+metamorphic_relation: INV-4
+fixture_depends_on:
+- Pena Palace
+- '2026-11-08'
+notes: 'The language switch, which no other case in the suite uses. It replaced a typo perturbation of
+  this same seed, and the reason is that the typo case and its sibling paraphrase tested one property
+  between them - tolerance to how the sentence is written - so a single robustness regression would break
+  both and the pair would buy one finding for eight executions. A language switch tests what the paraphrase
+  cannot: whether the agent answers in the member''s language, and whether it still reaches the trip''s
+  own state to refer to Pena Palace when the request is not in English. The cost, stated: the judge scores
+  a German reply against English criteria, which the criteria are worded to survive.'

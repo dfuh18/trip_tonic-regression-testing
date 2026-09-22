@@ -1,0 +1,57 @@
+case_id: venue_lookup_seafood_lisbon__dir1_and_a_hotel
+base_case_id: venue_lookup_seafood_lisbon
+provenance: metamorphic
+run_priority: 1
+function: venue_lookup
+user_profile: Marta, 34, in Lisbon for a long weekend with two friends. Eats fish, budget-conscious, types
+  short messages and does not explain herself.
+goal: 'See well-rated seafood restaurants near Cais do Sodre that three people can afford, and a place
+  to stay in the same area. She wants names for both and is satisfied once she has them. If Tonic offers
+  to add any of them to the trip or asks which day they fit, she says no thanks and stops there: she only
+  wants the names.'
+opening_turn: /find good seafood places near Cais do Sodré, nothing too pricey — and somewhere to stay
+  nearby too
+intent: find
+expected_tool_sequence:
+- search_places
+declared_constraints:
+  checks:
+    tool_counts:
+      search_places:
+        min: 1
+        max: 5
+    tool_errors: none
+    turn_errors: none
+    places_surfaced:
+      min: 2
+    places_named:
+      min: 3
+    places_near:
+      anchor: Time Out Market lunch
+      within_km: 3.0
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 0
+      ai_suggestions.INSERT: 0
+    trip_after:
+      blocks: fixture
+      slots: fixture
+    places_named_types:
+    - restaurant
+    - lodging
+  predicates: []
+scoring_criteria:
+- Names at least two seafood restaurants and at least one place to stay.
+- Keeps the two answers apart rather than running them into one list.
+- Puts the accommodation near Cais do Sodre, not somewhere else in Lisbon.
+- Reflects the budget cue for both halves of the request.
+references: []
+repetitions_n: 4
+metamorphic_relation: DIR-1
+fixture_depends_on:
+- Time Out Market lunch
+notes: 'The strongest perturbation available to a venue-lookup case: asking for a second kind of place
+  changes the shape of the answer rather than its wording. Chosen over the obvious ''ask for something
+  narrower and expect fewer results'', which is not a relation this system has — search_places is capped
+  at five per call, so narrowing pushes the agent to search again and the count rises.'

@@ -1,0 +1,55 @@
+case_id: factual_qa_lisbon_november_weather__inv1_paraphrase
+base_case_id: factual_qa_lisbon_november_weather
+provenance: metamorphic
+run_priority: 1
+function: factual_qa
+user_profile: Marta, 34, practical, packing this week.
+goal: Know what the weather is usually like in Lisbon in early November. She wants the figures and nothing
+  else; if Tonic offers to change anything on the trip she says no thanks.
+opening_turn: '@Tonic roughly what sort of weather should we expect in Lisbon at this time of year?'
+intent: null
+expected_tool_sequence: []
+declared_constraints:
+  checks:
+    tool_counts:
+      get_weather:
+        min: 0
+        max: 1
+    tools_any_of:
+    - get_region_climate
+    - get_climate_normals
+    tool_errors: corrected
+    turn_errors: none
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 0
+      ai_suggestions.INSERT: 0
+    trip_after:
+      blocks: fixture
+      slots: fixture
+  predicates: []
+scoring_criteria:
+- 'Gives typical November figures for Lisbon that agree with a reference: a daily high near 18 C and a
+  low near 12 C.'
+- Places November among the wettest months of the Lisbon year.
+- Says which source or kind of data the figures come from.
+- 'Distinguishes a typical November from this November: does not present long-run averages as a forecast
+  for the trip''s own dates.'
+references:
+- title: Lisbon
+  section: get_region_climate('Lisbon') - Climate prose and Weather box
+  path: lisbon_climate.md
+- title: Lisbon
+  section: get_climate_normals(38.7434, -9.1604) - monthly averages
+  path: lisbon_climate_normals.md
+repetitions_n: 4
+metamorphic_relation: INV-1
+fixture_depends_on: []
+notes: 'Paraphrased, and deliberately vaguer: ''this time of year'' makes the agent resolve the month
+  from the trip rather than from the sentence, which is the part of the seed''s behaviour most likely
+  to break under rewording.Structurally this case is its seed: the same tools run, the same nothing is
+  written, and what changed is the content of the answer. Its structural verdict is inherited and will
+  read ''none'' whether or not the agent answered the new question - only the judge sees the delta. That
+  is where structural verification stops and scoring starts, and it is said here because a reader meeting
+  ''none'' in a failure report would otherwise believe something was checked.'
