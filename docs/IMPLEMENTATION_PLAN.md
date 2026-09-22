@@ -607,9 +607,24 @@ Depends on: B04, B15
 Estimate: 6h
 Status: in progress (2026-09-22). `src/metamorphic.py`, the derivations in
 `cases/derivations.py`, the generated case files, `src/coverage.py` and
-`notebooks/sim/02_expand.ipynb`. The suite is **11 seeds and 17 follow-ups, 156
-executions** — above D21's 8/16/128, which D50 and D51 rule on: the extra
-cases exist to reach tools nothing could otherwise reach. 187 tests.
+`notebooks/sim/02_expand.ipynb`. The suite is **11 seeds and 18 follow-ups, 160
+executions** — above D21's 8/16/128, which D50, D51 and D61 rule on: the extra
+cases exist to reach tools, and one relation, that nothing could otherwise
+reach. 216 tests.
+
+The eighteenth follow-up closes D22's catalogue. INV-2 had **no** case at all
+while the catalogue claimed eight relations, and nothing checked a catalogue
+against itself — the same overstatement D52 was about, caught by the author
+reading the relation counts. It now sits on the venue lookup, which is the one
+seed whose words become a `search_places` query argument rather than being read
+by the model alone. D61 also supplies the defence of the uneven distribution,
+computed rather than asserted: relation use against **eligibility**, where
+DIR-2/3/4 are eligible on 4 seeds and INV-1..4 on all 11, so most of the
+unevenness is forced by D22 rather than chosen. Where it was chosen —
+directional at 25-75% of opportunity against invariance at 9-36% — the reason
+is that an invariance-weighted suite reports its own insensitivity as coverage.
+INV-2/3/4 sit at one case each, which is a floor and not a sample, and the
+report says so itself.
 
 The eleventh seed is the second half of the weather pair (D54), and the pair is
 what B05's coverage argument was for: D51 added a seed to reach `get_weather`'s

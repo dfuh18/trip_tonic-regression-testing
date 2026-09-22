@@ -237,3 +237,36 @@ def test_the_relation_report_states_its_own_limitation():
     out = relation_report()
     assert "single instance" in out
     assert "not a sample" in out
+
+
+def test_the_expansion_notebook_states_the_real_counts():
+    """Prose in a published notebook drifts silently, and this one had drifted
+    twice: it claimed sixteen follow-ups derived from eight seeds after the
+    suite had grown to eighteen from eleven, and said "those four seeds" of a
+    group that had become seven. A reader has no way to check a number that is
+    only ever written down.
+
+    Asserted against the case files rather than against a constant, so the
+    notebook cannot be right on the day it is edited and wrong afterwards.
+    """
+    import json
+    from pathlib import Path
+
+    from src.cases import CASES_DIR
+
+    nb = json.loads((Path(CASES_DIR).parent / "notebooks" / "sim" / "02_expand.ipynb")
+                    .read_text(encoding="utf-8"))
+    prose = "\n".join("".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "markdown")
+
+    cases = load_cases()
+    seeds_n = sum(1 for c in cases if c.provenance == "seeded")
+    follow_n = sum(1 for c in cases if c.provenance == "metamorphic")
+    words = {8: "eight", 11: "eleven", 18: "eighteen", 29: "twenty-nine"}
+
+    assert words[follow_n] in prose.lower(), f"notebook does not say there are {follow_n} follow-ups"
+    assert words[seeds_n] in prose.lower(), f"notebook does not say there are {seeds_n} seeds"
+    assert words[len(cases)] in prose.lower(), f"notebook does not say there are {len(cases)} cases"
+    assert str(sum(c.repetitions_n for c in cases)) in prose, "notebook does not state the execution total"
+    # The stale phrasings that were actually there.
+    for stale in ("sixteen follow-up", "from the eight seeds", "those four seeds"):
+        assert stale not in prose.lower(), f"stale count in notebook prose: {stale!r}"

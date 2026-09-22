@@ -272,3 +272,47 @@ def perturbation(results: Any) -> "DataFrame":
         )
     frame = pd.DataFrame(out)
     return frame if frame.empty else frame.set_index("follow-up")
+
+
+def unique_contribution() -> "DataFrame":
+    """What would be lost if each case were deleted (D50, D51, D61).
+
+    The rule every extra case was admitted under: a case beyond D21's budget
+    earns its place only by being the **only route** to something — a tool no
+    other case requires, or a relation no other case instantiates. A case that
+    reaches only what the suite already reaches is a second sample of a
+    measurement it already has, and n is the cheaper way to buy that.
+
+    So this is the justification made checkable rather than argued. `only route
+    to` is empty for most cases, and that is correct: the seeds of D21's
+    original budget overlap deliberately, because the suite is meant to notice
+    a tool breaking from more than one direction. It is the EXTRA cases whose
+    column must not be empty.
+    """
+    from collections import Counter
+
+    from src.cases import load_cases
+    from src.coverage import tools_required_by
+
+    pd = _pd()
+    cases = load_cases()
+    required = {c.case_id: tools_required_by(c) for c in cases}
+    tool_users = Counter(tool for tools in required.values() for tool in tools)
+    relation_users = Counter(c.metamorphic_relation for c in cases if c.metamorphic_relation)
+
+    rows = []
+    for c in cases:
+        only_tools = sorted(t for t in required[c.case_id] if tool_users[t] == 1)
+        rel = c.metamorphic_relation
+        only_relation = rel if rel and relation_users[rel] == 1 else None
+        unique = only_tools + ([f"relation {only_relation}"] if only_relation else [])
+        rows.append(
+            {
+                "case": c.case_id,
+                "provenance": c.provenance,
+                "requires": ", ".join(sorted(required[c.case_id])) or "-",
+                "only route to": ", ".join(unique) or "-",
+                "sole coverage": bool(unique),
+            }
+        )
+    return pd.DataFrame(rows).set_index("case")

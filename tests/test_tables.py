@@ -108,3 +108,50 @@ def test_perturbation_compares_the_highest_attempt():
     finally:
         exmod.load = original
     assert ("seed", 2) in seen and ("seed", 1) not in seen
+
+
+def test_a_disjunctive_requirement_requires_neither_tool_alone():
+    """D66. `tools_any_of: [a, b]` passes if EITHER ran, so the case does not
+    require `a` and does not require `b`.
+
+    Counting both made three weather cases read as requiring
+    `get_region_climate` when the suite would not have noticed it vanishing —
+    the agent falls back to `get_climate_normals` and every one still passes.
+    An overstatement of coverage inside the instrument that justifies adding
+    cases, which is the worst place for one.
+    """
+    from src.cases import load_cases
+    from src.coverage import tools_alternatively_required_by, tools_required_by
+
+    by_id = {c.case_id: c for c in load_cases()}
+    weather = by_id["factual_qa_lisbon_november_weather"]
+    required = tools_required_by(weather)
+    assert "get_region_climate" not in required
+    assert "get_climate_normals" not in required
+    groups = tools_alternatively_required_by(weather)
+    assert groups and {"get_region_climate", "get_climate_normals"} == set(groups[0])
+
+
+def test_a_single_element_any_of_is_a_real_requirement():
+    """Nothing else can satisfy it, so it is a requirement."""
+    from src.cases import load_cases
+    from src.coverage import tools_required_by
+
+    by_id = {c.case_id: c for c in load_cases()}
+    assert "get_climate_normals" in tools_required_by(by_id["factual_qa_lisbon_surf_conditions"])
+
+
+def test_every_extra_case_is_the_only_route_to_something():
+    """The admission rule of D50/D51/D61, enforced rather than argued.
+
+    A case carrying a relation that no other case instantiates, or requiring a
+    tool no other case requires, has earned its executions. This asserts the
+    inverse of the usual worry: not that coverage is missing, but that a case
+    added FOR coverage actually supplies some.
+    """
+    sole = tables.unique_contribution()
+    sole = sole[sole["sole coverage"]]
+    for expected in ("venue_lookup_seafood_lisbon__inv2_typos",
+                     "scheduling_move_tram__dir1_put_the_monastery_on",
+                     "scheduling_move_tram__dir4_off_the_itinerary"):
+        assert expected in sole.index, f"{expected} was added for coverage but supplies none"

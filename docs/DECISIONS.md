@@ -31,6 +31,56 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D67 — A refused simulator attempt is a row, not just a log line
+Date: 2026-09-22 · Decided by: agent (completes D53/D59 on the path that missed them)
+D53 keeps every attempt because the refusal is evidence about the platform and
+the completed one is evidence about the agent. The **agent** path did that: each
+attempt writes its own execution row. The **simulator** path did not — the
+refusal is raised before any row exists, so a repetition the simulator lost and
+then recovered kept only the successful row, and the refusal survived in
+`runs/harness.log` and nowhere countable.
+Seen live, in the run this was found during: `advisory_packing_list__inv1_paraphrase`
+was refused with a 504, retried, and completed on attempt 2 — one row, attempt
+2, no trace of the refusal in the table. The platform-failure rate would have
+read that repetition as clean, which is precisely the number D59 exists to keep
+honest.
+Every refused attempt now writes a row with its own `attempt` and an empty
+`suggestion_ids` — empty because nothing reached the agent, which is what
+distinguishes it from an execution the agent failed.
+This is the fourth reader or writer to miss the attempt rule (after scoring,
+the checker and the structural table). The pattern worth naming: adding a
+dimension to an identity is not done when the column exists, it is done when
+every path that writes or reads that identity has been walked.
+Affects: src/runner.py (`record_simulator_failure`)
+Reverses: none (completes D53 and D59)
+
+### D66 — `tools_any_of` is a disjunction, and the coverage metric now reads it as one
+Date: 2026-09-22 · Decided by: agent (a defect in the instrument, found while documenting it)
+`tools_required_by` counted every member of a `tools_any_of` as required. It is
+a disjunction — the case passes if **any one** of the named tools ran — so a
+two-element `any_of` requires neither of them individually.
+Consequence, measured: the report claimed three cases required
+`get_region_climate`. None does. If that tool broke tomorrow, all three weather
+cases would still pass by falling back to `get_climate_normals`, and the
+coverage report would have gone on saying the tool was required by three cases.
+This is the same overstatement D52 was about, sitting in the instrument that
+decides whether a case may be added — the worst place for one, because it makes
+the suite look more covered exactly where it is deciding it needs no more
+coverage.
+Fixed: a one-element `any_of` is a requirement (nothing else can satisfy it); a
+longer one is reported separately by `tools_alternatively_required_by`, so
+neither reading is lost. `get_climate_normals` correspondingly drops from four
+requirers to one, which **confirms** D51's claim that the surf case is its only
+unconditional route rather than weakening it.
+**Left open, and deliberately not fixed here:** no case now requires
+`get_region_climate`. Closing it means tightening an existing weather case to
+name that tool specifically rather than adding a case — which is the cheaper
+option and the one the admission rule prefers — but it changes what counts as a
+pass, so it is the author's. Recorded in OPEN_QUESTIONS.
+Affects: src/coverage.py · src/tables.py (`unique_contribution`) ·
+tests/test_tables.py · notebooks/sim/02_expand.ipynb
+Reverses: none (corrects D50's metric, not its ruling)
+
 ### D65 — The attempt is part of an execution's identity, everywhere that reads one
 Date: 2026-09-22 · Decided by: agent (a defect in D53's own rule, not a new choice)
 D53 added `attempt` and stated that a reader takes the highest per repetition.
@@ -148,14 +198,23 @@ eight relations. Nothing failed, because nothing checked the catalogue against
 itself — and a coverage argument that claims eight relations while exercising
 seven is the same overstatement D52 was about. Removing it from the catalogue
 was the honest alternative, but the relation is not worthless, only
-*misplaced*: a typo is weak wherever the text is read by the model alone (that
-is what language models are good at), and is NOT weak where the text becomes a
-**tool argument**. A venue lookup's words go into a `search_places` query, so
-'sodre' and 'seafod' are handed to the Places API rather than merely
-understood. That is the one place in the suite where a typo can reach past the
-model, and it is where the case now sits. The dropped diacritic is the
-load-bearing part: it lands on the anchor `places_near` measures from, so a
-failure is a failure of location rather than of taste.
+*misplaced*: a typo is weak wherever the text is read by the model alone, which
+is what language models are good at. The venue lookup is the closest the suite
+gets to a typo reaching a **tool** rather than only the model — the request is
+about a named place and the answer is scored on location as well as on taste —
+so that is where the case sits.
+
+**Corrected 2026-09-22, same day, by the first run of it.** The justification
+above originally claimed the member's words *become* a `search_places` query
+argument, so a typo would be handed to the Places API. That is not what
+happens: the agent **authors** the query and normalised every typo before the
+tool saw anything. The seed searched `marisqueira Cais do Sodre Lisbon`; the
+typo follow-up searched the byte-identical string. The case scored 10/10 with
+its structural checks passing.
+The placement stands and the stated mechanism does not. Recording it this way
+is the point of the entry — the relation's weakness is now *measured*, with a
+specific cause (query rewriting, not tolerant matching downstream), which also
+says where to look if a typo case ever does fail.
 If it passes 8/8, that is the finding, and the relation is reported as one the
 agent is insensitive to — which is worth more than omitting it and leaving a
 reader to wonder whether it was tried.

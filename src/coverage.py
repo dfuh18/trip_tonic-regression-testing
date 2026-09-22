@@ -93,13 +93,34 @@ def tools_required_by(case: Case) -> set[str]:
     not. Counting those as eleven declarations made the coverage report read
     as though the tool were thoroughly asserted, when no case requires it at
     all and the suite would not notice it disappearing.
+
+    A second overstatement of the same kind lived here (D66). ``tools_any_of``
+    is a DISJUNCTION — the case passes if any one of the named tools ran — so a
+    two-element ``any_of`` requires neither of them individually. Counting both
+    made three weather cases read as requiring ``get_region_climate`` when the
+    suite would not have noticed it disappearing: the agent would have fallen
+    back to ``get_climate_normals`` and every one of them would still pass.
+    A one-element ``any_of`` is a requirement, because there is nothing else
+    that can satisfy it.
     """
     checks = case.declared_constraints.checks
-    required = set(case.expected_tool_sequence) | set(checks.tools_any_of or [])
+    any_of = list(checks.tools_any_of or [])
+    required = set(case.expected_tool_sequence) | (set(any_of) if len(any_of) == 1 else set())
     for tool, bound in (checks.tool_counts or {}).items():
         if as_bound(bound).min:
             required.add(tool)
     return required
+
+
+def tools_alternatively_required_by(case: Case) -> list[frozenset[str]]:
+    """Disjunctive requirements: groups where the case needs ONE of the tools.
+
+    Kept separate rather than folded into ``tools_required_by`` so neither
+    reading is lost. A tool that appears only here is asserted, but weakly: no
+    case would fail if it vanished, provided its alternative still works.
+    """
+    any_of = list(case.declared_constraints.checks.tools_any_of or [])
+    return [frozenset(any_of)] if len(any_of) > 1 else []
 
 
 def tools_named_by(case: Case) -> set[str]:

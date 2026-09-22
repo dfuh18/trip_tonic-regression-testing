@@ -50,23 +50,30 @@ fixture_depends_on:
 - Time Out Market lunch
 notes: 'The catalogue''s only INV-2, and deliberately only one (D61). A typo is a weak perturbation wherever
   the text is read by the model alone - that is what language models are good at, and a suite full of
-  them would report its own insensitivity as coverage. It is NOT weak here, which is why this is the seed
-  that takes it: a venue lookup''s words become a search_places QUERY ARGUMENT, so ''sodre'' and ''seafod''
-  are handed to the Places API rather than merely understood. This is the one place in the suite where
-  a typo can reach past the model and degrade an answer on its own.
+  them would report its own insensitivity as coverage. This seed takes it because a venue lookup is the
+  closest the suite gets to a typo reaching a TOOL rather than only the model: the request is about a
+  named place, and the answer is scored on location (places_near, 3km from the fixture anchor) as well
+  as on taste.
 
 
   The perturbation is what a phone actually produces: transpositions (''palces''), a dropped letter (''seafod'',
-  ''nothin'', ''god''), lost casing and a dropped diacritic (''Cais do Sodre''). The last is the load-bearing
-  one - the accent is on the anchor the case measures distance from, and places_near is inherited unchanged
-  at 3km, so an agent that searches for the wrong place fails on location rather than on taste.
+  ''nothin'', ''god''), lost casing and a dropped diacritic (''Cais do Sodre'').
+
+
+  MEASURED, first run (2026-09-22): the relation is weak, and the mechanism is NOT the one this case was
+  first justified by. The original note claimed the member''s words ''become a search_places query argument''.
+  They do not. The agent AUTHORS the query, and it normalised every typo before the tool saw anything
+  - the seed searched ''marisqueira Cais do Sodre Lisbon'' and the typo follow-up searched the byte-identical
+  string. The case scored 10/10 and its structural checks passed.
+
+
+  That is the finding, and it is worth more than the case passing quietly would have been: the agent''s
+  robustness to typos is now measured rather than assumed, and the reason is specific - query rewriting,
+  not tolerant matching downstream. Recording the expectation in advance is what makes the result interpretable
+  either way, and it narrows where to look if a typo case ever does fail: the thing that changed is query
+  rewriting.
 
 
   Every seed check is inherited without amendment, which is what makes this an invariance claim. The fifth
   criterion is the only addition and it is not a weakening: answering a misspelt question by querying
-  the spelling is a failure a human would notice and the structural checks would not.
-
-
-  If it passes at 8/8, that IS the finding, and the honest way to report the relation is as one the agent
-  is insensitive to - which is worth more than omitting the relation and leaving a reader to wonder whether
-  it was tried.'
+  the spelling is a failure a human would notice and the structural checks would not.'

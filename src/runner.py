@@ -134,6 +134,25 @@ def app_versions(token: str) -> dict:
     return r.json()
 
 
+def record_simulator_failure(run_id, handle, case, repetition, attempt, exc) -> None:
+    """One execution row for a repetition the simulator could not run.
+
+    Written for every attempt, not only the last, so the platform-failure rate
+    counts what the platform actually refused (D53, D67). `suggestion_ids` is
+    empty because nothing reached the agent — that is what distinguishes this
+    from an execution the agent failed.
+    """
+    db.admin().table("study_case_executions").insert({
+        "run_id": run_id, "case_id": case.case_id, "base_case_id": case.base_case_id,
+        "provenance": case.provenance, "run_priority": case.run_priority,
+        "repetition": repetition, "repetitions_n": case.repetitions_n,
+        "attempt": attempt,
+        "session_id": handle.user.session_id,
+        "suggestion_ids": [], "error": f"simulator: {exc}",
+        "started_at": _now(), "finished_at": _now(),
+    }).execute()
+
+
 def open_run(
     user: SimUser,
     token: str,
@@ -483,9 +502,16 @@ def run(
                 # agent — so it is re-run on the same terms (D59). Everything
                 # else (a malformed persona, a parse failure) is a real fault
                 # and is recorded as one.
+                # Each refused attempt is recorded before the next is tried
+                # (D67). D53's rule is that both attempts stay in the record
+                # because the refusal is evidence about the platform, and the
+                # simulator path was keeping only the one that succeeded — so
+                # a simulator refusal recovered on attempt 2 vanished from the
+                # platform-failure rate entirely and survived only in the log.
                 sim_attempt = 1
                 while (failure_class(f"simulator: {exc}") == "platform"
                        and sim_attempt < MAX_ATTEMPTS_PER_REPETITION):
+                    record_simulator_failure(run_id, handle, case, repetition, sim_attempt, exc)
                     sim_attempt += 1
                     warn = (f"    WARNING simulator refused by the platform on {case.case_id} rep "
                             f"{repetition} ({exc}) — retrying, attempt {sim_attempt} of "
@@ -507,14 +533,7 @@ def run(
                 simulator_failures += 1
                 if sim_attempt > 1:
                     platform_losses += 1
-                db.admin().table("study_case_executions").insert({
-                    "run_id": run_id, "case_id": case.case_id, "base_case_id": case.base_case_id,
-                    "provenance": case.provenance, "run_priority": case.run_priority,
-                    "repetition": repetition, "repetitions_n": case.repetitions_n,
-                    "session_id": handle.user.session_id,
-                    "suggestion_ids": [], "error": f"simulator: {exc}",
-                    "started_at": _now(), "finished_at": _now(),
-                }).execute()
+                record_simulator_failure(run_id, handle, case, repetition, sim_attempt, exc)
                 line = f"{case.case_id} rep {repetition}: SIMULATOR FAILED — {exc}"
                 log(line)
                 reset.harness_log(f"RUN {run_id[:8]} {line}")

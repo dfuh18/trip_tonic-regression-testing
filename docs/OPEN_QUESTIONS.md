@@ -30,6 +30,35 @@ wait; one blocking a Phase A task cannot.
 
 ## Open
 
+### Q26 — Should a case require `get_region_climate` specifically?
+Raised: 2026-09-22 (from D66) · Blocks: nothing; the suite runs either way
+
+`get_region_climate` is required by no case. The three `november_weather` cases
+name it in a `tools_any_of` beside `get_climate_normals`, which means either
+satisfies them — so the tool could break and every one of them would pass.
+
+The agent's own prompt treats them as different tools with different jobs:
+`get_region_climate` for a month or a season by place NAME, `get_climate_normals`
+for surf and marine questions from coordinates. The suite does not currently
+hold it to that.
+
+- **Option A — tighten the existing seed.** Make `factual_qa_lisbon_november_weather`
+  require `get_region_climate` alone, leaving `get_climate_normals` as the surf
+  case's tool. No new case, no extra executions, and it matches what the prompt
+  actually says. It narrows what counts as a pass: an agent that answers a
+  November question correctly *from climate normals* would now fail.
+- **Option B — add a seed.** Costs 8 executions and, by the admission rule
+  (D50/D51/D61), is only justified if nothing existing can be tightened. Here
+  something can, so this is the weaker option.
+- **Option C — leave it.** Accept that the pair is tested as interchangeable.
+  Honest, but then the report should stop implying the tools are separately
+  covered, and §4.3 should say the suite would not notice one of them failing.
+
+**Recommendation: A.** It closes the gap for nothing, and it encodes a
+distinction the application already makes. It needs the author because it
+changes what counts as a pass (CLAUDE.md stop-and-ask).
+
+
 ### Q23 — `get_weather` cannot succeed against the fixture trip
 Raised: 2026-09-20 by agent · Blocks: nothing hard; bears on B04, B10 · Phase: B
 
