@@ -155,3 +155,36 @@ def test_every_extra_case_is_the_only_route_to_something():
                      "scheduling_move_tram__dir1_put_the_monastery_on",
                      "scheduling_move_tram__dir4_off_the_itinerary"):
         assert expected in sole.index, f"{expected} was added for coverage but supplies none"
+
+
+def test_a_disjunction_is_coverage_not_a_gap():
+    """D68. Two tools that both answer correctly are covered as a GROUP.
+
+    Pinning the case to one of them would assert the route rather than the
+    outcome (D30) and would forbid a legitimate fallback — the prompt's own
+    rule is to use `get_climate_normals` when there are coordinates but no
+    usable place name. The suite is only as strict as catches a real
+    regression, and an agent that picks the other correct tool has not
+    regressed.
+    """
+    from src.coverage import for_run  # noqa: F401  (import guard only)
+    from src.coverage import Coverage
+
+    cov = Coverage(
+        declared={"a": ["case1"], "b": ["case1"]},
+        required={},
+        groups={frozenset({"a", "b"}): ["case1"]},
+    )
+    assert cov.covered_by_group == {"a", "b"}
+    # and neither is reported as the kind of gap that needs a new case
+    assert "a" not in cov.permitted_but_never_required
+    assert "b" not in cov.permitted_but_never_required
+
+
+def test_a_tool_with_no_alternative_named_is_still_a_gap():
+    """The real gap survives: permitted at min 0, with nothing named in its
+    place, means the suite would not notice the capability disappearing."""
+    from src.coverage import Coverage
+
+    cov = Coverage(declared={"search_places": ["case1"]}, required={}, groups={})
+    assert "search_places" in cov.permitted_but_never_required

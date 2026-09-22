@@ -30,7 +30,7 @@ wait; one blocking a Phase A task cannot.
 
 ## Open
 
-### Q26 — Should a case require `get_region_climate` specifically?
+### Q26 — [RESOLVED 2026-09-22, see D68] — Should a case require `get_region_climate` specifically?
 Raised: 2026-09-22 (from D66) · Blocks: nothing; the suite runs either way
 
 `get_region_climate` is required by no case. The three `november_weather` cases
@@ -58,6 +58,13 @@ hold it to that.
 distinction the application already makes. It needs the author because it
 changes what counts as a pass (CLAUDE.md stop-and-ask).
 
+**Resolved: leave the cases alone; the report was wrong.** Both tools answer
+correctly, so requiring one asserts the route (D30); the fallback is legitimate
+and a future case with coordinates and no usable place name will need it; and
+`get_climate_normals` is already required outright by the surf case. The
+recommendation above (Option A) was rejected. The report now distinguishes
+"required as one of a group" from "permitted only", and on that reading the
+suite has no coverage gap.
 
 ### Q23 — `get_weather` cannot succeed against the fixture trip
 Raised: 2026-09-20 by agent · Blocks: nothing hard; bears on B04, B10 · Phase: B

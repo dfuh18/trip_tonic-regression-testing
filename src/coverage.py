@@ -54,12 +54,30 @@ class Coverage:
     #: Calls that came back with an error, per tool.
     errored: dict[str, int] = field(default_factory=dict)
     parameters: dict[str, set[str]] = field(default_factory=dict)
+    #: Groups a case requires ONE of (``tools_any_of`` with more than one
+    #: member), and the cases that declare them. A disjunction is coverage of a
+    #: CAPABILITY rather than of a tool (D68).
+    groups: dict[frozenset[str], list[str]] = field(default_factory=dict)
+
+    @property
+    def covered_by_group(self) -> set[str]:
+        """Tools asserted only as a member of a disjunction.
+
+        Not a gap. If one member broke, the agent would use the other and
+        answer correctly — which is not a regression, so a case that failed it
+        would be asserting the route rather than the outcome (D30).
+        """
+        return {tool for group in self.groups for tool in group} - set(self.required)
 
     @property
     def permitted_but_never_required(self) -> list[str]:
-        """Named only as a probe. The suite would not notice it vanishing."""
+        """Named only as a probe: no case asserts it ran, and none names an
+        alternative to it either. This is the real gap — the suite would not
+        notice the capability disappearing, not merely the tool."""
         return sorted(
-            t for t in MUST_BE_DECLARED if self.declared.get(t) and not self.required.get(t)
+            t
+            for t in MUST_BE_DECLARED
+            if self.declared.get(t) and not self.required.get(t) and t not in self.covered_by_group
         )
 
     @property
@@ -184,7 +202,21 @@ def for_run(run_id: str) -> Coverage:
         observed=calls,
         errored=errs,
         parameters=params,
+        groups=declared_groups(cases),
     )
+
+
+def declared_groups(cases=None) -> dict[frozenset[str], list[str]]:
+    """Disjunctive requirements across the suite, and who declares them."""
+    from collections import defaultdict
+
+    from src.cases import load_cases
+
+    out: dict[frozenset[str], list[str]] = defaultdict(list)
+    for case in cases if cases is not None else load_cases():
+        for group in tools_alternatively_required_by(case):
+            out[group].append(case.case_id)
+    return dict(out)
 
 
 def bounds_at_their_cap(run_id: str) -> list[tuple[str, str, int, int]]:
@@ -256,11 +288,20 @@ def report(coverage: Coverage, run_id: Optional[str] = None) -> str:
         )
     if not coverage.undeclared and not coverage.declared_but_never_called:
         lines.append("every non-read tool is declared by a case and called by this run.")
+    for group, cases_naming in sorted(coverage.groups.items(), key=lambda kv: sorted(kv[0])):
+        lines.append(
+            "covered as a group: one of {"
+            + " | ".join(sorted(group))
+            + "} is required by "
+            + f"{len(cases_naming)} case(s)"
+            + "  (either answers correctly, so neither is pinned — D68)"
+        )
     if coverage.permitted_but_never_required:
         lines.append(
             "permitted but never REQUIRED: "
             + ", ".join(coverage.permitted_but_never_required)
-            + "  (named only at min 0 — the suite would not notice it vanishing)"
+            + "  (named only at min 0, with no alternative named either — the suite would not "
+            "notice the capability vanishing)"
         )
     if coverage.never_succeeded:
         lines.append(

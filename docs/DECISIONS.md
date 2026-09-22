@@ -31,6 +31,37 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D68 — A disjunction is coverage of a capability, not a gap in coverage of a tool
+Date: 2026-09-22 · Decided by: author (overruling the agent's recommendation)
+Options: tighten a case to require `get_region_climate` · add a seed for it ·
+leave the cases alone and fix the report
+Chosen: the third. No case changes.
+Reason: D66 found that no case requires `get_region_climate`, and the agent
+recommended tightening the November seed to pin it. The author rejected that,
+correctly, on three grounds. **Both tools produce a correct answer**, so
+requiring one asserts the ROUTE rather than the outcome — which is what D30
+forbids, and an agent that picked the other would be failed for nothing. **The
+fallback is legitimate and will be exercised**: the prompt's own rule is to use
+`get_climate_normals` when there are coordinates but no usable place name, so
+pinning the seed would pre-emptively forbid a path a future case needs. And
+**`get_climate_normals` is already required outright** by the surf case, so the
+climate capability is asserted somewhere regardless.
+The defect was therefore in the report, not in the cases. It collapsed three
+states into two — required outright, required as one of a group, permitted only
+— and filed the middle one under the last, with the line "the suite would not
+notice it vanishing". That is false for a disjunction member: if it vanished the
+agent would use the alternative and answer correctly, which is not a regression.
+`Coverage.groups` now carries the disjunctions and the report states them as
+coverage. After the fix the suite has **eight tools required outright, one
+covered as a group, and no gaps at all**.
+The governing principle the author stated, and which this encodes: the suite
+should be **easy to expand and only as strict as needed**. A constraint tighter
+than what catches a real regression costs false failures and makes every future
+case harder to write.
+Affects: src/coverage.py · tests/test_tables.py
+Reverses: nothing in D66's measurement; overrules its recommended remedy.
+Resolves: Q26
+
 ### D67 — A refused simulator attempt is a row, not just a log line
 Date: 2026-09-22 · Decided by: agent (completes D53/D59 on the path that missed them)
 D53 keeps every attempt because the refusal is evidence about the platform and
