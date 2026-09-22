@@ -65,9 +65,27 @@ starts counting the thing it is meant to count.
 Supersedes D59's inclusion of 504 in `PLATFORM_REFUSAL_STATUSES`; the rest of
 D59 (platform retried, our own quota fatal, agent failures never retried)
 stands.
+**The record has to be able to tell them apart, and at turn level it could
+not.** Asked whether the logs distinguish "the platform refused" from "the
+agent took too long", the answer was yes at execution level (the `error` string
+carries the status, and `failure_class` turns it into a blame column) and **no
+at turn level**. `study_suggestions.error_code` has a `timeout` value that had
+never once been recorded, because `classifyTurnError` reads an error's MESSAGE
+and D59's split throws prose written for a member — "Agent took too long…",
+"Tonic is overloaded…" — which matches none of its patterns. Three of the five
+failure shapes were landing as `other`. A logging regression introduced by D59
+and caught only by asking the question.
+Fixed by passing the kind rather than re-deriving it: `StudyTurnFailure` takes
+an optional `errorCode`, and the empty-reply branch supplies it from the
+`emptyKind` it has already computed. The matcher is left alone and a test now
+documents why — those strings are prose aimed at a person and will be reworded,
+so a logger depending on their wording breaks the next time someone improves a
+sentence.
 Affects: src/runner.py (`failure_class`, the status tuples) · src/scoring.py
 (judge retry) · src/failures.py (deadline failures reported as the latency
-regression they are) · tests/test_failure_policy.py
+regression they are) · tests/test_failure_policy.py ·
+apps/api/src/routes/ai/agent/agent.study-log.ts (+ .core.test.ts) ·
+apps/api/src/routes/ai/agent/agent.service.ts
 Reverses: the 504 half of D59
 
 ### D69 — The convergence review's findings, and what was done about them
