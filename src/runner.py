@@ -48,6 +48,16 @@ class RunAborted(RuntimeError):
     """The precondition gate refused; the run stops here (D03)."""
 
 
+class SimulatorFailed(RuntimeError):
+    """The simulator's own model call failed — the harness, not the agent."""
+
+
+#: Consecutive simulator failures before the run gives up. One is an upstream
+#: hiccup; three in a row is the simulator being down, and continuing would
+#: spend the budget recording nothing.
+MAX_CONSECUTIVE_SIMULATOR_FAILURES = 3
+
+
 @dataclass
 class RunHandle:
     """What every execution of one run shares. Not the trip: since D38 each
@@ -153,7 +163,21 @@ def execute_case(
             raise RunAborted(str(exc)) from exc
 
     started = time.time()
-    result: SimulationResult = simulator.run(case, handle.user, handle.token, trip_id)
+    try:
+        result: SimulationResult = simulator.run(case, handle.user, handle.token, trip_id)
+    except Exception as exc:  # the SIMULATOR's own model call, not the agent's
+        # A harness failure, not an agent failure, and the two must not be
+        # confused: D44 counts a lost execution as a failure of the case, and
+        # this is not that. It is recorded as an execution that did not happen
+        # — no suggestion ids, error prefixed `simulator:` — so the analysis
+        # can tell the two apart, and the run carries on.
+        #
+        # Carrying on is the point. A 504 from the simulator's own provider
+        # used to propagate out and kill the whole run; at 140 executions that
+        # means one upstream hiccup ends an unattended evening. The run loop
+        # aborts only if these start arriving consecutively, because a
+        # simulator that is down should not burn the budget one case at a time.
+        raise SimulatorFailed(f"{type(exc).__name__}: {exc}") from exc
     collected = collect(trip_id, result.suggestion_ids, rebuilt.build_mutation_ids)
     agent_in = sum(s["tokens_input"] or 0 for s in collected["suggestions"])
     agent_out = sum(s["tokens_output"] or 0 for s in collected["suggestions"])
@@ -233,6 +257,7 @@ def run(
     done = executions_done(run_id) if resume_run_id else set()
     log(f"run {run_id[:8]}: {len(cases)} case(s), {len(done)} execution(s) already recorded")
     totals = {"cost": 0.0, "latency": 0, "tokens": 0}
+    simulator_failures = 0
     for case in cases:
         n = n_override or case.repetitions_n
         for repetition in range(1, n + 1):
@@ -241,6 +266,29 @@ def run(
             try:
                 row = execute_case(handle, case, repetition, simulator, log, provisioned=opening)
                 opening = None  # the gate's trip belongs to the first execution only
+                simulator_failures = 0
+            except SimulatorFailed as exc:
+                opening = None
+                simulator_failures += 1
+                db.admin().table("study_case_executions").insert({
+                    "run_id": run_id, "case_id": case.case_id, "base_case_id": case.base_case_id,
+                    "provenance": case.provenance, "run_priority": case.run_priority,
+                    "repetition": repetition, "repetitions_n": case.repetitions_n,
+                    "session_id": handle.user.session_id,
+                    "suggestion_ids": [], "error": f"simulator: {exc}",
+                    "started_at": _now(), "finished_at": _now(),
+                }).execute()
+                line = f"{case.case_id} rep {repetition}: SIMULATOR FAILED — {exc}"
+                log(line)
+                reset.harness_log(f"RUN {run_id[:8]} {line}")
+                if simulator_failures >= MAX_CONSECUTIVE_SIMULATOR_FAILURES:
+                    reset.harness_log(f"RUN {run_id} ABORTED: {simulator_failures} simulator failures in a row")
+                    db.admin().table("study_runs").update({
+                        "notes": f"aborted: {simulator_failures} consecutive simulator failures",
+                        "finished_at": _now(),
+                    }).eq("id", run_id).execute()
+                    raise RunAborted(f"{simulator_failures} consecutive simulator failures") from exc
+                continue
             except RunAborted as exc:
                 reset.harness_log(f"RUN {run_id} ABORTED at {case.case_id} rep {repetition}: {exc}")
                 db.admin().table("study_runs").update({"notes": f"aborted: {exc}", "finished_at": _now()}).eq("id", run_id).execute()
@@ -260,5 +308,14 @@ def run(
     # low, and VERTEX_CALLS_PER_MINUTE is the one line to change.
     paced = limiter().waited_s
     log(f"run {run_id[:8]} finished: {len(existing)} executions, {paced / 60:.1f} min spent pacing")
+    # Coverage travels with the run (D50). A suite that never called a tool
+    # cannot have noticed that tool breaking, and the only honest place to say
+    # so is beside the result.
+    try:
+        from src.coverage import for_run, report
+
+        log("\n" + report(for_run(run_id), run_id))
+    except Exception as exc:  # never let reporting break a completed run
+        log(f"coverage report unavailable: {exc}")
     reset.harness_log(f"RUN {run_id[:8]} finished: {len(existing)} executions, paced {paced:.0f}s")
     return run_id

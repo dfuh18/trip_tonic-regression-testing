@@ -1,0 +1,65 @@
+case_id: factual_qa_lisbon_surf_conditions
+base_case_id: null
+provenance: seeded
+run_priority: 1
+function: factual_qa
+user_profile: Jonas, 31, travelling with the group and surfs when he can. Asks a practical question and
+  wants numbers, not encouragement.
+goal: Know what the waves and wind are like around Lisbon in November, to judge whether it is worth bringing
+  a board. He wants the figures and nothing else; if Tonic offers to change anything on the trip he says
+  no thanks.
+opening_turn: '@Tonic what are the waves and wind like around Lisbon in November? thinking of bringing
+  a board'
+intent: null
+expected_tool_sequence: []
+declared_constraints:
+  checks:
+    tools_any_of:
+    - get_climate_normals
+    tool_counts:
+      get_region_climate:
+        min: 0
+        max: 1
+      get_weather:
+        min: 0
+        max: 1
+      get_climate_normals:
+        min: 1
+        max: 2
+    tool_errors: corrected
+    turn_errors: none
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 0
+      ai_suggestions.INSERT: 0
+    trip_after:
+      blocks: fixture
+      slots: fixture
+  predicates: []
+scoring_criteria:
+- 'Gives a typical November wave height for the Lisbon coast that agrees with a reference: around 1.5
+  m.'
+- Gives the wind alongside the waves rather than only one of them - around 18 km/h.
+- Says which source or kind of data the figures come from.
+- Distinguishes long-run averages from a forecast for the trip's own dates.
+references:
+- title: Lisbon
+  section: get_climate_normals(38.7106, -9.1604, include_marine=true) - monthly wave, wind and temperature
+    averages
+  path: lisbon_climate_normals_marine.md
+repetitions_n: 8
+metamorphic_relation: null
+fixture_depends_on:
+- '2026-11-06'
+- '2026-11-09'
+notes: 'The ninth seed, added for tool coverage after the coverage report showed get_climate_normals declared
+  by three cases and called by none: the agent is told to prefer get_region_climate when it has a place
+  name, Lisbon has a Wikipedia climate table, and so the fallback never fired. Zero calls was the primary
+  working rather than a defect - but a fallback nothing exercises is a tool that can break unnoticed until
+  the day a destination has no table. A marine question is the one request only get_climate_normals can
+  answer, because wave height and period come from its include_marine path and no other tool in the agent
+  carries them. It carries no slash command deliberately: free text leaves the agent its whole toolset,
+  so reaching the right tool is the agent''s judgement and not the command''s. The reference is stored
+  as the tool itself returns it, with the figures the criteria quote - November 1.5 m at a 10.8 s period,
+  wind 17.7 km/h - so a source-faithful answer is scorable and an invented one is not.'
