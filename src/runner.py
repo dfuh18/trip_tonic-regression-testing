@@ -76,10 +76,14 @@ MAX_CONSECUTIVE_SIMULATOR_FAILURES = 3
 #: agent.
 MAX_ATTEMPTS_PER_REPETITION = 4
 
-#: Statuses that mean the model provider could not serve the turn: it was busy
-#: (503, which D45 gave its own status) or it ran past our deadline without
-#: answering (504). Re-running these is sampling, not laundering.
-PLATFORM_REFUSAL_STATUSES = ("503", "504")
+#: Statuses that mean the model provider could not serve a call: it was busy
+#: (503, which D45 gave its own status) or, on the HARNESS's own calls, Vertex
+#: refused with its own deadline. Re-running these is sampling, not laundering.
+PLATFORM_REFUSAL_STATUSES = ("503",)
+
+#: What the provider returns to the simulator and the judge when IT gives up.
+#: Separate from the agent's 504, which is ours — see `failure_class`.
+PROVIDER_REFUSAL_STATUSES = ("429", "503", "504")
 
 #: Statuses that mean **we** refused the turn — our own per-minute or monthly AI
 #: quota (`ai-quota.ts`, `failureKind: 'rate_limited_by_us'`). Never retried,
@@ -93,26 +97,36 @@ OUR_OWN_LIMIT_STATUSES = ("429",)
 def failure_class(error: Optional[str]) -> Optional[str]:
     """Who failed: ``platform``, ``ours``, ``harness``, ``agent`` — or None.
 
-    The distinction is the whole of D59's retry policy, and it is available
-    only because the API gives each cause its own status (D45, and the
-    empty-reply split that followed): 503 busy, 504 past the deadline, 429 our
-    own quota, 502 the agent genuinely failing to answer. Before that split a
-    turn killed by our 85-second deadline arrived as "the agent returned an
-    empty reply", which is both wrong and un-retryable.
+    **Where a 504 came from decides what it means (D70).** The number is the
+    same and the fault is not:
+
+    - ``agent returned 504`` is OUR OWN 85-second turn deadline. From the
+      product's side a member who waited 85 seconds has been failed, and an
+      agent that starts doing that has regressed — so it is an ``agent``
+      failure and is not retried. Retrying it would hide exactly the kind of
+      regression §3.1 claims the pipeline catches: only the surviving attempt
+      would be scored and the pass rate would not move.
+    - ``simulator: … 504`` is Vertex's deadline on the HARNESS's own call. The
+      simulator is not the system under test, so that is a platform refusal and
+      is retried — we want the execution, not a measurement of the simulator.
+
+    503 is the provider being busy on either side, and is retried on both.
+    429 from our own API is our quota (``ours``); 429 to the simulator is
+    Vertex's and is a platform refusal.
     """
     if not error:
         return None
+    if error.startswith("simulator:"):
+        # Everything here is the harness's call, not the agent's turn.
+        if any(s in error for s in PROVIDER_REFUSAL_STATUSES):
+            return "platform"
+        return "harness"
     if any(s in error for s in OUR_OWN_LIMIT_STATUSES):
         return "ours"
     if any(s in error for s in PLATFORM_REFUSAL_STATUSES):
         return "platform"
-    # A simulator fault that the platform did not cause is the HARNESS's — a
-    # malformed persona, a reply it could not parse. It was being reported as
-    # "the agent genuinely failed to answer", which is the one thing it is not:
-    # the agent never saw the turn. Not retried, for the same reason an agent
-    # failure is not — the next attempt would break identically.
-    if error.startswith("simulator:"):
-        return "harness"
+    # Anything else the agent returned — 502 (no reply, reasoning limit) and
+    # 504 (past our deadline) — is a result about the agent.
     return "agent"
 
 

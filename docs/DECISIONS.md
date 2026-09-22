@@ -31,6 +31,45 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D70 — Where a 504 came from decides what it means
+Date: 2026-09-22 · Decided by: author
+Options: retry every 504 as a platform refusal (D59's position) · fail every
+504 · split it by origin
+Chosen: **split it by origin.** The number is the same and the fault is not.
+- **`agent returned 504` is OUR OWN 85-second turn deadline, and is a
+  FAILURE.** Not retried. The author's reasoning, which is the product's
+  rather than the harness's: 85 seconds is a very long time, a member who
+  waited it has been failed, and an agent that starts doing it has regressed —
+  something on our side could destabilise the platform. Retrying it would score
+  only the surviving attempt and leave the pass rate flat through exactly the
+  regression §3.1 claims the pipeline catches.
+- **`simulator: … 504` is Vertex's deadline on the HARNESS's own call, and is
+  retried.** The simulator is not the system under test; we want the execution,
+  not a measurement of the simulator. The same goes for a 429 or 503 reaching
+  it — those are the provider's, not our quota.
+- **503 stays a platform refusal on both sides**: the provider being busy is
+  nobody's regression.
+**And the judge is retried where the agent never is** (up to three attempts, on
+transient refusals only). Same principle from the other side: the agent is the
+system under test, so its failure is a *result*; the judge is an instrument, so
+its refusal is a *missing measurement*. Two runs lost five scores to judge
+429s, including the two lowest in the suite, and an unscored execution is worse
+than a slowly-scored one. A malformed rubric or an out-of-range score is a real
+fault and is not retried.
+Evidence this was ruled on: across 229 recorded turns the median completed in
+5.0s, p95 in 26.9s, and the slowest success took 70.0s — 15 seconds of headroom
+under the deadline. Exactly two turns hit it, both with **zero tokens in and
+out**, i.e. the provider never answered; D60's 25-second backoff cap addresses
+that cause directly. So the new policy costs nothing on the record to date and
+starts counting the thing it is meant to count.
+Supersedes D59's inclusion of 504 in `PLATFORM_REFUSAL_STATUSES`; the rest of
+D59 (platform retried, our own quota fatal, agent failures never retried)
+stands.
+Affects: src/runner.py (`failure_class`, the status tuples) · src/scoring.py
+(judge retry) · src/failures.py (deadline failures reported as the latency
+regression they are) · tests/test_failure_policy.py
+Reverses: the 504 half of D59
+
 ### D69 — The convergence review's findings, and what was done about them
 Date: 2026-09-22 · Decided by: author (commissioned the review, directed the fixes)
 An independent reviewer was asked one question — is this converging? — with

@@ -19,12 +19,32 @@ That is why D38 stopped the reset deleting them.
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
 from src.cases import Case, load_cases
 from src.judge import PointwiseResult, score_pointwise
 from src.llm import judge_llm
+
+
+#: How many times a judge call may be retried. The judge is an instrument, not
+#: the system under test: a refusal from it costs a measurement and says
+#: nothing about the agent, so it is retried where an agent failure never is.
+MAX_JUDGE_ATTEMPTS = 3
+
+#: Transient judge failures — the provider refusing or timing out. A malformed
+#: rubric or a score outside 1..10 is a real fault and is not retried.
+_JUDGE_TRANSIENT = ("429", "503", "504", "RESOURCE_EXHAUSTED", "DEADLINE_EXCEEDED", "UNAVAILABLE")
+
+
+def _judge_worth_retrying(exc: Exception) -> bool:
+    return any(marker in f"{type(exc).__name__}: {exc}" for marker in _JUDGE_TRANSIENT)
+
+
+def _judge_backoff_s(attempt: int) -> float:
+    """Seconds before the next judge attempt: 2, 4, capped."""
+    return min(2.0 * attempt, 8.0)
 
 
 @dataclass
@@ -101,11 +121,22 @@ def score_execution(case: Case, execution_row: dict, llm=None) -> Scored:
         return Scored(**base, score=None, rationale="", reply_chars=0,
                       error="no reply to score (the execution produced none)")
     references = [r.text() for r in case.references]
-    try:
-        result: PointwiseResult = score_pointwise(case, request, reply, references, llm=llm)
-    except Exception as exc:  # a judge failure is not a low score
-        return Scored(**base, score=None, rationale="", reply_chars=len(reply),
-                      error=f"judge: {type(exc).__name__}: {exc}")
+    # The judge gets retried where the agent does not (D70). The agent is the
+    # system under test and a failure of it is a result; the judge is an
+    # instrument, and a 429 from it is a missing measurement, not a finding.
+    # Two runs lost five scores this way — including the two lowest — and an
+    # unscored execution is worse than a slow one.
+    last: Optional[Exception] = None
+    for attempt in range(1, MAX_JUDGE_ATTEMPTS + 1):
+        try:
+            result: PointwiseResult = score_pointwise(case, request, reply, references, llm=llm)
+            break
+        except Exception as exc:
+            last = exc
+            if attempt == MAX_JUDGE_ATTEMPTS or not _judge_worth_retrying(exc):
+                return Scored(**base, score=None, rationale="", reply_chars=len(reply),
+                              error=f"judge: {type(exc).__name__}: {exc}")
+            time.sleep(_judge_backoff_s(attempt))
     return Scored(**base, score=result.score, rationale=result.rationale, reply_chars=len(reply))
 
 

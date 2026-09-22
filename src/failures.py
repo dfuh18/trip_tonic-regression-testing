@@ -132,13 +132,15 @@ def report(failures: list[Failure], total: int) -> str:
     # being slow would have every such turn retried and only the survivor
     # scored, and the pass rate would not move. So the count is reported on its
     # own line where it cannot be absorbed (D69).
-    deadline = [f for f in failures if "504" in f.error and not f.error.startswith("simulator:")]
+    deadline = [f for f in failures
+                if "504" in f.error and not f.error.startswith("simulator:")]
     if deadline:
         lines += [
             "",
-            f"DEADLINE-KILLED: {len(deadline)} execution(s) hit our own {'85s'} turn deadline and "
-            f"were retried as platform refusals. A latency regression hides here: the pass rate "
-            f"will not show it. Read this number, not the pass rate, for that.",
+            f"DEADLINE FAILURES: {len(deadline)} execution(s) ran past the agent's own 85-second "
+            f"turn budget. These are counted as FAILURES, not retried (D70): from the product's "
+            f"side a member who waited 85 seconds has been failed, and an agent that starts doing "
+            f"it has regressed. A rising number here IS the latency regression.",
         ]
     stale = [f for f in failures if f.blame == "agent"
              and f.turns and f.turns[-1].never_answered and f.turns[-1].retry_count]

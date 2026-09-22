@@ -17,7 +17,7 @@ from src.runner import (
         (None, None),
         ("", None),
         ("agent returned 503 on turn 1", "platform"),
-        ("agent returned 504 on turn 2", "platform"),
+        ("agent returned 504 on turn 2", "agent"),   # OUR deadline — a product failure (D70)
         ("simulator: ServerError: 504 DEADLINE_EXCEEDED", "platform"),
         ("agent returned 429 on turn 1", "ours"),
         ("agent returned 502 on turn 1", "agent"),
@@ -92,19 +92,37 @@ def test_a_harness_fault_is_not_blamed_on_the_agent():
     assert failure_class("simulator: ServerError: 504 DEADLINE_EXCEEDED") == "platform"
 
 
-def test_a_deadline_kill_is_reported_where_the_pass_rate_cannot_absorb_it():
-    """504 is OUR deadline and is retried as a platform refusal, so a latency
-    regression would not move the pass rate. The count gets its own line."""
+def test_an_agent_deadline_is_a_failure_not_a_platform_refusal():
+    """D70. The 85 seconds is OUR budget, and from the product's side a member
+    who waited that long has been failed. Retrying it would score only the
+    surviving attempt and leave the pass rate flat through exactly the
+    regression §3.1 claims the pipeline catches."""
+    assert failure_class("agent returned 504 on turn 1") == "agent"
     f = Failure(case_id="x", repetition=1, attempt=1,
-                error="agent returned 504 on turn 1", blame="platform")
+                error="agent returned 504 on turn 1", blame="agent")
     out = report([f], total=10)
-    assert "DEADLINE-KILLED" in out
-    assert "pass rate will not show it" in out.replace("\n", " ")
+    assert "DEADLINE FAILURES" in out
+    assert "IS the latency regression" in out.replace("\n", " ")
 
 
-def test_a_simulator_504_is_not_counted_as_our_deadline():
-    """The simulator's 504 is Vertex's DEADLINE_EXCEEDED — the provider's, not
-    our 85-second budget."""
+def test_the_simulators_504_is_the_providers_and_is_still_retried():
+    """Same number, different origin. Vertex's deadline on the HARNESS's own
+    call — the simulator is not the system under test, and we want the
+    execution rather than a measurement of the simulator."""
+    assert failure_class("simulator: ServerError: 504 DEADLINE_EXCEEDED") == "platform"
     f = Failure(case_id="x", repetition=1, attempt=1,
                 error="simulator: ServerError: 504 DEADLINE_EXCEEDED", blame="platform")
-    assert "DEADLINE-KILLED" not in report([f], total=10)
+    assert "DEADLINE FAILURES" not in report([f], total=10)
+
+
+def test_the_judge_is_retried_where_the_agent_is_not():
+    """The agent is the system under test and its failure is a result; the
+    judge is an instrument and its refusal is a missing measurement. Two runs
+    lost five scores to judge 429s, including the two lowest."""
+    from src.scoring import MAX_JUDGE_ATTEMPTS, _judge_worth_retrying
+
+    assert MAX_JUDGE_ATTEMPTS > 1
+    assert _judge_worth_retrying(RuntimeError("ClientError: 429 RESOURCE_EXHAUSTED"))
+    assert _judge_worth_retrying(RuntimeError("ServerError: 504 DEADLINE_EXCEEDED"))
+    # a real fault in the rubric or the reply is not transient
+    assert not _judge_worth_retrying(RuntimeError("judge returned a score outside 1..10"))
