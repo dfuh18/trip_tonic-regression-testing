@@ -45,6 +45,42 @@ fact. Rough is fine; absent is not.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### L10 — The harness's own dependencies need the same treatment as the system under test
+Phase: B · Related tasks: B06, B07, B05
+Effort: the fix was twenty minutes; the run it killed was fifteen, and a
+baseline run would have been hours
+
+What happened: a 26-case run died after four executions. Not from the agent —
+from the **simulator's** own model call, a `504 DEADLINE_EXCEEDED` that
+exhausted `src/llm.py`'s three retries and propagated out of `execute_case`,
+through the run loop, and ended the process. Every failure mode of the *agent*
+was handled: a 429, a timeout, an empty reply, a tool error all end as
+`stopped=agent_error` with the execution recorded and the run continuing. The
+simulator had no such treatment, because it is harness code and harness code
+was implicitly trusted.
+
+Why it matters: the harness and the system under test call the same provider,
+and the provider does not care which is which. L04 already recorded that an
+unattended run needs a timeout on every external call. This is its other half
+— **a timeout is not enough if the failure it produces takes the run with it**
+— and the asymmetry is the interesting part: the failure handling was built
+where the failures were expected, and the expectation came from thinking of
+the agent as the risky component. At 140 executions an upstream hiccup ends an
+unattended evening, and it did.
+
+The fix distinguishes the two rather than merging them, which matters for the
+record: a simulator failure is a harness failure and D44's ruling that a lost
+execution counts against the case does not apply to it. It is written as an
+execution that did not happen — no suggestion ids, `error` prefixed
+`simulator:` — so the analysis can separate "the agent failed" from "our own
+tooling failed", and the run aborts only after three consecutive ones, because
+a simulator that is genuinely down should not spend the budget one case at a
+time.
+
+It generalises: anything an unattended measurement depends on needs a failure
+policy, and the components you did not think of as risky are exactly the ones
+that will not have one.
+
 ### L09 — A field existing is not the same as a field carrying what a check needs
 Phase: B · Related tasks: B08, A02, B03
 Effort: B08 came in near its 8h estimate; the two premise failures cost about

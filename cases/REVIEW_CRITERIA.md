@@ -168,12 +168,103 @@ constraint follows from the request and is complete, and criterion 9 whether it
 leaves a correct agent room; this asks whether it is *true*, which no amount of
 internal consistency guarantees.
 
+## A follow-up case as well (15 to 21)
+
+A metamorphic follow-up is reviewed against all fourteen criteria above — it is
+a case — and then against these, which are about the **relation** rather than
+the case. A follow-up can be a perfectly good case and a worthless test.
+
+15. **The perturbation is a change a member would actually make.** Someone
+    rewords, changes their mind about the day, adds a constraint, asks for more.
+    Nobody types a systematically mutated sentence. A perturbation that reads
+    like a mutation tests a string nobody sends.
+
+16. **The expected delta follows from the perturbation, and only from it.**
+    Every check the follow-up overrides must be a consequence of the words that
+    changed. A delta that also encodes some other opinion — a tighter bound, a
+    different tool budget — has smuggled a second test in, and a failure will
+    not say which half caused it.
+
+17. **What the perturbation invalidates is dropped, not left to fail.** A
+    follow-up asking for a full day must not inherit the seed's morning window.
+    An inherited check the new request contradicts is a false regression the
+    suite wrote itself, which criterion D calls the worst kind.
+
+18. **Everything the perturbation did NOT touch is still inherited.** This is
+    where most of a directional case's detection comes from, and it is easy to
+    lose by rebuilding the constraints instead of overriding them.
+
+19. **The relation could actually fail.** Describe, concretely, an agent
+    behaviour this follow-up catches that its seed does not. "The agent ignores
+    the day and answers for the original one" is such a behaviour; "the agent
+    is worse" is not. If no such behaviour can be named, the follow-up costs
+    four executions and buys nothing.
+
+20. **An invariance case does not assert something that legitimately varies.**
+    The agent is non-deterministic and so is the place search. "Same venues as
+    the seed" is a safe claim only where the seed's answer is genuinely stable;
+    asserted over a live search it fails on variance and reports it as a
+    regression. Where a relation's claim cannot survive re-running the *seed*
+    against itself, it is not a claim.
+
+21. **The two follow-ups of one seed catch different regressions.** Criterion
+    13 asks this of the two seeds per function; this asks it of the two
+    follow-ups per seed. Two perturbations that a single agent fault would
+    break together have spent eight executions to learn one thing.
+
+## Two more questions about the expanded suite (E and F)
+
+**E. Does any relation claim a delta the record cannot show?** A follow-up
+whose expected change is real but invisible — the same tools, the same
+mutations, a different sentence — is scored by the judge alone, and its
+structural verdict will read `none` whether or not the agent answered the new
+question. That is legitimate, and it has to be *stated*, because a reader
+seeing `none` will otherwise believe something was verified. Name every case
+in this position.
+
+**F. Is any predicate or check key defined but never exercised?** The suite's
+own rule is that a key nobody asserts is a key nobody validates. A comparison
+function that no case names, or one every case satisfies trivially — comparing
+two empty sets, for instance — is dead weight that reads like coverage.
+
+## The suite as an instrument (22 to 24)
+
+The first twenty-one criteria ask whether each case is a good case. These ask
+whether the suite is a good *instrument*, which is a different question and
+the one a regression suite lives or dies by. They are checked automatically by
+`tests/test_tool_coverage.py` and reported per run by `src/coverage.py`, so a
+suite that stops satisfying them fails a commit rather than a study.
+
+22. **Every tool the agent has is named by some case.** A tool no case names
+    is a capability the suite asserts nothing about, so a regression in it is
+    invisible — the run comes back clean and the tool is gone. When this was
+    first measured, six of the agent's twelve tools were named by no case,
+    including `schedule_block` and `unschedule_block`: two of the four tools
+    that write the itinerary. The three read tools are exempt, and only
+    those: the agent calls them when its preloaded context falls short, which
+    varies between runs, so a case cannot require one.
+
+23. **Every tool a case names is actually reached by a run.** Declaring is not
+    covering. Three cases name `get_climate_normals` and no execution has ever
+    called it, because the agent reaches `get_region_climate` first and
+    answers — so a static check calls it covered and the tool has never run. A
+    tool that is declared and never observed needs either a request only that
+    tool can serve, or an honest note that it is uncovered. Silence is the one
+    option that is not available.
+
+24. **A range of parameters, not just a range of tools.** `move_slot` called
+    only ever with day, start and end together says nothing about a day-only
+    move; `get_weather` exercised only on dates beyond the forecast horizon
+    says nothing about the path that succeeds. The per-run report lists the
+    argument names each tool was actually called with, and a tool whose
+    parameters never vary is covered in name only.
+
 ## Reporting a review
 
 Per case: adopt, adopt with a named change, or reject with the reason. Cite the
 criterion number. Where a case is fine, say so briefly rather than padding;
 where it is not, say what specifically to change.
 
-Then answer A to D. Finally, state what was not checked and could not be
+Then answer A to D, and E and F where follow-up cases are in scope. Finally, state what was not checked and could not be
 verified — a review that names its own limits is evidence, and one that implies
 it checked everything is not.

@@ -605,7 +605,22 @@ Phase: B
 Tier: [FABLE]
 Depends on: B04, B15
 Estimate: 6h
-Status: not started
+Status: in progress (2026-09-21). `src/metamorphic.py`, the derivations in
+`cases/derivations.py`, the generated case files, `src/coverage.py` and
+`notebooks/sim/02_expand.ipynb`. The suite is **9 seeds and 17 follow-ups, 140
+executions** — above D21's 8/16/128, which D50 and D51 rule on: the extra
+cases exist to reach tools nothing could otherwise reach. 160 tests.
+Two independent adversarial review rounds against
+`cases/REVIEW_CRITERIA.md` (criteria 1-24, questions A-F). The second found,
+and this fixed: two `places_named_types` assertions that would have failed
+correct agents (`cafe` did not match `pastry_shop`, which is what Sintra
+answers "a coffee" with), a substring rule that let `bar` be satisfied by
+`barbecue_restaurant`, an `unschedule_block` cap that contradicted its own
+`tool_errors: corrected`, a day collision authored into the Baixa case, and
+the `schedule_block` case asserting only that the tool ran — now
+`slot_scheduled`, verified to detect a wrong day and a wrong hour. It also
+caught D49/D50 being cited in code before they existed in `DECISIONS.md`,
+which is the governance gap and was the right thing to rank
 Spec: `src/metamorphic.py`: one function per relation in D22 (INV-1..4,
 DIR-1..4), taking a seed case
 and returning a follow-up with `base_case_id`, `provenance = metamorphic`,

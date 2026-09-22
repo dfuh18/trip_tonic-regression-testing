@@ -31,6 +31,135 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D51 — A ninth seed, for the one tool nothing could reach
+Date: 2026-09-21 · Decided by: author (asked for directly)
+Options: swap the weather seed's DIR-1 from July to a marine question · add a
+third follow-up to the weather seed · accept the gap and document it · add a
+seed written for the tool
+Chosen: `factual_qa_lisbon_surf_conditions`, a ninth seed asking what the waves
+and wind are like around Lisbon in November. It carries **no slash command**
+deliberately: free text leaves the agent its whole toolset, so reaching the
+right tool is the agent's judgement rather than the command's.
+Reason: the coverage report showed `get_climate_normals` declared by three
+cases and called by none. The cause is not a defect — `get_region_climate`
+reads a Wikipedia climate table, the agent is instructed to prefer it when it
+has a place name, and Lisbon has one, so the documented fallback never fires.
+Zero calls was the primary working. But a fallback nothing exercises is a tool
+that can break unnoticed until the day a destination has no table, and a
+marine question is the one request only `get_climate_normals` can answer:
+wave height and period come from its `include_marine` path and no other tool
+in the agent carries them.
+The reference is stored as the tool itself returns it
+(`references/lisbon_climate_normals_marine.md`, fetched by calling
+`getClimateNormals` directly), so the criteria quote real figures — November
+1.5 m at a 10.8 s period, wind 17.7 km/h — and a source-faithful answer is
+scorable where an invented one is not.
+It takes **no follow-ups**, which D21's two-per-seed does not anticipate: a
+perturbation of it would buy no tool the suite does not already have, and the
+budget is better left unspent.
+Affects: cases/factual_qa_lisbon_surf_conditions.yaml, cases/references/,
+D21's seed count · Reverses: none
+
+### D50 — The suite is sized by tool coverage, not only by D21's budget
+Date: 2026-09-21 · Decided by: author (asked for directly)
+Options: keep D21's 8 seeds and 16 follow-ups and document the uncovered tools
+· swap weak follow-ups for tool-covering ones at constant size · add the
+minimum needed to cover every tool
+Chosen: the third, "a few more for the scheduling tasks, but keep it at a
+minimum to cover all tools". The suite is now **9 seeds and 17 follow-ups,
+140 executions**, against D21's 8 and 16 at 128.
+Where the extra cases went and why they could not go anywhere else:
+`schedule_block` and `unschedule_block` are exposed **only** by the
+`/reschedule` command (`agent.tool-policy.ts`: `/plan` gets `propose_plan` and
+no live-edit tool), so both cases that reach them must derive from
+`scheduling_move_tram`, which therefore takes three follow-ups. The first
+attempt put the schedule case on the planning seed and it could not call the
+tool however it was worded — the agent correctly drafted instead, and the
+coverage report caught it on the first run.
+Also here: an automatic coverage instrument, because the gap had gone unnoticed
+for the life of the suite. `tests/test_tool_coverage.py` fails a commit if a
+tool is named by no case; `src/coverage.py` reports, per run, which tools were
+actually **called** and with which parameters. The two are separate on purpose:
+declaring is not covering, which `get_climate_normals` demonstrated by being
+declared three times and never reached (D51).
+Cost, stated: 140 executions against 128 changes the per-run spend and the
+wall clock by about 9%. §3.1's pass-rate resolution is unaffected — n per case
+is unchanged at 8 and 4.
+Affects: cases/derivations.py, src/coverage.py, tests/test_tool_coverage.py,
+REVIEW_CRITERIA.md (22-24), D21's budget, B05, B10 · Reverses: D21's "16
+expanded / 128 executions", which was a cost ruling and not a methodological
+one
+
+### D49 — Metamorphic relations are asserted as checks, not as predicates
+Date: 2026-09-21 · Decided by: agent, on measurement
+Options: keep the predicate comparisons · weaken them to tolerate variance ·
+drop them and state the delta as a check
+Chosen: the third. `implied_predicates()` returns nothing for every relation,
+and no case names a predicate. A directional delta is a check override; an
+invariance claim is carried by the inherited checks and by the judge.
+Reason: measured across four runs of the same seeds, not argued.
+`same_tool_sequence_as_base` re-introduced exactly the variance
+`ALWAYS_ALLOWED_TOOLS` exists to excuse — `advisory_packing_list` ran
+`[get_weather, get_region_climate]` on some runs and `[get_weather]` on others
+— and on an advisory case it was a tool constraint by another name, walking
+past `Case._coherent`, which refuses to let advisory constrain tools at all
+(D29). `same_venues_as_base` was worse: four runs of `venue_lookup_sintra_lunch`
+returned three places each and shared **one** across all four, so requiring
+equality would fail almost every repetition. And its twin
+`different_venues_from_base` fails only on exact set equality, which never
+happens, so it passed on noise and verified nothing — while on a scheduling
+case it was backwards, since moving a draft to another day does not change
+which monuments are in Belém.
+What replaces it is **the kind of place, not its identity**: place types are
+stable between runs where venues are not (`restaurant` and
+`seafood_restaurant` appeared in every run of the seafood seed), and
+`places_named_types` states that declaratively, which is where D27 says a
+single-execution claim belongs.
+Consequence to record rather than hide: the predicate half of the D19/D27
+split is now **unused**. `cases/predicates.py` and the `base=` pairing in the
+checker are kept because a future relation may need a genuine comparison, but
+§3.7 should say that in this instantiation every metamorphic relation turned
+out to be expressible as a check or left to the judge.
+Recorded as an agent decision: it removes constraints rather than adding them,
+changes no threshold and no logging, and is reversible by editing a file.
+Affects: src/metamorphic.py, cases/predicates.py (now unused), cases/*.yaml,
+B05, B10 · Reverses: the implied predicates written into B05
+
+### D48 — A venue-lookup case says where the answer has to be
+Date: 2026-09-21 · Decided by: author (asked for directly, on reading the case)
+Chosen: a `places_near {anchor, within_km}` check. Every place the reply names
+must sit within the radius of a **fixture stop**, whose coordinates come from
+`cases/fixture.json` — not from the case, for the same reason
+`slot_moved.block` names a stop rather than an id: the fixture already knows
+where its stops are, the loader validates the name, and a case that typed its
+own latitude would drift the first time the fixture moved.
+Applied to `venue_lookup_sintra_lunch__dir2_lisbon_day` (5 km of the Baixa
+hotel), and to **both venue-lookup seeds**, which had the same defect: 8 km of
+Pena Palace, 3 km of the Time Out Market — the fixture stop 800 m from the Cais
+do Sodre the member names.
+Reason: the author read the day-change case and called it weak, correctly. Its
+only structural claim was `different_venues_from_base`, which **two different
+Sintra restaurants satisfy** — precisely the answer a day change is meant to
+rule out. The seeds were no better: "in or near Sintra, not back in Lisbon"
+was a scoring criterion and nothing else.
+The radius is the member's words as a distance, the way D31 renders "around 4"
+as a window. It is deliberately **not** the application's `VENUE_SANITY_KM` of
+300, which exists to catch Lisbon-versus-Porto and would pass every answer this
+check exists to fail: Pena Palace and Baixa are 23.5 km apart.
+Verified both ways against the recorded run. Every real answer passes with
+room — 0.9 km against a 3 km radius, 1.5 against 8, 0.3 against 5 — so it
+manufactures no false regression. And crossing the anchors detects: the Baixa
+answer judged against Pena Palace names all three venues at 23.4-23.6 km, and
+the Sintra answer against the hotel at 22.4-23.9 km.
+Also here, from the same run: `places_named_types` gained synonym groups.
+`lodging` and `hotel` share no characters, so substring matching failed a reply
+that had correctly returned a hotel — a false regression the suite authored
+itself, found by running it.
+Affects: src/cases.py, src/checker.py, src/execution.py, cases/derivations.py,
+both venue_lookup seeds, B05 · Reverses: none · Note: adds a key under D37's
+rule — found by reading what the record carries (`refs[].location`), added
+because a case needed it.
+
 ### D47 — Fixture trips are retired by run, keeping the latest and its baseline
 Date: 2026-09-21 · Decided by: author (proposed the rule directly)
 Options: never delete until submission · keep the latest run and its baseline ·
