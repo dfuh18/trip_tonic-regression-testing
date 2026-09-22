@@ -40,6 +40,7 @@ from src.cases import (
     Case,
     Checks,
     SlotMoved,
+    SlotScheduled,
     as_bound,
     fixture_counts,
     minutes_of,
@@ -109,6 +110,99 @@ def _titles_match(a: str, b: str) -> bool:
     has honoured it, and failing that would be a false regression."""
     x, y = (a or "").strip().casefold(), (b or "").strip().casefold()
     return bool(x) and bool(y) and (x in y or y in x)
+
+
+#: Google returns a place's primary type from a large vocabulary, and several
+#: of its values mean the same thing to a member. A case says what it means -
+#: "somewhere to stay", "a coffee" - and should not have to enumerate Google's
+#: spellings of it.
+#:
+#: Both halves of this were found by running the suite rather than by reading
+#: it. `lodging` and `hotel` share no characters, so a reply that correctly
+#: returned a hotel was failed. And a request for a coffee is answered in
+#: Sintra with `pastry_shop` - Casa Piriquita and Aurora Queijadas are pastry
+#: shops, and they are the right answer - which no amount of string matching
+#: relates to `cafe`.
+PLACE_TYPE_SYNONYMS: tuple[frozenset[str], ...] = (
+    frozenset({
+        "lodging", "hotel", "motel", "resort_hotel", "guest_house", "hostel",
+        "bed_and_breakfast", "inn", "extended_stay_hotel", "apartment_hotel",
+    }),
+    frozenset({"restaurant", "food", "meal_takeaway", "meal_delivery", "food_court"}),
+    frozenset({
+        "cafe", "coffee_shop", "bakery", "pastry_shop", "dessert_shop",
+        "tea_house", "breakfast_restaurant", "cafeteria",
+    }),
+    frozenset({"bar", "pub", "wine_bar", "cocktail_bar", "beer_garden", "bar_and_grill"}),
+)
+
+
+def _type_tokens(value: str) -> set[str]:
+    return {part for part in value.lower().strip().split("_") if part}
+
+
+def _same_place_type(wanted: str, observed: str) -> bool:
+    """One Google place type satisfies a case's request for another.
+
+    Three ways: the same value, the wanted type appearing as a **whole word**
+    of the observed one (`seafood_restaurant` answers `restaurant`), or both
+    values falling in one synonym group.
+
+    Word-wise rather than substring, and the difference is not pedantic:
+    `bar` is a substring of `barbecue_restaurant`, so under substring matching
+    a case asking for somewhere to drink was satisfied by a grill house. A
+    check that passes an incorrect agent is the quieter of D30's two errors
+    and the worse one.
+    """
+    w, o = wanted.lower().strip(), observed.lower().strip()
+    if not w or not o:
+        return False
+    if w == o:
+        return True
+    if _type_tokens(w) <= _type_tokens(o) or _type_tokens(o) <= _type_tokens(w):
+        return True
+    return any(w in group and o in group for group in PLACE_TYPE_SYNONYMS)
+
+
+def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """Great-circle distance. Mirrors `apps/api/src/lib/geo-sanity.ts`, which is
+    how the application measures the same thing."""
+    from math import asin, cos, radians, sin, sqrt
+
+    r = 6371.0
+    dlat, dlng = radians(lat2 - lat1), radians(lng2 - lng1)
+    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlng / 2) ** 2
+    return 2 * r * asin(sqrt(a))
+
+
+def _check_places_near(ex: Execution, near: Any, findings: list[str]) -> None:
+    """Every named place sits within the radius of the anchor stop.
+
+    The anchor's coordinates come from the fixture, not the case, so a case
+    cannot drift away from the trip it is written against.
+    """
+    from src.cases import fixture
+
+    anchor = next((b for b in fixture()["blocks"] if b["title"] == near.anchor), None)
+    if anchor is None:  # the loader refuses this, so it is a harness fault
+        findings.append(f"places_near anchor {near.anchor!r} is not in the fixture")
+        return
+    at = anchor["coordinates"]
+
+    if not ex.place_locations:
+        findings.append(
+            f"no place the reply named carries a location, so being within "
+            f"{near.within_km} km of {near.anchor!r} cannot be evaluated"
+        )
+        return
+
+    for name, lat, lng in ex.place_locations:
+        km = _haversine_km(lat, lng, at["lat"], at["lng"])
+        if km > near.within_km:
+            findings.append(
+                f"{name!r} is {km:.1f} km from {near.anchor!r}, outside the "
+                f"{near.within_km} km the request implies"
+            )
 
 
 def _count_mutations(execution: Execution, table: str, op: str) -> int:
@@ -219,6 +313,15 @@ def _check_surfaced(ex: Execution, checks: Checks, findings: list[str]) -> None:
     if checks.places_named is not None:
         observed = max((s.get("reply", {}).get("place_refs") or 0 for s in shapes), default=0)
         _check_bound("places named in the reply", checks.places_named, observed, findings)
+    if checks.places_near is not None:
+        _check_places_near(ex, checks.places_near, findings)
+    if checks.places_named_types:
+        have = ex.place_types
+        for wanted in checks.places_named_types:
+            if not any(_same_place_type(wanted, t) for t in have):
+                findings.append(
+                    f"the reply names no {wanted!r} place; it named {sorted(have) or 'none'}"
+                )
 
 
 def _check_draft(ex: Execution, checks: Checks, findings: list[str]) -> None:
@@ -372,6 +475,40 @@ def _check_clear_of_others(
             )
 
 
+def _check_slot_scheduled(ex: Execution, want: SlotScheduled, findings: list[str]) -> None:
+    """Where a stop the trip already had ended up, read from the INSERT the
+    scheduling wrote. `slot_moved` cannot serve: it reads UPDATE rows, and
+    putting an unscheduled stop on the itinerary is an INSERT."""
+    block_id = ex.blocks.get(want.block)
+    inserts = [
+        m
+        for m in ex.mutations
+        if m["table_name"] == "itinerary_slots"
+        and m["op"] == "INSERT"
+        and (not block_id or (m.get("projection") or {}).get("trip_block_id") == block_id)
+    ]
+    if not inserts:
+        findings.append(f"{want.block!r} was never scheduled: no itinerary_slots insert for it")
+        return
+    final = inserts[-1].get("projection") or {}
+    day = final.get("day_date")
+    start = (final.get("start_time") or "")[:5]
+    end = (final.get("end_time") or "")[:5]
+
+    if day != want.day:
+        findings.append(f"{want.block!r} was scheduled on {day}, not {want.day}")
+    if want.starts_between and start:
+        lo, hi = (minutes_of(t) for t in want.starts_between)
+        if not lo <= minutes_of(start) <= hi:
+            findings.append(
+                f"{want.block!r} starts at {start}, outside "
+                f"{want.starts_between[0]}-{want.starts_between[1]}"
+            )
+    if want.duration_minutes is not None and start and end:
+        _check_bound(f"{want.block!r} length in minutes", want.duration_minutes,
+                     minutes_of(end) - minutes_of(start), findings)
+
+
 def _check_mutations(ex: Execution, checks: Checks, findings: list[str]) -> None:
     for key, bound in (checks.mutation_counts or {}).items():
         table, _, op = key.partition(".")
@@ -453,6 +590,8 @@ def check(case: Case, execution: Execution) -> Verdict:
     _check_edits(execution, checks, findings)
     if checks.slot_moved is not None:
         _check_slot_moved(execution, checks.slot_moved, findings)
+    if checks.slot_scheduled is not None:
+        _check_slot_scheduled(execution, checks.slot_scheduled, findings)
     _check_mutations(execution, checks, findings)
     _check_trip_after(execution, checks, findings)
     _check_predicates(case, execution, findings)

@@ -17,7 +17,7 @@ declared_constraints:
     tool_counts:
       search_places:
         min: 1
-        max: 3
+        max: 5
     places_surfaced:
       min: 1
     mutation_counts:
@@ -32,6 +32,9 @@ declared_constraints:
     trip_after:
       blocks: fixture
       slots: fixture
+    places_near:
+      anchor: Time Out Market lunch
+      within_km: 3
   predicates: []
 scoring_criteria:
 - Names at least two real seafood restaurants, each with one reason it fits.
@@ -40,7 +43,8 @@ scoring_criteria:
 - Places each one by a neighbourhood or a landmark, so they can be told apart on a map.
 repetitions_n: 8
 metamorphic_relation: null
-fixture_depends_on: []
+fixture_depends_on:
+- Time Out Market lunch
 notes: 'Minimum functionality for venue lookup: a grounded search that changes nothing. search_places
   is bounded at one to three calls, because the member gives two constraints and the agent may search
   once per constraint, or re-query after a thin result set; the wrong-region guard''s own refetch happens
@@ -62,4 +66,13 @@ notes: 'Minimum functionality for venue lookup: a grounded search that changes n
   from the event model (D37). turn_errors says the turn finished: an empty reply comes back as HTTP 200,
   so the simulator answers it in character and every other check here passes against a trip nothing touched.
   trip_after states the same read-only claim as a post-state rather than as four zeros, so it holds whether
-  or not the mutation trigger fired - two independent ways for the same fact to be wrong.'
+  or not the mutation trigger fired - two independent ways for the same fact to be wrong. places_near
+  anchors the answer on the Time Out Market, which the fixture puts 800 m from Cais do Sodre - the neighbourhood
+  the member actually named. 3 km is what ''near Cais do Sodre'' means on foot, and it fails an agent
+  that answers with good seafood in the wrong part of Lisbon. The search cap was raised from three to
+  five on measurement: across six recorded executions this case used [3, 2, 2, 3, 3, 3] searches, hitting
+  the old cap in four of them. A bound a correct agent reaches in two thirds of runs has no headroom,
+  and under the 8/8 seed criterion one repetition that searched a fourth time would have failed the case
+  for behaving reasonably - the false regression D30 calls the worse of the two errors. Nothing about
+  what the case claims depends on the number: places_surfaced and places_named carry the outcome, and
+  the cap exists only to notice an agent that flails.'

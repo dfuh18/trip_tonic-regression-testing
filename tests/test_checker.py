@@ -63,6 +63,8 @@ def execution(**kwargs) -> Execution:
         mutations=[],
         drafts=[],
         place_ids={"ChIJ-a", "ChIJ-b"},
+        place_types=set(),
+        place_locations=[],
         blocks=dict(FIXTURE_BLOCKS),
         fixture_ids={"blocks": dict(FIXTURE_BLOCKS)},
         telemetry={"turns": 1},
@@ -297,3 +299,61 @@ def test_telemetry_is_reported_and_never_asserted():
     verdict = check(case(), execution(telemetry={"turns": 1, "llm_calls": 9, "reply_chars_max": 40}))
     assert verdict.outcome == "none"
     assert verdict.telemetry["llm_calls"] == 9
+
+
+def test_a_venue_in_the_wrong_town_is_detected_by_distance():
+    """The check that makes a day-change case mean something.
+
+    `different_venues_from_base` is satisfied by two different *Sintra*
+    restaurants when the member asked about Lisbon — the exact answer a day
+    change is supposed to rule out. Only distance says the agent answered
+    about the right place.
+    """
+    lunch = case(
+        declared_constraints={
+            "checks": {"places_near": {"anchor": "Hotel near Baixa", "within_km": 5}},
+            "predicates": [],
+        },
+    )
+    # Sintra: Pena Palace is 23.5 km from the fixture's Baixa hotel.
+    in_sintra = execution(place_locations=[("Tasco do Strauss", 38.7920, -9.3900)])
+    verdict = check(lunch, in_sintra)
+    assert verdict.outcome == "detected"
+    assert any("km from 'Hotel near Baixa'" in f for f in verdict.findings)
+
+    in_baixa = execution(place_locations=[("Taberna da Baixa", 38.7110, -9.1390)])
+    assert check(lunch, in_baixa).outcome == "none"
+
+
+def test_the_geographic_check_says_so_when_it_cannot_be_evaluated():
+    """A reply that named no located place must not pass by silence — the
+    whole point is that the answer is somewhere."""
+    lunch = case(
+        declared_constraints={
+            "checks": {"places_near": {"anchor": "Pena Palace", "within_km": 8}},
+            "predicates": [],
+        },
+    )
+    verdict = check(lunch, execution(place_locations=[]))
+    assert verdict.outcome == "detected"
+    assert any("cannot be evaluated" in f for f in verdict.findings)
+
+
+def test_a_hotel_satisfies_a_request_for_lodging():
+    """Google reports the same thing as `lodging` and as `hotel`, and a case
+    should not have to know which. Substring matching cannot bridge them —
+    they share no characters — which is how a correct answer was once failed.
+    """
+    stay = case(
+        declared_constraints={
+            "checks": {"places_named_types": ["restaurant", "lodging"]},
+            "predicates": [],
+        },
+    )
+    ex = execution(place_types={"hotel", "seafood_restaurant"})
+    assert check(stay, ex).outcome == "none"
+
+    no_stay = execution(place_types={"seafood_restaurant", "restaurant"})
+    verdict = check(stay, no_stay)
+    assert verdict.outcome == "detected"
+    assert any("'lodging'" in f for f in verdict.findings)

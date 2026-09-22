@@ -33,6 +33,9 @@ declared_constraints:
     trip_after:
       blocks: fixture
       slots: fixture
+    places_near:
+      anchor: Pena Palace
+      within_km: 8
   predicates: []
 scoring_criteria:
 - Names at least two places in or near Sintra, not back in Lisbon.
@@ -63,4 +66,8 @@ notes: 'Minimum functionality for venue lookup where the member leaves the day i
   (D37). turn_errors says the turn finished: an empty reply comes back as HTTP 200, so the simulator answers
   it in character and every other check here passes against a trip nothing touched. trip_after states
   the same read-only claim as a post-state rather than as four zeros, so it holds whether or not the mutation
-  trigger fired - two independent ways for the same fact to be wrong.'
+  trigger fired - two independent ways for the same fact to be wrong. places_near anchors the answer geographically:
+  the criterion ''in or near Sintra, not back in Lisbon'' was judge-scored only, and a venue set can differ
+  from another while still being in the wrong town. Pena Palace and Baixa are 23.5 km apart, so 8 km covers
+  the Sintra area generously and excludes Lisbon outright. It is not the application''s VENUE_SANITY_KM
+  of 300, which exists to catch Lisbon-versus-Porto and would pass everything this check is for.'

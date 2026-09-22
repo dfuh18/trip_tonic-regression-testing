@@ -526,8 +526,12 @@ def test_every_seed_says_the_turn_finished_and_the_trip_is_the_size_it_was():
         checks = case.declared_constraints.checks
         assert checks.turn_errors == "none", case.case_id
         assert checks.trip_after is not None, case.case_id
+        # Blocks never change: no case asks the agent to invent or delete a
+        # stop. Slots do — a case that schedules one or takes one off says so
+        # with a number, and that number IS its delta.
         assert checks.trip_after.blocks == "fixture", case.case_id
-        assert checks.trip_after.slots == "fixture", case.case_id
+        if case.provenance == "seeded":
+            assert checks.trip_after.slots == "fixture", case.case_id
 
 
 def test_the_move_case_says_what_the_move_was_allowed_to_touch():

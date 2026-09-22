@@ -224,6 +224,71 @@ class TripAfter(BaseModel):
     slots: Optional[CountLike] = None
 
 
+class PlacesNear(BaseModel):
+    """Every place the reply names sits within ``within_km`` of a fixture stop.
+
+    The geographic sanity check, and the one a venue set cannot fake. "Different
+    venues from the seed" is satisfied by two *different Sintra* restaurants
+    when the member asked about Lisbon; only distance says the agent answered
+    about the right place.
+
+    The anchor is a **fixture stop title**, not a pair of coordinates, for the
+    same reason ``slot_moved.block`` is: the fixture already knows where its
+    stops are, the loader can check the name, and a case that typed its own
+    latitude would drift the first time the fixture moved.
+
+    ``within_km`` is the member's words rendered as a distance, the way D31
+    renders "around 4" as a window — "near the palace" is the Sintra area,
+    "near the hotel in Baixa" is central Lisbon. It is deliberately **not**
+    the application's own ``VENUE_SANITY_KM`` of 300, which exists to catch
+    Lisbon-versus-Porto and would pass every answer this check exists to fail:
+    Pena Palace and Baixa are 23 km apart.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    #: A stop title from cases/fixture.json; its coordinates are the centre.
+    anchor: str
+    within_km: float = Field(gt=0)
+
+
+class SlotScheduled(BaseModel):
+    """A stop the trip already had ends up ON the itinerary, on a day, in a
+    window.
+
+    The counterpart of ``slot_moved`` for a stop that was saved and unscheduled.
+    It exists because the one case that exercises ``schedule_block`` asserted
+    only that the tool ran: an agent that put the monastery on the wrong day at
+    the wrong hour satisfied every other check, since the write is an INSERT and
+    ``slot_moved`` reads UPDATE rows. Verifying that a tool ran is not
+    verifying that it did what was asked.
+
+    Read off the ``itinerary_slots.INSERT`` mutation's projection, which
+    carries the resolved ``day_date`` alongside the times.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    #: The stop's title, as the fixture and the trip call it.
+    block: str
+    #: YYYY-MM-DD. A day carries no tolerance: the member named one.
+    day: str
+    #: Inclusive ``[earliest, latest]`` HH:MM range the start must fall in —
+    #: the member's words, not a clock reading (D31).
+    starts_between: Optional[tuple[str, str]] = None
+    duration_minutes: Optional[BoundLike] = None
+
+    @model_validator(mode="after")
+    def _window_is_a_window(self) -> "SlotScheduled":
+        if self.starts_between is None:
+            return self
+        earliest, latest = self.starts_between
+        for value in (earliest, latest):
+            if not TIME_RE.match(value):
+                raise ValueError(f"starts_between takes HH:MM times, got {value!r}")
+        if minutes_of(earliest) > minutes_of(latest):
+            raise ValueError(f"starts_between must read earliest first, got {earliest} to {latest}")
+        return self
+
+
 class Checks(BaseModel):
     """What a case asserts about an execution, declaratively (D19, D27).
 
@@ -313,6 +378,22 @@ class Checks(BaseModel):
     #: .place_refs``), bounded. This is the venue-lookup assertion that bites:
     #: a reply naming nothing passes every other check a read-only case has.
     places_named: Optional[BoundLike] = None
+    #: The reply names at least one place of **each** of these Google place
+    #: types (``chat_messages.metadata.refs[].placeType``, e.g. ``restaurant``,
+    #: ``lodging``). Matched loosely, because Google's primary type for a hotel
+    #: is sometimes ``lodging`` and sometimes ``hotel``.
+    #:
+    #: For a request that asks for two different kinds of thing at once — "a
+    #: seafood place and somewhere to stay nearby" — where a count cannot tell
+    #: the difference between five restaurants and a restaurant plus a hotel.
+    #: `search_places` is capped at five results per call, so narrowing a
+    #: request never *reduces* what it surfaces; asking for a second kind of
+    #: place is the perturbation that actually changes the shape of the answer.
+    places_named_types: Optional[list[str]] = None
+    #: Every place the reply names is within a radius of a fixture stop — the
+    #: check that says the agent answered about the right *place*, which a
+    #: venue count and a venue-set comparison both miss.
+    places_near: Optional[PlacesNear] = None
 
     # --- the draft it proposed ---
     #
@@ -363,6 +444,8 @@ class Checks(BaseModel):
     # --- what it changed on the live itinerary ---
     #: A named stop ends up in a named window.
     slot_moved: Optional[SlotMoved] = None
+    #: A named stop ends up scheduled on a named day, in a window.
+    slot_scheduled: Optional[SlotScheduled] = None
     #: The agent's own journal of its live edits, summed over the execution.
     edits: Optional[EditCounts] = None
 
@@ -516,6 +599,10 @@ class Case(BaseModel):
         named = list(checks.draft_reuses_blocks or [])
         if checks.slot_moved:
             named.append(checks.slot_moved.block)
+        if checks.slot_scheduled:
+            named.append(checks.slot_scheduled.block)
+        if checks.places_near:
+            named.append(checks.places_near.anchor)
         return named
 
     @model_validator(mode="after")

@@ -52,6 +52,12 @@ class Execution:
     drafts: list[dict] = field(default_factory=list)
     #: Google place ids the replies referenced, across the turns.
     place_ids: set[str] = field(default_factory=set)
+    #: Google primary types of those places (``restaurant``, ``lodging``, …).
+    #: A count cannot tell five restaurants from a restaurant and a hotel.
+    place_types: set[str] = field(default_factory=set)
+    #: ``(name, lat, lng)`` for every place the replies named. Where the answer
+    #: actually is — which neither a count nor a venue-set comparison can say.
+    place_locations: list[tuple[str, float, float]] = field(default_factory=list)
     #: Title → id, as this repetition's fixture build created them (D26).
     blocks: dict[str, str] = field(default_factory=dict)
     #: The whole ``fixture_ids`` map: trip, regions, blocks, days, slots.
@@ -78,13 +84,13 @@ class Execution:
         return [t.get("resulting_state_shape") or {} for t in self.turns]
 
 
-def _place_ids_of(metadata: Optional[dict]) -> set[str]:
+def _place_refs_of(metadata: Optional[dict]) -> list[dict]:
     refs = (metadata or {}).get("refs") or []
-    return {
-        r["googlePlaceId"]
-        for r in refs
-        if isinstance(r, dict) and r.get("type") == "place" and r.get("googlePlaceId")
-    }
+    return [r for r in refs if isinstance(r, dict) and r.get("type") == "place"]
+
+
+def _place_ids_of(metadata: Optional[dict]) -> set[str]:
+    return {r["googlePlaceId"] for r in _place_refs_of(metadata) if r.get("googlePlaceId")}
 
 
 def _telemetry_of(turns: list[dict]) -> dict:
@@ -139,9 +145,19 @@ def load(execution_row: dict, base: Optional[Execution] = None) -> Execution:
 
     reply_ids = [t["reply_message_id"] for t in turns if t.get("reply_message_id")]
     place_ids: set[str] = set()
+    place_types: set[str] = set()
+    place_locations: list[tuple[str, float, float]] = []
     if reply_ids:
         for row in a.table("chat_messages").select("id, metadata").in_("id", reply_ids).execute().data:
             place_ids |= _place_ids_of(row.get("metadata"))
+            for ref in _place_refs_of(row.get("metadata")):
+                if ref.get("placeType"):
+                    place_types.add(str(ref["placeType"]).lower())
+                loc = ref.get("location") or {}
+                if loc.get("lat") is not None and loc.get("lng") is not None:
+                    place_locations.append(
+                        (str(ref.get("name") or "?"), float(loc["lat"]), float(loc["lng"]))
+                    )
 
     build = set(execution_row.get("build_mutation_ids") or [])
     mutations = [
@@ -164,6 +180,8 @@ def load(execution_row: dict, base: Optional[Execution] = None) -> Execution:
         mutations=mutations,
         drafts=drafts,
         place_ids=place_ids,
+        place_types=place_types,
+        place_locations=place_locations,
         blocks=dict(fixture_ids.get("blocks") or {}),
         fixture_ids=fixture_ids,
         base=base,
