@@ -300,19 +300,38 @@ def unique_contribution() -> "DataFrame":
     tool_users = Counter(tool for tools in required.values() for tool in tools)
     relation_users = Counter(c.metamorphic_relation for c in cases if c.metamorphic_relation)
 
+    #: How many cases beyond this one would still reach the thing. A case is
+    #: admitted when that number is zero — which is not the same as being the
+    #: only case that names it. The two forecast seeds JOINTLY require
+    #: `get_weather` and nothing else does, so deleting either leaves the tool
+    #: covered but deleting both loses it; a rule that only recognised a single
+    #: sole owner reported both as contributing nothing, while the notebook
+    #: prose two cells away claimed they existed to reach a tool nothing else
+    #: could. That contradiction is D66's disjunction error one level up, at
+    #: the case level, and this is the same fix (D69).
+    JOINT_LIMIT = 3
+
     rows = []
     for c in cases:
-        only_tools = sorted(t for t in required[c.case_id] if tool_users[t] == 1)
+        contributions: list[str] = []
+        for tool in sorted(required[c.case_id]):
+            others = tool_users[tool] - 1
+            if others == 0:
+                contributions.append(tool)
+            elif others < JOINT_LIMIT:
+                contributions.append(f"{tool} (jointly with {others})")
         rel = c.metamorphic_relation
-        only_relation = rel if rel and relation_users[rel] == 1 else None
-        unique = only_tools + ([f"relation {only_relation}"] if only_relation else [])
+        if rel and relation_users[rel] == 1:
+            contributions.append(f"relation {rel}")
+        sole = [x for x in contributions if "(jointly" not in x]
         rows.append(
             {
                 "case": c.case_id,
                 "provenance": c.provenance,
                 "requires": ", ".join(sorted(required[c.case_id])) or "-",
-                "only route to": ", ".join(unique) or "-",
-                "sole coverage": bool(unique),
+                "route to": ", ".join(contributions) or "-",
+                "sole coverage": bool(sole),
+                "carries coverage": bool(contributions),
             }
         )
     return pd.DataFrame(rows).set_index("case")

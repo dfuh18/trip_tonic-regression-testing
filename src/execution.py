@@ -204,3 +204,25 @@ def as_mapping(execution: Execution) -> dict[str, Any]:
         "blocks": execution.blocks,
         "base": as_mapping(execution.base) if execution.base else None,
     }
+
+
+def latest_attempts(rows: list[dict]) -> tuple[list[dict], int]:
+    """The highest attempt per (case, repetition), and how many were superseded.
+
+    The canonical implementation of D53's reading rule. It lives here because
+    four separate readers needed it and three of them did not have it: scoring
+    counted both attempts, the checker served one attempt's verdict to another
+    (D65), and coverage, `bounds_at_their_cap` and `latency_profile` summed
+    every attempt — so a refused attempt's partial tool calls inflated observed
+    call counts and could manufacture a "bound sat at its cap" finding.
+
+    Anything that reports on a run reads through this. A refused attempt is
+    kept in the table because it is evidence about the platform (D53); it is
+    not evidence about the agent, and nothing describing the agent may count it.
+    """
+    best: dict[tuple[str, int], dict] = {}
+    for row in rows:
+        key = (row["case_id"], row["repetition"])
+        if key not in best or (row.get("attempt") or 1) > (best[key].get("attempt") or 1):
+            best[key] = row
+    return list(best.values()), len(rows) - len(best)

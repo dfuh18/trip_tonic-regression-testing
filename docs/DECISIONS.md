@@ -31,6 +31,99 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D69 — The convergence review's findings, and what was done about them
+Date: 2026-09-22 · Decided by: author (commissioned the review, directed the fixes)
+An independent reviewer was asked one question — is this converging? — with
+read-only access and instructions to report rather than change. Verdict:
+**converging, with reservations**; the design has settled and the instrument
+had not. Its central finding was that the weakness was concentrated in one
+file, `src/runner.py`, and that it was the one file with no tests. That was
+correct. Everything below was fixed in one pass.
+
+**Two real defects in the retry loop, both mine, both from D67.**
+1. The simulator loss path inferred recovery from `simulator_failures`, a
+   counter any success resets to zero — so a repetition lost outright *after a
+   passing one* was treated as recovered: no final row, no `platform_losses`,
+   no abort counter, and the run carried on as if nothing had been lost. The
+   behaviour depended on whether the PREVIOUS repetition had passed, which
+   cannot be intended. Recovery is now an explicit flag.
+2. Recovery used `continue`, which skipped the totals, so a repetition that
+   succeeded on attempt 2 contributed nothing to the run's cost, latency or
+   token counts. It now falls through.
+
+**Resume was lossy.** `executions_done()` treated any row as "done", and since
+D53/D67 every refused attempt writes one — so resuming a killed run
+permanently skipped any repetition holding only refusals. It now requires a
+result: completed, agent-failed, or attempts exhausted.
+
+**Three more readers counted superseded attempts** — `observed_coverage`,
+`bounds_at_their_cap` and `latency_profile`. A refused attempt carries partial
+tool calls, so it inflated call counts and could manufacture a "bound sat at
+its cap" finding. D53's reading rule now has ONE implementation
+(`execution.latest_attempts`) that four readers share; keeping copies is how
+they came to disagree. That makes **six** places this rule had to reach, which
+is the real lesson: a new dimension on an identity is not done when the column
+exists, it is done when every reader and writer has been walked, and the way to
+make that true is to have one implementation rather than to walk carefully.
+
+**A harness fault was blamed on the agent.** A malformed persona returned
+`agent` from `failure_class` and printed under "the agent genuinely failed to
+answer". It is now `harness` — the agent never saw the turn.
+
+**The admission rule missed a joint route.** `unique_contribution` recognised
+only a single sole owner, so the two forecast seeds — which jointly require
+`get_weather` and are the only cases that do — reported as contributing
+nothing, while the notebook two cells away said they existed to reach a tool
+nothing else could. That is D66's disjunction error one level up, at the case
+level, and it is the same fix: a case is admitted when nothing else would
+reach the thing without it, whether alone or with a named few.
+
+**A 504 is our own deadline and is retried as the platform's.** Kept, because
+the usual cause is capacity the agent waited on — but an agent that regressed
+into being slow would have every such turn retried and only the survivor
+scored, so the pass rate would never show it. The count now gets its own line
+that says exactly that. If the author prefers, moving 504 out of
+`PLATFORM_REFUSAL_STATUSES` makes it fail instead; that changes what counts as
+a pass and stays the author's.
+
+**Three seeds carry no author review mark** (`factual_qa_lisbon_surf_conditions`
+and the two forecast seeds — the ones the agent added under D51 and D54).
+`reviewed.json` says the mark "is what makes a seed the author's rather than
+the model's (§3.1)" and that an agent never writes one, so none was written.
+`review_status()` now reports it, a run warns at the start, and a test pins the
+current state so adopting them is a deliberate act. The same function exposes a
+second thing the file could not say: a mark records `{by, on}`, not WHICH text
+was read, and every marked seed has been edited since (D48, D55, D58). Old
+marks are reported `unverifiable` rather than verified; new marks may carry a
+content hash.
+
+**Overstatements the reviewer named, all corrected.** The plan's bolded "the
+suite found a defect in the artifact under study, which is the claim §3.1 makes
+for it" — the coverage *instrument* found it and no case failed, which is a
+weaker and different mechanism. D68's "no gaps at all" — true of tool-level
+coverage and nothing else, and silent on parameter coverage and on the eight of
+eighteen follow-ups with no structural delta. The INV-2 mechanism, falsified by
+D61 and corrected only in `derivations.py`, still stood in the plan and the
+notebook. D60 changed request handling without the rule-4 label its two
+predecessors carry.
+
+**One finding rejected.** The reviewer read `scheduling_move_tram`'s route
+assertion as contradicting D68, and the agent relayed that. The author
+corrected both: a route may be asserted when it is **load-bearing for a
+well-grounded answer** — a plan naming places must have searched for them, and
+`move_slot` is a different edit from unschedule-then-schedule even where the
+end state matches — and not when two routes reach an equally good answer, as
+with either climate tool for "will it rain". D68 now states that distinction
+instead of implying a blanket ban.
+
+`run()` now has ten tests covering every retry, loss, abort and recovery path
+(`tests/test_runner_loop.py`). 238 tests total.
+Affects: src/runner.py · src/execution.py · src/coverage.py · src/failures.py ·
+src/scoring.py · src/cases.py · src/tables.py · tests/test_runner_loop.py (new)
+· tests/test_failure_policy.py · tests/test_tables.py · docs · the expansion
+notebook
+Reverses: none; completes D53/D59/D67 and scopes D68
+
 ### D68 — A disjunction is coverage of a capability, not a gap in coverage of a tool
 Date: 2026-09-22 · Decided by: author (overruling the agent's recommendation)
 Options: tighten a case to require `get_region_climate` · add a seed for it ·
@@ -53,7 +146,26 @@ notice it vanishing". That is false for a disjunction member: if it vanished the
 agent would use the alternative and answer correctly, which is not a regression.
 `Coverage.groups` now carries the disjunctions and the report states them as
 coverage. After the fix the suite has **eight tools required outright, one
-covered as a group, and no gaps at all**.
+covered as a group, and **no TOOL coverage gaps**.
+
+Scope, stated because the short form invites over-reading: this is tool-level
+declared/required coverage and nothing more. It says nothing about parameter
+coverage (`move_slot` has only ever been observed with day, start and end
+together, which `observed_coverage`'s own docstring calls out as exactly the
+gap it exists to expose) and nothing about the eight of eighteen follow-ups
+that carry no structural delta.
+
+**What this does NOT say: that asserting a tool route is always wrong.** The
+rule is that a route may be asserted when the route is *load-bearing for a
+well-grounded answer*, and not when two routes reach an equally valid one. A
+plan that names places must search for them first — an unsearched plan is
+invented, so `search_places` before `propose_plan` is a claim about the answer,
+not about the implementation. `scheduling_move_tram` requiring `move_slot`
+rather than unschedule-then-schedule is the same kind of claim: the end state
+matches but the edit does not, and the intermediate state differs. By contrast
+"how rainy will it be, should I bring an umbrella" is answered equally well by
+either climate tool, so pinning one asserts nothing about the answer. That
+distinction, not a blanket ban, is the principle.
 The governing principle the author stated, and which this encodes: the suite
 should be **easy to expand and only as strict as needed**. A constraint tighter
 than what catches a real regression costs false failures and makes every future
@@ -313,6 +425,13 @@ describes. `failures.latency_profile()` prints both medians and the queued share
 at the end of every run, and warns when more than a quarter of turns queued —
 at which point a latency comparison against another run is measuring the
 provider, not the agent.
+**Rule-4 note, added after review.** This changes how the application handles a
+request and was not labelled as such, unlike D56 and D57 which both carry the
+disclosure. An overloaded turn now returns a 503 with a retry hint where it
+previously ran to the deadline and returned a 504 — the member sees a different
+message. Same standing as its two predecessors: taken knowingly, before any
+baseline exists, so no recorded run is invalidated, and not to be repeated once
+the baseline is fixed.
 Affects: apps/api/src/routes/ai/lib/adk-llm.ts (+ tests) · src/failures.py ·
 src/runner.py
 Reverses: none (bounds D43, which set the attempt policy)

@@ -881,3 +881,63 @@ def suite_version(directory: Path = CASES_DIR, today: Optional[date] = None) -> 
 def by_priority(cases: list[Case]) -> list[Case]:
     """P7: run order — priority first, seeds before their follow-ups, then name."""
     return sorted(cases, key=lambda c: (c.run_priority, c.provenance != "seeded", c.case_id))
+
+
+def _case_content_sha(path: Path) -> str:
+    """Hash of a case file, for binding a review mark to what was reviewed."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+
+
+def review_status(directory: Path = CASES_DIR) -> dict[str, dict]:
+    """Which seeds carry the author's mark, and whether it still binds.
+
+    Two separate questions, and the file answered only the first. A mark is
+    ``{by, on}`` — it records that the author read the case on a date, not
+    WHICH text they read. Every marked seed has been edited since (D48 added
+    `places_near` to both venue seeds, D55 moved the fixture's calendar, D58
+    raised a cap), so "reviewed" was quietly doing less work than it looked
+    like.
+
+    New marks may carry ``sha``; old ones do not, and are reported as
+    ``unverifiable`` rather than as verified or as drifted. Nothing here writes
+    a mark — the file says an agent never writes one unasked, and the mark is
+    what makes a seed the author's rather than the model's (§3.1).
+    """
+    marks = json.loads((directory / "reviewed.json").read_text(encoding="utf-8")).get("reviewed", {})
+    out: dict[str, dict] = {}
+    for case in load_cases(directory):
+        if case.provenance != "seeded":
+            continue
+        mark = marks.get(case.case_id)
+        path = directory / f"{case.case_id}.yaml"
+        sha = _case_content_sha(path) if path.exists() else None
+        if mark is None:
+            state = "unreviewed"
+        elif not mark.get("sha"):
+            state = "unverifiable"
+        elif mark["sha"] == sha:
+            state = "current"
+        else:
+            state = "drifted"
+        out[case.case_id] = {"state": state, "mark": mark, "sha": sha}
+    return out
+
+
+def review_report(directory: Path = CASES_DIR) -> str:
+    status = review_status(directory)
+    unreviewed = sorted(k for k, v in status.items() if v["state"] == "unreviewed")
+    drifted = sorted(k for k, v in status.items() if v["state"] == "drifted")
+    unverifiable = sorted(k for k, v in status.items() if v["state"] == "unverifiable")
+    lines = [f"seed review: {len(status) - len(unreviewed)}/{len(status)} marked"]
+    if unreviewed:
+        lines.append("  UNREVIEWED (no author mark — §3.1 calls these the model's, not the author's):")
+        lines += [f"    {c}" for c in unreviewed]
+    if drifted:
+        lines.append("  DRIFTED (edited since the mark):")
+        lines += [f"    {c}" for c in drifted]
+    if unverifiable:
+        lines.append(
+            f"  marked without a content hash, so the mark cannot be checked against the "
+            f"current text: {len(unverifiable)} seed(s)"
+        )
+    return "\n".join(lines)

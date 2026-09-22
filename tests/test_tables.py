@@ -188,3 +188,48 @@ def test_a_tool_with_no_alternative_named_is_still_a_gap():
 
     cov = Coverage(declared={"search_places": ["case1"]}, required={}, groups={})
     assert "search_places" in cov.permitted_but_never_required
+
+
+def test_the_three_added_seeds_are_still_unreviewed():
+    """Pinned so adopting them is a deliberate act, not a silent one.
+
+    `reviewed.json` says the mark "is what makes a seed the author's rather
+    than the model's (3.1)", and an agent never writes one. These three were
+    added by the agent (D51, D54) and carry no mark. When the author reviews
+    them this test changes — which is the point: it makes the change visible.
+    """
+    from src.cases import review_status
+
+    status = review_status()
+    unreviewed = sorted(k for k, v in status.items() if v["state"] == "unreviewed")
+    assert unreviewed == [
+        "factual_qa_lisbon_forecast_next_days",
+        "factual_qa_lisbon_surf_conditions",
+        "factual_qa_lisbon_trip_forecast",
+    ], "seed review state changed — update this pin deliberately"
+
+
+def test_an_old_mark_is_reported_as_unverifiable_not_as_verified():
+    """A mark records {by, on} and not WHICH text was read, and every marked
+    seed has been edited since (D48, D55, D58). Claiming those are verified
+    would assert something the file cannot support."""
+    from src.cases import review_status
+
+    states = {v["state"] for v in review_status().values()}
+    assert "current" not in states, "no mark carries a content hash yet"
+    assert "unverifiable" in states
+
+
+def test_the_extra_seeds_all_carry_coverage_jointly_or_alone():
+    """D69: the admission rule recognises a JOINT sole route.
+
+    The two forecast seeds jointly require get_weather and nothing else does,
+    so deleting either leaves it covered but deleting both loses it. A rule
+    that only saw a single sole owner reported both as contributing nothing
+    while the notebook claimed they existed to reach a tool nothing else could.
+    """
+    u = tables.unique_contribution()
+    for case_id in ("factual_qa_lisbon_forecast_next_days",
+                    "factual_qa_lisbon_trip_forecast",
+                    "factual_qa_lisbon_surf_conditions"):
+        assert u.loc[case_id, "carries coverage"], case_id

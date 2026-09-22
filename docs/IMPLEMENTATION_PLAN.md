@@ -610,14 +610,19 @@ Status: in progress (2026-09-22). `src/metamorphic.py`, the derivations in
 `notebooks/sim/02_expand.ipynb`. The suite is **11 seeds and 18 follow-ups, 160
 executions** — above D21's 8/16/128, which D50, D51 and D61 rule on: the extra
 cases exist to reach tools, and one relation, that nothing could otherwise
-reach. 216 tests.
+reach. 232 tests.
 
 The eighteenth follow-up closes D22's catalogue. INV-2 had **no** case at all
 while the catalogue claimed eight relations, and nothing checked a catalogue
 against itself — the same overstatement D52 was about, caught by the author
 reading the relation counts. It now sits on the venue lookup, which is the one
-seed whose words become a `search_places` query argument rather than being read
-by the model alone. D61 also supplies the defence of the uneven distribution,
+seed whose request is about a named place and is scored on location as well as
+on taste, which is the closest the suite gets to a typo reaching a tool. The
+first run of it **falsified the mechanism originally claimed** — the agent
+authors the query and normalised every typo before the tool saw anything, so
+the follow-up searched a string byte-identical to the seed's, and the case
+passed 10/10. The placement stands; the stated cause did not, and D61 records
+the correction. D61 also supplies the defence of the uneven distribution,
 computed rather than asserted: relation use against **eligibility**, where
 DIR-2/3/4 are eligible on 4 seeds and INV-1..4 on all 11, so most of the
 unevenness is forced by D22 rather than chosen. Where it was chosen —
@@ -633,10 +638,14 @@ cause was not the case. The agent was never told the current date (D57), so
 "the next couple of days" resolved against the trip's own dates — it requested a
 forecast seven weeks out, past the sixteen-day horizon, every time. Fixed in the
 prompt and the tool (D56/D57); the two cases went 1/10 → 10/10 and 3/10 → 9/10,
-with `get_weather` making one call each and zero errors. **The suite found a
-defect in the artifact under study, which is the claim §3.1 makes for it**, and
-it found it through coverage rather than through a failing assertion — worth a
-log entry when B05 closes.
+with `get_weather` making one call each and zero errors. The suite's **coverage
+instrument** found a defect in the artifact under study — through coverage, not
+through a failing assertion. **No case failed.** That distinction is the whole
+of it: §3.1's claim is about the pipeline detecting regressions, and
+detection-by-coverage is a different and weaker mechanism. It is worth a log
+entry when B05 closes (L11 has it), and it is not evidence for the stronger
+claim. Stated this way because the earlier wording bolded the stronger version,
+which is the sentence a reader would have quoted.
 
 Also in this pass: the fixture is pinned to the next upcoming November (D55), so
 it cannot silently become a past trip, and one case runs on a near-dated fixture

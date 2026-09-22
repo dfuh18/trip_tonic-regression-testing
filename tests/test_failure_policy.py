@@ -21,7 +21,7 @@ from src.runner import (
         ("simulator: ServerError: 504 DEADLINE_EXCEEDED", "platform"),
         ("agent returned 429 on turn 1", "ours"),
         ("agent returned 502 on turn 1", "agent"),
-        ("simulator: could not parse the persona", "agent"),
+        ("simulator: could not parse the persona", "harness"),
     ],
 )
 def test_blame(error, expected):
@@ -82,3 +82,29 @@ def test_a_genuine_agent_failure_is_not_flagged():
 
 def test_a_clean_run_says_so():
     assert "no failed executions" in report([], total=28)
+
+
+def test_a_harness_fault_is_not_blamed_on_the_agent():
+    """A malformed persona or an unparseable simulator reply is the harness's
+    fault; the agent never saw the turn. It was being printed under "the agent
+    genuinely failed to answer", which is the one thing it is not."""
+    assert failure_class("simulator: could not parse the persona") == "harness"
+    assert failure_class("simulator: ServerError: 504 DEADLINE_EXCEEDED") == "platform"
+
+
+def test_a_deadline_kill_is_reported_where_the_pass_rate_cannot_absorb_it():
+    """504 is OUR deadline and is retried as a platform refusal, so a latency
+    regression would not move the pass rate. The count gets its own line."""
+    f = Failure(case_id="x", repetition=1, attempt=1,
+                error="agent returned 504 on turn 1", blame="platform")
+    out = report([f], total=10)
+    assert "DEADLINE-KILLED" in out
+    assert "pass rate will not show it" in out.replace("\n", " ")
+
+
+def test_a_simulator_504_is_not_counted_as_our_deadline():
+    """The simulator's 504 is Vertex's DEADLINE_EXCEEDED — the provider's, not
+    our 85-second budget."""
+    f = Failure(case_id="x", repetition=1, attempt=1,
+                error="simulator: ServerError: 504 DEADLINE_EXCEEDED", blame="platform")
+    assert "DEADLINE-KILLED" not in report([f], total=10)

@@ -110,22 +110,12 @@ def score_execution(case: Case, execution_row: dict, llm=None) -> Scored:
 
 
 def latest_attempts(rows: list[dict]) -> tuple[list[dict], int]:
-    """The highest attempt per (case, repetition), and how many were superseded.
+    """D53's reading rule. Delegates to the canonical implementation in
+    `src.execution`, which four readers now share — keeping a second copy here
+    is how they came to disagree in the first place."""
+    from src.execution import latest_attempts as canonical
 
-    D53 keeps both attempts of a repetition the provider refused, because they
-    are evidence about different things. Scoring must therefore pick, and it
-    picks the last one: a repetition that completed on its second attempt is
-    one repetition that completed. Scoring both would list the case twice and
-    let a provider outage drag the mean — which is the reporting error D53's
-    column exists to make avoidable, and it is only avoidable if the reader
-    actually does this.
-    """
-    best: dict[tuple[str, int], dict] = {}
-    for row in rows:
-        key = (row["case_id"], row["repetition"])
-        if key not in best or (row.get("attempt") or 1) > (best[key].get("attempt") or 1):
-            best[key] = row
-    return list(best.values()), len(rows) - len(best)
+    return canonical(rows)
 
 
 def score_run(run_id: str, log: Callable[[str], None] = print) -> ScoreRun:

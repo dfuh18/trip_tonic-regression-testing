@@ -91,7 +91,7 @@ OUR_OWN_LIMIT_STATUSES = ("429",)
 
 
 def failure_class(error: Optional[str]) -> Optional[str]:
-    """Who failed: ``platform``, ``ours``, ``agent`` — or None if nothing did.
+    """Who failed: ``platform``, ``ours``, ``harness``, ``agent`` — or None.
 
     The distinction is the whole of D59's retry policy, and it is available
     only because the API gives each cause its own status (D45, and the
@@ -106,6 +106,13 @@ def failure_class(error: Optional[str]) -> Optional[str]:
         return "ours"
     if any(s in error for s in PLATFORM_REFUSAL_STATUSES):
         return "platform"
+    # A simulator fault that the platform did not cause is the HARNESS's — a
+    # malformed persona, a reply it could not parse. It was being reported as
+    # "the agent genuinely failed to answer", which is the one thing it is not:
+    # the agent never saw the turn. Not retried, for the same reason an agent
+    # failure is not — the next attempt would break identically.
+    if error.startswith("simulator:"):
+        return "harness"
     return "agent"
 
 
@@ -239,8 +246,35 @@ def _prompt_version() -> str:
 
 
 def executions_done(run_id: str) -> set[tuple[str, int]]:
-    rows = db.admin().table("study_case_executions").select("case_id, repetition").eq("run_id", run_id).execute().data
-    return {(r["case_id"], r["repetition"]) for r in rows}
+    """Repetitions a resumed run must NOT execute again.
+
+    Not "has a row" — that was lossy once attempts became rows (D53, D67).
+    Every refused attempt writes one, so a repetition the platform refused and
+    that never completed looked finished, and a resumed run skipped it
+    permanently. The execution would simply be missing from the baseline, with
+    nothing saying so.
+
+    A repetition is done when it produced a RESULT: a completed execution, or
+    one the agent itself failed (that is a result, D59), or one that exhausted
+    its attempts and was recorded as lost. A repetition holding only platform
+    refusals with attempts left is unfinished work, and resuming should retry
+    it exactly as the original run would have.
+    """
+    rows = (
+        db.admin()
+        .table("study_case_executions")
+        .select("case_id, repetition, attempt, error")
+        .eq("run_id", run_id)
+        .execute()
+        .data
+    )
+    done: set[tuple[str, int]] = set()
+    for r in rows:
+        key = (r["case_id"], r["repetition"])
+        blame = failure_class(r.get("error"))
+        if blame is None or blame == "agent" or (r.get("attempt") or 1) >= MAX_ATTEMPTS_PER_REPETITION:
+            done.add(key)
+    return done
 
 
 def collect(trip_id: str, suggestion_ids: list[str], exclude_mutations: tuple[str, ...] = ()) -> dict:
@@ -432,6 +466,26 @@ def run(
     simulator = simulator or Simulator()
     done = executions_done(run_id) if resume_run_id else set()
     log(f"run {run_id[:8]}: {len(cases)} case(s), {len(done)} execution(s) already recorded")
+    # Provenance, said out loud at the start rather than discovered in the
+    # analysis. A seed the author has not marked is the model's case, not the
+    # author's (§3.1), and a baseline built on one does not mean what §3.1
+    # says a baseline means. A warning and not a refusal: a probe run over an
+    # unmarked case is a legitimate thing to do, and only the operator knows
+    # which kind of run this is.
+    try:
+        from src.cases import review_status
+
+        unmarked = sorted(
+            c.case_id for c in cases
+            if review_status().get(c.case_id, {}).get("state") == "unreviewed"
+        )
+        if unmarked:
+            warn = (f"    WARNING {len(unmarked)} seed(s) in this run carry no author review mark: "
+                    f"{', '.join(unmarked)}")
+            log(warn)
+            reset.harness_log(f"RUN {run_id[:8]} {warn.strip()}")
+    except Exception as exc:
+        log(f"    review status unavailable: {exc}")
     totals = {"cost": 0.0, "latency": 0, "tokens": 0}
     simulator_failures = 0
     platform_retries = 0   # attempts spent on the provider being busy
@@ -508,7 +562,15 @@ def run(
                 # simulator path was keeping only the one that succeeded — so
                 # a simulator refusal recovered on attempt 2 vanished from the
                 # platform-failure rate entirely and survived only in the log.
+                # Recovery is tracked explicitly and never inferred from
+                # `simulator_failures`. Inferring it was wrong in a way that
+                # depended on the PREVIOUS repetition: that counter is reset to
+                # zero by any success, so after a passing repetition a total
+                # loss satisfied `simulator_failures == 0` and was treated as a
+                # recovery — no final row, no `platform_losses`, no abort
+                # counter, and the run continued as if nothing had been lost.
                 sim_attempt = 1
+                recovered = False
                 while (failure_class(f"simulator: {exc}") == "platform"
                        and sim_attempt < MAX_ATTEMPTS_PER_REPETITION):
                     record_simulator_failure(run_id, handle, case, repetition, sim_attempt, exc)
@@ -522,29 +584,31 @@ def run(
                     try:
                         row = execute_case(handle, case, repetition, simulator, log,
                                            attempt=sim_attempt)
+                        recovered = True
                         simulator_failures = 0
                         break
                     except SimulatorFailed as again:
                         exc = again
-                else:
-                    pass
-                if simulator_failures == 0 and sim_attempt > 1:
-                    continue  # recovered on a later attempt
-                simulator_failures += 1
-                if sim_attempt > 1:
-                    platform_losses += 1
-                record_simulator_failure(run_id, handle, case, repetition, sim_attempt, exc)
-                line = f"{case.case_id} rep {repetition}: SIMULATOR FAILED — {exc}"
-                log(line)
-                reset.harness_log(f"RUN {run_id[:8]} {line}")
-                if simulator_failures >= MAX_CONSECUTIVE_SIMULATOR_FAILURES:
-                    reset.harness_log(f"RUN {run_id} ABORTED: {simulator_failures} simulator failures in a row")
-                    db.admin().table("study_runs").update({
-                        "notes": f"aborted: {simulator_failures} consecutive simulator failures",
-                        "finished_at": _now(),
-                    }).eq("id", run_id).execute()
-                    raise RunAborted(f"{simulator_failures} consecutive simulator failures") from exc
-                continue
+                if not recovered:
+                    simulator_failures += 1
+                    if sim_attempt > 1:
+                        platform_losses += 1
+                    record_simulator_failure(run_id, handle, case, repetition, sim_attempt, exc)
+                    line = f"{case.case_id} rep {repetition}: SIMULATOR FAILED — {exc}"
+                    log(line)
+                    reset.harness_log(f"RUN {run_id[:8]} {line}")
+                    if simulator_failures >= MAX_CONSECUTIVE_SIMULATOR_FAILURES:
+                        reset.harness_log(f"RUN {run_id} ABORTED: {simulator_failures} simulator failures in a row")
+                        db.admin().table("study_runs").update({
+                            "notes": f"aborted: {simulator_failures} consecutive simulator failures",
+                            "finished_at": _now(),
+                        }).eq("id", run_id).execute()
+                        raise RunAborted(f"{simulator_failures} consecutive simulator failures") from exc
+                    continue
+                # Recovered: fall through to the totals below rather than
+                # `continue`. The old path skipped them, so a repetition that
+                # succeeded on attempt 2 contributed nothing to the run's cost,
+                # latency or token counts.
             except RunAborted as exc:
                 reset.harness_log(f"RUN {run_id} ABORTED at {case.case_id} rep {repetition}: {exc}")
                 db.admin().table("study_runs").update({"notes": f"aborted: {exc}", "finished_at": _now()}).eq("id", run_id).execute()

@@ -180,6 +180,7 @@ def observed_coverage(run_id: str) -> tuple[dict[str, int], dict[str, set[str]],
         .execute()
         .data
     )
+    rows, _superseded = exmod.latest_attempts(rows)
     for row in rows:
         for call in exmod.load(row).trace:
             calls[call["tool"]] += 1
@@ -240,6 +241,12 @@ def bounds_at_their_cap(run_id: str) -> list[tuple[str, str, int, int]]:
     rows = (
         db.admin().table("study_case_executions").select("*").eq("run_id", run_id).execute().data
     )
+    # Highest attempt only (D53). A refused attempt carries partial tool calls,
+    # so counting it can push a bound onto its cap and report a case as having
+    # no headroom when the attempt that counted used far fewer calls.
+    from src import execution as _ex
+
+    rows, _ = _ex.latest_attempts(rows)
     for row in rows:
         case = by_id.get(row["case_id"])
         if case is None or row.get("error"):

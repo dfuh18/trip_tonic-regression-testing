@@ -121,10 +121,25 @@ def report(failures: list[Failure], total: int) -> str:
         "",
         "  platform = the provider was busy or ran past our deadline; retried (D59)",
         "  ours     = our own rate limit or monthly quota; never retried, aborts the run",
+        "  harness  = the simulator or the harness broke; not the agent's fault and not a result",
         "  agent    = the agent genuinely failed to answer; this is a result, not noise",
         "",
     ]
     lines += [f"  {f.summary()}" for f in failures]
+    # A 504 is OUR 85-second deadline, not the provider refusing, and D59
+    # retries it as a platform refusal. That is defensible — the usual cause is
+    # capacity the agent waited on — but it means an agent that regressed into
+    # being slow would have every such turn retried and only the survivor
+    # scored, and the pass rate would not move. So the count is reported on its
+    # own line where it cannot be absorbed (D69).
+    deadline = [f for f in failures if "504" in f.error and not f.error.startswith("simulator:")]
+    if deadline:
+        lines += [
+            "",
+            f"DEADLINE-KILLED: {len(deadline)} execution(s) hit our own {'85s'} turn deadline and "
+            f"were retried as platform refusals. A latency regression hides here: the pass rate "
+            f"will not show it. Read this number, not the pass rate, for that.",
+        ]
     stale = [f for f in failures if f.blame == "agent"
              and f.turns and f.turns[-1].never_answered and f.turns[-1].retry_count]
     if stale:
@@ -155,11 +170,19 @@ def latency_profile(run_id: str) -> str:
     from src import db
 
     a = db.admin()
-    ids = [
-        i
-        for row in a.table("study_case_executions").select("suggestion_ids").eq("run_id", run_id).execute().data
-        for i in (row.get("suggestion_ids") or [])
-    ]
+    from src.execution import latest_attempts
+
+    rows, _ = latest_attempts(
+        a.table("study_case_executions")
+        .select("case_id, repetition, attempt, suggestion_ids")
+        .eq("run_id", run_id)
+        .execute()
+        .data
+    )
+    # Highest attempt only: a refused attempt's turn is the provider's latency,
+    # not the agent's, and averaging it in is the contamination this whole
+    # function exists to prevent.
+    ids = [i for row in rows for i in (row.get("suggestion_ids") or [])]
     if not ids:
         return "latency: no turns recorded."
     turns = (
