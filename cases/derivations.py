@@ -579,8 +579,58 @@ SINTRA_ADVICE_GERMAN = Derivation(
 #: unschedule_block - tools no other case could name, because they belong
 #: to the scheduling function and both of its seeds had spent their pair
 #: on stronger relations (D50).
+SEAFOOD_TYPOS = Derivation(
+    relation="INV-2",
+    suffix="inv2_typos",
+    opening_turn="/find god seafod palces near cais do sodre, nothin too pricey",
+    goal=(
+        "See well-rated seafood restaurants near Cais do Sodre that three people can afford. She is "
+        "typing fast on a phone and does not go back to correct herself. She wants names to look at "
+        "and is satisfied once she has them. If Tonic offers to add any of them to the trip or asks "
+        "which day they fit, she says no thanks and stops there: she only wants the names."
+    ),
+    user_profile=(
+        "Marta, 34, in Lisbon for a long weekend with two friends. Eats fish, budget-conscious, types "
+        "short messages on a phone and does not explain herself or fix her typos."
+    ),
+    # Nothing is dropped and nothing is added: an invariance relation asserts
+    # that the seed's own claims still hold, and weakening them to accommodate
+    # the perturbation would be asserting nothing (D30).
+    checks={},
+    scoring_criteria=[
+        "Names at least two real seafood restaurants, each with one reason it fits.",
+        "Distinguishes them from each other, so the reasons are not interchangeable.",
+        "Reflects the budget cue without lecturing about it.",
+        "Places each one by a neighbourhood or a landmark, so they can be told apart on a map.",
+        "Answers the question rather than remarking on the spelling or asking her to repeat it.",
+    ],
+    fixture_depends_on=["Time Out Market lunch"],
+    notes=(
+        "The catalogue's only INV-2, and deliberately only one (D61). A typo is a weak perturbation "
+        "wherever the text is read by the model alone - that is what language models are good at, and "
+        "a suite full of them would report its own insensitivity as coverage. It is NOT weak here, "
+        "which is why this is the seed that takes it: a venue lookup's words become a search_places "
+        "QUERY ARGUMENT, so 'sodre' and 'seafod' are handed to the Places API rather than merely "
+        "understood. This is the one place in the suite where a typo can reach past the model and "
+        "degrade an answer on its own.\n\n"
+        "The perturbation is what a phone actually produces: transpositions ('palces'), a dropped "
+        "letter ('seafod', 'nothin', 'god'), lost casing and a dropped diacritic ('Cais do Sodre'). "
+        "The last is the load-bearing one - the accent is on the anchor the case measures distance "
+        "from, and places_near is inherited unchanged at 3km, so an agent that searches for the wrong "
+        "place fails on location rather than on taste.\n\n"
+        "Every seed check is inherited without amendment, which is what makes this an invariance "
+        "claim. The fifth criterion is the only addition and it is not a weakening: answering a "
+        "misspelt question by querying the spelling is a failure a human would notice and the "
+        "structural checks would not.\n\n"
+        "If it passes at 8/8, that IS the finding, and the honest way to report the relation is as "
+        "one the agent is insensitive to - which is worth more than omitting the relation and leaving "
+        "a reader to wonder whether it was tried."
+    ),
+)
+
+
 DERIVATIONS: dict[str, tuple[Derivation, ...]] = {
-    "venue_lookup_seafood_lisbon": (SEAFOOD_SECOND_TYPE, SEAFOOD_NEGATION),
+    "venue_lookup_seafood_lisbon": (SEAFOOD_SECOND_TYPE, SEAFOOD_NEGATION, SEAFOOD_TYPOS),
     "venue_lookup_sintra_lunch": (SINTRA_DAY_CHANGED, SINTRA_CONSTRAINT_ADDED),
     "scheduling_belem_morning": (BELEM_DAY_CHANGED, BELEM_COUNT_CHANGED),
     "scheduling_move_tram": (TRAM_DAY_CHANGED, TRAM_SCHEDULE_THE_MONASTERY, TRAM_UNSCHEDULE),

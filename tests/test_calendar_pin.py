@@ -120,3 +120,35 @@ def test_a_row_without_an_attempt_column_still_scores():
 
     kept, superseded = latest_attempts([{"case_id": "a", "repetition": 1}])
     assert superseded == 0 and len(kept) == 1
+
+
+def test_suite_version_moves_when_the_calendar_does():
+    """D62: the hash must distinguish two runs on two different calendars.
+
+    Before this, `suite_version` hashed the fixture FILE, which since D55 holds
+    a template — so a 2026 run and a 2027 run would have shared a version while
+    running against different trips. That is the one case the field exists to
+    catch, and its own docstring claimed it did.
+    """
+    from src.cases import suite_version
+
+    a = suite_version(today=date(2026, 9, 22))   # pins to November 2026
+    b = suite_version(today=date(2027, 3, 1))    # pins to November 2027
+    assert a != b, "a different starting calendar must be a different suite version"
+
+
+def test_suite_version_is_stable_within_one_pin_window():
+    """It must not drift day to day, or two runs in one week are incomparable."""
+    from src.cases import suite_version
+
+    assert suite_version(today=date(2026, 9, 22)) == suite_version(today=date(2026, 10, 30))
+
+
+def test_suite_version_ignores_the_near_dated_case_calendar():
+    """The near fixture (D54) is per-run by design; folding it in would change
+    the suite version every day."""
+    from src.cases import suite_version
+
+    # Same pin window, two different "today"s three days apart — the near case
+    # would resolve differently on each, but the suite version must not move.
+    assert suite_version(today=date(2026, 9, 22)) == suite_version(today=date(2026, 9, 25))

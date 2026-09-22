@@ -842,18 +842,33 @@ def load_cases(directory: Path = CASES_DIR) -> list[Case]:
     return cases
 
 
-def suite_version(directory: Path = CASES_DIR) -> str:
+def suite_version(directory: Path = CASES_DIR, today: Optional[date] = None) -> str:
     """SHA-256 over the sorted case files and the fixture they run against.
 
     The fixture is in the hash on purpose: the same case text against a
     different starting trip is a different test, and Table 11's suite version
     has to say so.
+
+    **The fixture is hashed as RESOLVED, not as stored (D62).** Since D55 the
+    file holds a template and the trip actually built is that template pinned
+    to the next upcoming November, so hashing the file's bytes would give two
+    runs on two different calendars the same suite version — the exact case
+    this hash exists to distinguish, and the one its own docstring promised to
+    catch. Hashing what gets built keeps the promise: the version moves when
+    the calendar does, because that genuinely is a different starting trip.
+
+    One case is deliberately outside this. `fixture_dates: near` (D54) builds a
+    trip relative to the run, so folding it in would change the suite version
+    every day and make two runs in one week incomparable for no gain. The hash
+    therefore identifies the fixed calendar every other case shares; that one
+    case's calendar is recoverable from its own trip row.
     """
     digest = hashlib.sha256()
     fixture_path = directory / "fixture.json"
     if fixture_path.exists():
+        resolved = calendar_pin.pin(json.loads(fixture_path.read_text(encoding="utf-8")), today)
         digest.update(b"fixture.json\0")
-        digest.update(fixture_path.read_bytes())
+        digest.update(json.dumps(resolved, sort_keys=True).encode("utf-8"))
         digest.update(b"\0")
     for path in case_files(directory):
         digest.update(path.name.encode("utf-8"))

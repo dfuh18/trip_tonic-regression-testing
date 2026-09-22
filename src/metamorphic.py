@@ -215,3 +215,50 @@ def derive(seed: Case, derivation: Derivation) -> dict:
         ),
         "notes": derivation.notes,
     }
+
+
+def relation_coverage() -> list[tuple[str, str, int, int]]:
+    """(relation, name, eligible seeds, follow-ups) — D61's evidence.
+
+    Raw counts of the relations make the suite look arbitrary: five DIR-1 and
+    one DIR-3 invites the question why. The denominator is what answers it. A
+    relation is not applicable to every function (D22), so the opportunity to
+    use one is uneven before any choice is made, and the honest measure is use
+    against opportunity rather than against the other relations.
+    """
+    from collections import Counter
+
+    from src.cases import load_cases
+
+    cases = load_cases()
+    seeds = [c for c in cases if c.provenance == "seeded"]
+    used = Counter(c.metamorphic_relation for c in cases if c.metamorphic_relation)
+    return [
+        (rel, RELATION_NAMES[rel], sum(1 for s in seeds if rel in ELIGIBLE[s.function]), used.get(rel, 0))
+        for rel in sorted(RELATION_NAMES)
+    ]
+
+
+def relation_report() -> str:
+    """The relation table, for the expansion notebook and a run's own record."""
+    rows = relation_coverage()
+    lines = [
+        f"{'rel':<7}{'perturbation':<30}{'eligible':>9}{'used':>6}{'of opp.':>9}",
+        "-" * 61,
+    ]
+    for rel, name, opportunity, used in rows:
+        share = f"{100 * used / opportunity:.0f}%" if opportunity else "-"
+        lines.append(f"{rel:<7}{name:<30}{opportunity:>9}{used:>6}{share:>9}")
+    absent = [rel for rel, _, _, used in rows if not used]
+    if absent:
+        lines.append("")
+        lines.append(f"NOT INSTANTIATED: {', '.join(absent)} — the catalogue claims a relation the "
+                     f"suite does not exercise (D61)")
+    singles = [rel for rel, _, opportunity, used in rows if used == 1 and opportunity > 4]
+    if singles:
+        lines.append("")
+        lines.append(
+            f"single instance: {', '.join(singles)} — instantiated and exercised, but one case is not "
+            f"a sample. Nothing statistical may be claimed per-relation for these (D61)."
+        )
+    return "\n".join(lines)

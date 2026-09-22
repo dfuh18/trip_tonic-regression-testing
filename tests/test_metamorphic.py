@@ -115,10 +115,13 @@ def test_every_seed_has_its_follow_ups_and_they_all_load():
 
     cases = load_cases()
     expanded = [c for c in cases if c.provenance == "metamorphic"]
-    assert len(expanded) == 17
+    assert len(expanded) == 18
     # Every seed with follow-ups takes two, except scheduling_move_tram, which
     # takes three: both schedule_block and unschedule_block are reachable only
     # under /reschedule, so both cases that reach them derive from that seed.
+    # venue_lookup_seafood_lisbon takes a third for INV-2 (D61): it is the one
+    # seed whose words become a search_places QUERY ARGUMENT, so it is the one
+    # place a typo can reach past the model instead of being absorbed by it.
     # Three seeds have none. factual_qa_lisbon_surf_conditions was added for
     # tool coverage, is the only case that can reach get_climate_normals, and a
     # perturbation of it would buy no tool the suite does not already have. The
@@ -128,10 +131,11 @@ def test_every_seed_has_its_follow_ups_and_they_all_load():
     assert set(DERIVATIONS) <= set(seeds())
     for seed_id in DERIVATIONS:
         got = sum(1 for c in expanded if c.base_case_id == seed_id)
-        assert got == (3 if seed_id == "scheduling_move_tram" else 2), seed_id
+        expected = 3 if seed_id in ("scheduling_move_tram", "venue_lookup_seafood_lisbon") else 2
+        assert got == expected, seed_id
     # 148 + 8 for factual_qa_lisbon_trip_forecast, the near-dated half of the
-    # weather pair (D54).
-    assert sum(c.repetitions_n for c in cases) == 156
+    # weather pair (D54), + 4 for the INV-2 follow-up (D61).
+    assert sum(c.repetitions_n for c in cases) == 160
 
 
 def test_no_generated_case_has_drifted_from_its_derivation():
@@ -186,3 +190,50 @@ def test_no_persona_carries_harness_commentary():
             f"{case.case_id}: user_profile is {len(case.user_profile)} characters, which is a "
             f"brief that has stopped being a brief."
         )
+
+
+def test_every_relation_in_the_catalogue_is_instantiated():
+    """D22 declares eight relations; the suite must not silently use seven.
+
+    INV-2 had none. Nothing failed, because nothing checks a catalogue against
+    itself — and a coverage argument that names eight relations while
+    exercising seven is exactly the kind of overstatement D52 was about. If a
+    relation is genuinely not worth testing, it should be removed from the
+    catalogue and argued for, not quietly skipped.
+    """
+    from collections import Counter
+
+    from src.metamorphic import RELATION_NAMES as RELATIONS
+
+    got = Counter(c.metamorphic_relation for c in load_cases() if c.metamorphic_relation)
+    missing = sorted(set(RELATIONS) - set(got))
+    assert not missing, (
+        f"the catalogue declares {sorted(RELATIONS)} but no case instantiates {missing}. "
+        f"Add one, or remove the relation from D22's catalogue and say why."
+    )
+
+
+def test_a_relation_is_never_used_where_it_is_not_eligible():
+    """The defence of the uneven distribution rests on the eligibility matrix,
+    so the matrix has to actually bind (D61)."""
+    from src.metamorphic import ELIGIBLE
+
+    seed_by_id = seeds()
+    for case in load_cases():
+        if not case.metamorphic_relation:
+            continue
+        seed = seed_by_id[case.base_case_id]
+        assert case.metamorphic_relation in ELIGIBLE[seed.function], (
+            f"{case.case_id} applies {case.metamorphic_relation} to a {seed.function} seed, "
+            f"which D22 does not permit"
+        )
+
+
+def test_the_relation_report_states_its_own_limitation():
+    """A single-instance relation must say so in the evidence, not only in
+    prose — the limitation has to travel with the numbers."""
+    from src.metamorphic import relation_report
+
+    out = relation_report()
+    assert "single instance" in out
+    assert "not a sample" in out

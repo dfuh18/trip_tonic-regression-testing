@@ -650,11 +650,23 @@ def check_run(run_id: str, *, persist: bool = True) -> list[tuple[dict, Verdict]
         .execute()
         .data
     )
-    by_key = {(r["case_id"], r["repetition"]): r for r in rows}
-    loaded: dict[tuple[str, int], Any] = {}
+    # A repetition may have more than one attempt since D53, so (case,
+    # repetition) stopped identifying a row. A SEED is looked up by its highest
+    # attempt — that is the one that describes the agent, and comparing a
+    # follow-up against a seed's refused attempt would compare it to nothing.
+    by_key: dict[tuple[str, int], dict] = {}
+    for r in rows:
+        key = (r["case_id"], r["repetition"])
+        if key not in by_key or (r.get("attempt") or 1) > (by_key[key].get("attempt") or 1):
+            by_key[key] = r
+    # The memo, however, is keyed by the ATTEMPT as well. Keyed without it, the
+    # second attempt of a repetition was served the first attempt's execution
+    # out of the cache — so a repetition that the provider refused and that then
+    # succeeded was reported as still failing, with the refusal's own findings.
+    loaded: dict[tuple[str, int, int], Any] = {}
 
     def execution_for(row: dict):
-        key = (row["case_id"], row["repetition"])
+        key = (row["case_id"], row["repetition"], row.get("attempt") or 1)
         if key not in loaded:
             base_row = (
                 by_key.get((row["base_case_id"], row["repetition"]))

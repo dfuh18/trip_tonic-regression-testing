@@ -26,8 +26,11 @@ next repetition it has not recorded.
 
 from __future__ import annotations
 
+import json
+
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from datetime import datetime, timezone
 from typing import Callable, Optional
 
@@ -140,7 +143,9 @@ def open_run(
     concurrency: int = 1,
 ) -> str:
     versions = app_versions(token)
+    serving = serving_api()
     row = {
+        **serving,
         "model_version": versions["model_version"],
         "model_released_on": versions.get("model_released_on"),
         "prompt_version": versions.get("prompt_version"),
@@ -159,6 +164,53 @@ def open_run(
     if concurrency != 1:
         row["notes"] = f"{row['notes']} [concurrency {concurrency}]"
     return db.admin().table("study_runs").insert(row).execute().data[0]["id"]
+
+
+def serving_api(log: Callable[[str], None] = print) -> dict[str, Optional[str]]:
+    """What the API process on the other end actually is (D63).
+
+    Asked of the RUNNING server rather than read from the repository, because
+    those are different questions and once gave different answers: a full
+    suite ran against a stale dev server whose code predated the fix under
+    test, and every number in it described the old behaviour while the run row
+    pointed at the new commit.
+
+    A mismatch is a warning and not an abort: a deliberate run against a
+    deployed build is legitimate, and only the operator knows which they meant.
+    Saying it out loud is the part that was missing.
+    """
+    import subprocess
+
+    import httpx
+
+    from src.config import settings
+
+    info: dict[str, Optional[str]] = {"api_version": None, "api_commit": None, "app_version": None}
+    try:
+        base = settings.API_BASE_URL.rstrip("/").removesuffix("/api")
+        health = httpx.get(f"{base}/health", timeout=10).json()
+        info["api_version"] = health.get("version")
+        info["api_commit"] = health.get("commit")
+    except Exception as exc:
+        log(f"    WARNING could not read the API's /health — api_version unrecorded ({exc})")
+
+    web_pkg = Path(__file__).resolve().parents[3] / "apps" / "web" / "package.json"
+    try:
+        info["app_version"] = json.loads(web_pkg.read_text(encoding="utf-8")).get("version")
+    except Exception:
+        pass
+
+    try:
+        head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True,
+                              check=True).stdout.strip()[:12]
+    except Exception:
+        head = None
+    served = info["api_commit"]
+    if head and served and served != "unknown" and not head.startswith(served)             and not served.startswith(head):
+        log(f"    WARNING the API serving this run was built from {served}, but the working tree "
+            f"is {head}. This run does NOT measure the code on disk — restart the API, or accept "
+            f"that the record's git_sha and its api_commit disagree.")
+    return info
 
 
 def _prompt_version() -> str:

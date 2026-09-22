@@ -31,6 +31,165 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D65 — The attempt is part of an execution's identity, everywhere that reads one
+Date: 2026-09-22 · Decided by: agent (a defect in D53's own rule, not a new choice)
+D53 added `attempt` and stated that a reader takes the highest per repetition.
+Three readers did not, because they predated it and `(case_id, repetition)` had
+identified a row for the whole project until then:
+  - `scoring.score_run` scored BOTH attempts (fixed with D59's commit),
+  - `checker.check_run` memoised executions by `(case, repetition)`, so the
+    second attempt was served the first one's execution out of the cache — a
+    repetition the provider refused and that then SUCCEEDED was reported as
+    still failing, carrying the refusal's findings,
+  - `tables.structural` indexed by `(case, repetition)` and drew two
+    identical-looking rows for one repetition.
+The checker one was the serious one: it is a false regression of the kind D30
+calls the worse error, and it was invisible because the wrong verdict looked
+exactly like a real failure. Found by drawing the table, which is the argument
+for drawing tables.
+Fixed by keying the memo on the attempt and looking a SEED up by its highest
+attempt — comparing a follow-up against a seed's refused attempt compares it to
+nothing. Both now under test.
+Affects: src/checker.py · src/tables.py · tests/test_tables.py
+Reverses: none (completes D53)
+
+### D64 — Every report exists as text and as a frame
+Date: 2026-09-22 · Decided by: agent (presentation; reversible by editing a file)
+Options: keep the fixed-width text everywhere · replace it with DataFrames ·
+build both from one source
+Chosen: both, from one source. `src/tables.py` returns DataFrames for the
+relation coverage, the eligibility grid, the tool coverage, the failure
+diagnosis, a judge pass and the case set; the existing `report()` functions
+still return text.
+Reason: the two audiences want different things and neither can use the
+other's. A run's log has to survive a terminal, a redirected file and a reader
+with no Python, so it stays text. A notebook is published alongside the thesis,
+and there a fixed-width block cannot be sorted, filtered or styled and renders
+as an escaped string — the worst of both. The frames are built from the same
+functions as the text, and a test asserts they agree, so the notebook and the
+run log cannot come to make different claims about one suite.
+pandas is imported inside each function: the runner must not acquire a
+dependency because a notebook wanted a nicer table.
+The eligibility grid is the one that earns its place. As a list per function it
+answered "what may this function take"; as a grid it answers the question a
+reader actually has — *why does this relation have so few cases* — because the
+blanks under `advisory` and `factual_qa` for DIR-2/3/4 are the whole defence of
+the uneven distribution, visible at a glance.
+Affects: src/tables.py (new) · tests/test_tables.py · notebooks/sim/02_expand.ipynb
+Reverses: none
+
+### D63 — Both apps carry a real version, bumped automatically, and the API's is read from the running process
+Date: 2026-09-22 · Decided by: author
+Options: log the package.json versions as they stand · derive a version from
+git · log the commit only and drop the idea · adopt real versions and force a
+bump on every commit
+Chosen: the last. Both apps start at **0.1.0** and `.githooks/pre-commit` bumps
+the patch number of whichever app the commit touches. The run row records
+`api_version`, `api_commit` and `app_version`.
+Reason: asked for a version number, the honest first answer was that there
+wasn't one. `apps/api` sat at `1.0.0` (the `npm init` default) and `apps/web` at
+`0.0.1` (the template's), each touched exactly once in 377 commits, with zero
+git tags. Logging those would have recorded a **constant that looks like a
+version** — strictly worse than logging nothing, because a reader of the run
+table would reasonably conclude two runs with `api_version = 1.0.0` exercised
+the same API. Deriving from `git describe` was rejected as it would just be the
+commit again until tags exist; a bump per commit costs no discipline and gives
+each app a monotonic counter. It is scoped to the app the commit touched,
+because bumping the web app for an API-only change would make the number noise
+again.
+**`api_version` and `api_commit` are read from the running API's `/health`, not
+from the repository, and that is the point of the field.** A full 27-case suite
+was once measured against a stale dev server: the code on disk carried the fix
+under test, the process on port 3001 predated it, and the run row's `git_sha`
+pointed confidently at the new commit. The record could not have revealed it,
+because every version in it was read from the same working tree that was
+already known to be right. The harness now warns when `api_commit` and
+`git_sha` disagree — a warning and not an abort, since running against a
+deployed build is legitimate and only the operator knows which was meant.
+`app_version` is read from the repository, since the harness never calls the web
+app and there is no process to ask.
+Older runs stay NULL rather than being backfilled with a number that was never
+true.
+Affects: apps/api/src/lib/build-info.ts (new) · apps/api/src/app.ts (/health) ·
+apps/api/package.json · apps/web/package.json · .githooks/pre-commit ·
+supabase/migrations/20260922164500_study_run_app_versions.sql · src/runner.py
+Reverses: none
+
+### D62 — suite_version hashes the fixture as resolved, not as stored
+Date: 2026-09-22 · Decided by: author
+Options: keep hashing the file and document the caveat · hash the resolved
+fixture · add the resolved dates as a separate run field
+Chosen: hash the resolved fixture.
+Reason: a consequence of D55 that the pin itself did not chase. `suite_version`
+hashes `cases/fixture.json`, but since the pin that file holds a **template**
+and the trip actually built is it placed on the next upcoming November. So two
+runs a year apart would have carried the same suite version while running
+against different calendars — precisely the case the hash exists to
+distinguish, and the one its own docstring promised to catch ("the same case
+text against a different starting trip is a different test"). A field that
+asserts something it no longer guarantees is worse than one that asserts less.
+The near-dated case (D54) is deliberately excluded: its trip is resolved
+relative to the run, so folding it in would move the suite version every day and
+make two runs in the same week incomparable for no gain. The hash therefore
+identifies the fixed calendar that every other case shares, and that one case's
+calendar is recoverable from its own trip row. Tested both ways — the version
+moves across the pin boundary and is stable within it.
+Affects: src/cases.py (`suite_version`) · src/calendar_pin.py (tolerates a
+partial fixture, so hashing a stub cannot crash) · tests/test_calendar_pin.py
+Reverses: none (completes D55)
+
+### D61 — Every relation is instantiated, and the uneven distribution is defended by its denominator
+Date: 2026-09-22 · Decided by: author
+Options: leave INV-2 uninstantiated and say typos are weak · remove INV-2 from
+D22's catalogue · instantiate it once, on the seed where it can actually fail
+Chosen: instantiate it once, on `venue_lookup_seafood_lisbon`.
+Reason: the author noticed INV-2 had **zero** cases while D22's catalogue names
+eight relations. Nothing failed, because nothing checked the catalogue against
+itself — and a coverage argument that claims eight relations while exercising
+seven is the same overstatement D52 was about. Removing it from the catalogue
+was the honest alternative, but the relation is not worthless, only
+*misplaced*: a typo is weak wherever the text is read by the model alone (that
+is what language models are good at), and is NOT weak where the text becomes a
+**tool argument**. A venue lookup's words go into a `search_places` query, so
+'sodre' and 'seafod' are handed to the Places API rather than merely
+understood. That is the one place in the suite where a typo can reach past the
+model, and it is where the case now sits. The dropped diacritic is the
+load-bearing part: it lands on the anchor `places_near` measures from, so a
+failure is a failure of location rather than of taste.
+If it passes 8/8, that is the finding, and the relation is reported as one the
+agent is insensitive to — which is worth more than omitting it and leaving a
+reader to wonder whether it was tried.
+
+**On the uneven distribution.** The raw counts (DIR-1 five, DIR-3 one, INV-2/3/4
+one each) look arbitrary and were undefended. The denominator is the defence,
+and it is now computed rather than asserted (`metamorphic.relation_report()`):
+
+    DIR-1  eligible 9  used 5  56%      INV-1  eligible 11  used 4  36%
+    DIR-2  eligible 4  used 3  75%      INV-2  eligible 11  used 1   9%
+    DIR-3  eligible 4  used 1  25%      INV-3  eligible 11  used 1   9%
+    DIR-4  eligible 4  used 2  50%      INV-4  eligible 11  used 1   9%
+
+Two things follow. First, the unevenness is largely **forced by D22's
+eligibility matrix, not chosen**: DIR-2/3/4 are eligible on four seeds rather
+than eleven, because "change the day" and "change the count" are not
+perturbations of *what happened in the 1755 earthquake*. Equal raw counts would
+require applying relations where they are nonsense. Second, where there was a
+choice, **directional relations were preferred** — 25–75% of opportunity against
+9–36% for invariance — and deliberately: a directional relation asserts a
+*changed* outcome and can fail in a specific, checkable way, while an invariance
+relation asserts sameness, which is what an LLM is most robust to. A suite
+weighted toward invariance would report its own insensitivity as coverage.
+
+**The residual limitation is stated, not dressed up.** INV-2, INV-3 and INV-4
+sit at one case each. That is a floor chosen to keep the catalogue instantiated,
+not a sample, and nothing statistical may be claimed per-relation for them. The
+report prints that warning itself, so the limitation travels with the evidence
+rather than living only in prose. §3.7 should carry it.
+Affects: cases/derivations.py (`SEAFOOD_TYPOS`) · the generated case ·
+src/metamorphic.py (`relation_coverage`, `relation_report`) ·
+tests/test_metamorphic.py (a relation with no case now fails the suite)
+Reverses: extends D21's budget again, as D50 and D51 already did
+
 ### D60 — The capacity retry gets a clock budget, and latency is read per population
 Date: 2026-09-22 · Decided by: author
 Options (retry): cap the total backoff, keep six attempts · cut attempts to

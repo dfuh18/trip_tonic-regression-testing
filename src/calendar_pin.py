@@ -69,7 +69,10 @@ def pinned_start(template_start: date, today: date | None = None) -> date:
 
 
 def delta_for(fixture: dict[str, Any], today: date | None = None) -> timedelta:
-    template = date.fromisoformat(fixture["trip"]["start_date"])
+    start = fixture.get("trip", {}).get("start_date")
+    if not start:
+        return timedelta(0)
+    template = date.fromisoformat(start)
     return pinned_start(template, today) - template
 
 
@@ -90,10 +93,15 @@ def shift(fixture: dict[str, Any], delta: timedelta) -> dict[str, Any]:
     client it has no need for.
     """
     out = copy.deepcopy(fixture)
+    # Shift only what is there. The real fixture has all of these; a caller
+    # hashing a partial one (suite_version over a directory that holds a stub)
+    # must not crash, because refusing to hash is worse than hashing less.
     for key in ("start_date", "end_date"):
-        out["trip"][key] = (date.fromisoformat(fixture["trip"][key]) + delta).isoformat()
-    for slot, original in zip(out["slots"], fixture["slots"]):
-        slot["day_date"] = (date.fromisoformat(original["day_date"]) + delta).isoformat()
+        if fixture.get("trip", {}).get(key):
+            out["trip"][key] = (date.fromisoformat(fixture["trip"][key]) + delta).isoformat()
+    for slot, original in zip(out.get("slots") or [], fixture.get("slots") or []):
+        if original.get("day_date"):
+            slot["day_date"] = (date.fromisoformat(original["day_date"]) + delta).isoformat()
     return out
 
 
