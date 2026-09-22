@@ -1,0 +1,75 @@
+case_id: factual_qa_lisbon_trip_forecast
+base_case_id: null
+provenance: seeded
+run_priority: 1
+function: factual_qa
+user_profile: Marta, 34, packing the night before. Asks what the weather will do while they are there
+  and wants the days, not a paragraph.
+goal: Know what the weather is doing in Lisbon during the trip itself. She wants the day-by-day figures
+  for the trip's own days; if Tonic offers to change anything on the trip she says no thanks.
+opening_turn: '@Tonic what''s the weather going to be like while we''re there?'
+intent: null
+expected_tool_sequence: []
+declared_constraints:
+  checks:
+    tools_any_of:
+    - get_weather
+    tool_errors: corrected
+    tool_counts:
+      get_weather:
+        min: 1
+        max: 2
+      get_region_climate:
+        min: 0
+        max: 1
+      get_climate_normals:
+        min: 0
+        max: 1
+    turn_errors: none
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 0
+      ai_suggestions.INSERT: 0
+    trip_after:
+      blocks: fixture
+      slots: fixture
+  predicates: []
+scoring_criteria:
+- Answers about the trip's own days rather than about today or the coming week.
+- Answers day by day rather than with a single summary figure.
+- Gives both a temperature and some sense of rain for each day.
+- Presents it as a forecast for those days, not as a typical or average November.
+fixture_dates: near
+references:
+- title: Lisbon
+  section: get_weather(38.7071, -9.1358, trip start, trip end) - the shape a forecast reply has available
+  path: lisbon_forecast_shape.md
+repetitions_n: 8
+metamorphic_relation: null
+fixture_depends_on: []
+notes: 'The pair to factual_qa_lisbon_forecast_next_days, and the only case that runs on a near-dated
+  fixture (D54). Between them they cover the two branches the rewritten get_weather instruction has: this
+  one asks about the trip and must be answered from the TRIP dates, the other asks about the next few
+  days and must be answered from TODAY. A single case cannot test both, because the whole question is
+  which reference the agent picks, and a case that does not say which period it means cannot mark either
+  answer wrong.
+
+  Its trip starts three days out precisely so the two branches stay distinguishable: on a trip starting
+  today, "while we''re there" and "the next few days" are the same range, and an agent picking the wrong
+  reference would pass anyway. Three days also puts the whole four-day trip inside the sixteen-day forecast
+  horizon, which is what makes the during-the-trip path reachable at all - on the fixed November fixture
+  it is not, and was not, and every get_weather call in a twenty-seven case run returned a 400 because
+  of it.
+
+  The cost of the near fixture is stated in D54 and worth repeating here: this case''s trip is on a different
+  calendar in every run, so its digest differs run to run and two runs cannot be shown to have started
+  from the same days. That is not a property a forecast case can have - a forecast is only obtainable
+  within sixteen days of being asked for - so it is given up deliberately rather than worked around. Nothing
+  else in the suite is affected: every other case stays on the fixed calendar, which is pinned to the
+  next upcoming November (D55).
+
+  fixture_depends_on is empty and must stay empty: the loader refuses a day anchor on a near-dated case,
+  because the day it names would be checked against November and built against next week. The criteria
+  say "the trip''s own days" rather than naming any, and the judge is shown the calendar the case actually
+  ran on.'

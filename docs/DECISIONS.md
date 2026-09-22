@@ -31,6 +31,168 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D58 — The Belem search_places cap goes to four
+Date: 2026-09-22 · Decided by: author
+Options: leave it at three · raise the seed's cap to four · raise only the
+follow-up's
+Chosen: four, on the seed, which is where the bound lives.
+Reason: D50's coverage report flagged it — `scheduling_belem_morning__dir2_on_the_9th`
+used exactly three of three, so a correct agent that searched once more would
+have failed the case. That is a false regression, which D30 rules the worse of
+the two constraint errors, and a bound sitting exactly on observed behaviour is
+one run away from producing one.
+Raised on the seed rather than on the follow-up alone: DIR-2 changes the day and
+nothing else, and a perturbation that also carries a different tool budget stops
+being a clean directional claim. `__dir3_a_full_day` keeps its own cap of seven,
+which it declares for its own reason (a full day is more searching than a
+morning). Instrument working as intended: the report exists to surface a bound
+with no headroom before a run depends on it.
+Affects: cases/scheduling_belem_morning.yaml · the regenerated
+cases/scheduling_belem_morning__dir2_on_the_9th.yaml
+Reverses: none
+
+### D57 — Tonic is told what day it is
+Date: 2026-09-22 · Decided by: author (found while verifying D56)
+Options: leave it and word the weather cases around it · pass today's date only
+to the weather tools · put today's date in the system prompt
+Chosen: the system prompt. Every turn now opens with today's date, spelled out
+and in ISO, plus an instruction to resolve relative dates against it and to
+distrust a date the member asserts that contradicts it.
+Reason: D56's rewrite did not work, and the reason it did not work is that the
+agent had no idea what day it was. Nothing dated reached it except the trip, so
+"the next couple of days" had only the trip's own November dates to resolve
+against — it asked for a forecast seven weeks out, and when the simulated member
+pushed back it accepted an invented "today is May 18" at face value and
+requested forecasts for 2024 and 2025. Telling it to use TODAY as the reference
+is not an instruction it could follow.
+This is the more fundamental of the two findings and its reach is wider than
+weather: whether a trip is tomorrow or in seven weeks is what decides forecast
+versus climate average, whether a date is in the past, and what "this week"
+means. The suite found it because a weather case was the first thing that forced
+the agent to say which calendar it was answering about.
+The conflicting instruction was fixed in the same pass: "will it be rainy" had
+been routed to `get_region_climate` unconditionally, so a trip three days out was
+answered with September averages. That line is now explicitly about a month or a
+season and defers to `get_weather` inside the sixteen-day horizon.
+Measured effect, same cases, same day: `factual_qa_lisbon_forecast_next_days`
+1/10 → 10/10 in one turn; `factual_qa_lisbon_trip_forecast` 3/10 → 9/10. Across
+both, `get_weather` made one call each with **zero** errors — the first
+error-free calls of that tool in the record.
+**A change to how the application handles a request** (root CLAUDE.md rule 4),
+same authorisation and same caveat as D56: taken before any baseline exists, so
+no recorded run is invalidated, and not to be repeated once the baseline is
+fixed.
+Affects: apps/api/src/routes/ai/agent/agent.prompts.ts
+Reverses: none (completes D56, which was necessary but not sufficient)
+
+### D56 — get_weather is told which calendar to answer about
+Date: 2026-09-22 · Decided by: author
+Options: leave the instruction and drop the forecast case as unpassable · widen
+the case until the existing behaviour passes · rewrite the instruction so the
+member's own wording picks the reference
+Chosen: rewrite it. The agent now orders three cases explicitly — near-term
+wording ("the next few days", "tomorrow") means TODAY is the reference; a
+question about the trip means the trip's dates; no dates set or genuinely
+ambiguous means ask before calling. Beyond the sixteen-day horizon it is sent to
+`get_region_climate` and told to say those are averages, not a forecast.
+Reason: the old line said "use get_weather for upcoming conditions during the
+trip dates", full stop. Measured consequence: across 118 recorded executions
+every single `get_weather` call returned `Open-Meteo error: 400`, because the
+fixture trip sat seven weeks out and a forecast reaches sixteen days. The tool
+was exercised constantly and its working path never once — a hole the suite
+could see (D51 added the seed for exactly this) but could not fix from the case
+side, because no wording of a case changes what the prompt tells the agent to
+do. The horizon rule is part of the same fix and not an extra: without it the
+far-dated case still routes to a call that cannot succeed.
+**This is a change to how the application handles a request** — root CLAUDE.md
+rule 4 — taken knowingly and before any baseline exists, so no recorded run is
+invalidated. It must not be repeated after the baseline is fixed.
+Also changed, in the same spirit: `getWeatherForecast` now refuses an
+out-of-horizon date itself, with a message naming the climate tools, instead of
+passing Open-Meteo's bare `400` on. A `400` reads as transient and the agent was
+retrying the identical call; a tool's error text is the agent's only view of it.
+Affects: apps/api/src/routes/ai/agent/agent.prompts.ts ·
+apps/api/src/routes/ai/lib/weather.ts (+ tests) · the two weather cases
+Reverses: none
+
+### D55 — The fixture trip is pinned to the next upcoming November
+Date: 2026-09-22 · Decided by: author
+Options: keep the hard-coded 2026 dates · roll the year and keep the day of the
+month · roll to the next upcoming November preserving the weekday
+Chosen: the weekday. `cases/fixture.json` is a **template**; the trip built is
+that shape placed on the next November still ahead of today.
+Reason: hard-coded dates make the fixture a past trip from December 2026
+onward, and every reply grounded in "your trip next month" would then be about
+a trip that already happened — wrong in a way nothing in the suite checks for.
+Preserving the weekday rather than the day number is forced by the cases: seven
+say "Saturday" or "the Sunday" in the member's own words while their checks name
+a date, and the two agree only because 2026-11-07 *is* a Saturday. Rolling the
+year and keeping the 6th makes it a Sunday in 2027, and every scheduling case
+would then ask for one day and assert another — the suite reporting a
+regression that is really a stale fixture. Keeping the weekday costs the day
+number instead, which one case names ("put it on the 9th"); that case is
+refused **by name at load time** rather than failed at run time, so the day the
+pin first moves, the suite says which file to reword.
+Case files move with the fixture: the loader shifts every date inside the
+template's range by the same delta, so a check, an anchor and the built trip
+name the same day. Prose cannot be shifted, which is what the ordinal guard is
+for. Verified to 2040: the weekday holds, the trip stays inside November, and
+only that one case is ever refused.
+Affects: src/calendar_pin.py (new) · src/cases.py · src/fixture.py ·
+tests/test_calendar_pin.py
+Reverses: none. No-op on the day it was taken — November 2026 is still ahead —
+so it changes no run in this study round.
+
+### D54 — One case runs on a near-dated fixture
+Date: 2026-09-22 · Decided by: author
+Options: one weather case on the fixed calendar · a second fixture file · a
+per-case `fixture_dates` variant that moves the same trip
+Chosen: the variant. `fixture_dates: near` moves the fixture trip to start three
+days from the run; every other case keeps the fixed November calendar.
+Reason: a forecast exists only within sixteen days of being asked for, so no
+fixed date can test the during-the-trip path and still be inside the window next
+month. The two weather cases then cover the two branches D56 created — one asks
+about the trip and must be answered from the trip's dates, one asks about the
+next few days and must be answered from today — and neither can test that
+alone, because what is being checked is which reference the agent picks. Three
+days out, not zero, so the two branches stay distinguishable: on a trip starting
+today the two questions name the same range and a wrong pick would pass.
+A second fixture file was rejected as two trips to keep in step and two sets of
+anchors for cases to name; the variant preserves the shape exactly and moves
+only the calendar.
+**Cost, stated rather than hidden:** that case's trip differs run to run, so its
+digest does too and two runs cannot be shown to have started from the same days.
+Invariant 1 still holds in the sense that matters — the gate computes expected
+and observed from the same function, so it still proves the trip is exactly what
+was asked for. It just cannot prove two runs shared a calendar, which for a
+forecast is not a property that can exist. Confined to one case by design; the
+loader refuses a day anchor on a near-dated case.
+Affects: src/cases.py (`fixture_dates`) · src/fixture.py (`for_case`) ·
+src/runner.py · src/judge.py (the judge is shown the calendar the case ran on)
+Reverses: none
+
+### D53 — A repetition the provider refused is attempted once more
+Date: 2026-09-22 · Decided by: author
+Options: keep D44 as-is (a refusal is a failure of the case) · retry until it
+succeeds · one extra attempt, both kept
+Chosen: one extra attempt, and both rows stay in the record. `attempt` starts
+at 1; the pass rate reads the highest attempt per repetition, the superseded
+rows are the platform-failure rate.
+Reason: D44 ruled a lost execution counts as a failure, and measurement then
+put a number on that ruling — 3.8% of 133 executions failed on a provider 429
+or 504, which under D23's 8/8 is roughly a 27% chance of losing any given seed
+per baseline run to something that is not the agent. Two or three seeds of ten
+per run, and a published pass rate with the provider's availability inside it.
+It is deliberately **not** a general retry. D45 gave capacity its own status, so
+the trigger is precise: 503 (provider busy) and 504 (timeout) are re-run, 502 —
+the agent failing to produce a reply, or exhausting its reasoning limit — is
+not. Retrying that would launder a real failure into a pass.
+Both attempts are kept because they are evidence about different things, and
+merging them loses the refusal entirely.
+Affects: supabase/migrations/20260922075028_study_execution_attempt.sql ·
+src/runner.py
+Reverses: refines D44 (the failure policy stands; the sampling changes)
+
 ### D52 — The negation case names the stop it removes, and coverage stops overstating itself
 Date: 2026-09-22 · Decided by: agent, on a third review round
 Chosen: three additions, each closing a defect a review found and measurement

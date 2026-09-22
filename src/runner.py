@@ -33,7 +33,7 @@ from typing import Callable, Optional
 
 import httpx
 
-from src import auth, db, reset
+from src import auth, fixture, db, reset
 from src.auth import SimUser
 from src.cases import Case, by_priority, load_cases, suite_version
 from src.config import settings
@@ -52,10 +52,34 @@ class SimulatorFailed(RuntimeError):
     """The simulator's own model call failed — the harness, not the agent."""
 
 
+#: How many executions a smoke run does at once. Four is chosen against the
+#: provider rather than the machine: the executions are almost all waiting, and
+#: the ceiling that matters is Vertex's shared capacity, not local CPU.
+SMOKE_CONCURRENCY = 4
+
 #: Consecutive simulator failures before the run gives up. One is an upstream
 #: hiccup; three in a row is the simulator being down, and continuing would
 #: spend the budget recording nothing.
 MAX_CONSECUTIVE_SIMULATOR_FAILURES = 3
+
+#: One extra attempt when the PROVIDER refused a repetition (D53). Not a
+#: general retry: an agent that hit its reasoning limit or returned an empty
+#: reply has failed, and re-running it would launder a real failure into a
+#: pass. The distinction is available because D45 gave capacity its own status
+#: — 503 for "the model provider was busy", 504 for a timeout, 502 for the
+#: agent failing to answer.
+MAX_ATTEMPTS_PER_REPETITION = 2
+PROVIDER_REFUSAL_STATUSES = ("503", "504")
+
+
+def is_provider_refusal(error: Optional[str]) -> bool:
+    """Did the provider refuse this, as opposed to the agent failing it?
+
+    Measured reason for caring: 3.8% of executions are lost this way, and
+    under D23's 8/8 that is a ~27% chance of losing a seed per baseline run to
+    something that is not the agent.
+    """
+    return bool(error) and any(s in error for s in PROVIDER_REFUSAL_STATUSES)
 
 
 @dataclass
@@ -79,7 +103,14 @@ def app_versions(token: str) -> dict:
     return r.json()
 
 
-def open_run(user: SimUser, token: str, cases: list[Case], baseline_ref: Optional[str], notes: str = "") -> str:
+def open_run(
+    user: SimUser,
+    token: str,
+    cases: list[Case],
+    baseline_ref: Optional[str],
+    notes: str = "",
+    concurrency: int = 1,
+) -> str:
     versions = app_versions(token)
     row = {
         "model_version": versions["model_version"],
@@ -94,6 +125,11 @@ def open_run(user: SimUser, token: str, cases: list[Case], baseline_ref: Optiona
         "judge_model": settings.JUDGE_MODEL,
         "notes": notes or f"{len(cases)} cases, pricing {PRICING_VERSION}",
     }
+    # Concurrency belongs in the record: a run made four-at-a-time and one made
+    # serially do not have comparable latency or failure rates, and a reader
+    # with only the numbers cannot tell which is which.
+    if concurrency != 1:
+        row["notes"] = f"{row['notes']} [concurrency {concurrency}]"
     return db.admin().table("study_runs").insert(row).execute().data[0]["id"]
 
 
@@ -146,6 +182,7 @@ def execute_case(
     simulator: Simulator,
     log: Callable[[str], None],
     provisioned: Optional[reset.ResetResult] = None,
+    attempt: int = 1,
 ) -> dict:
     """One repetition: provision, gate, simulate, collect, record.
 
@@ -154,11 +191,14 @@ def execute_case(
     caller hand over a trip it already built and gated — the run's own opening
     gate, which must pass before there is a run row at all (D03).
     """
-    rebuilt = provisioned or reset.provision(handle.user, handle.token, f"{case.case_id} r{repetition}")
+    trip_fixture = fixture.for_case(case)
+    rebuilt = provisioned or reset.provision(
+        handle.user, handle.token, f"{case.case_id} r{repetition}", fixture=trip_fixture
+    )
     trip_id = rebuilt.trip_id
     if provisioned is None:
         try:
-            reset.assert_clean(trip_id)
+            reset.assert_clean(trip_id, fixture=trip_fixture)
         except reset.DirtyState as exc:
             raise RunAborted(str(exc)) from exc
 
@@ -190,6 +230,7 @@ def execute_case(
         "provenance": case.provenance,
         "run_priority": case.run_priority,
         "repetition": repetition,
+        "attempt": attempt,
         "repetitions_n": case.repetitions_n,
         "session_id": handle.user.session_id,
         "trip_id": trip_id,
@@ -211,7 +252,9 @@ def execute_case(
         "finished_at": _now(),
     }
     db.admin().table("study_case_executions").insert(row).execute()
-    line = (f"{case.case_id} rep {repetition}: {len(result.turns)} turn(s), stopped={result.stopped}, "
+    line = (f"{case.case_id} rep {repetition}"
+            + (f" attempt {attempt}" if attempt > 1 else "")
+            + f": {len(result.turns)} turn(s), stopped={result.stopped}, "
             f"mutations={len(collected['mutations'])}, cost={cost:.4f}, {row['latency_ms'] // 1000}s")
     log(line)
     # Also on disk: a run left unattended must be observable from outside its process.
@@ -219,10 +262,44 @@ def execute_case(
     return row
 
 
+def smoke(log: Callable[[str], None] = print) -> str:
+    """Every seed once, in parallel — fast feedback, not a measurement.
+
+    A regression suite that takes two hours is a suite nobody runs before
+    lunch, so this exists to answer one question quickly: does the agent still
+    do the basic things? Seeds only (they are the minimum-functionality cases,
+    §3.1 P7), one repetition each, run concurrently.
+
+    **It is not the baseline and must never be used as one**, for two reasons
+    that have nothing to do with correctness. Latency, tokens and retry counts
+    measured under contention are not the same quantity as measured serially,
+    and Q22 defers bounding them until a baseline says what they look like —
+    comparing a parallel run with a sequential one would compare two different
+    machines. And parallelism multiplies our request rate against the
+    provider's *shared* capacity, which is the one limit the sim tier does not
+    raise, so the 429 rate rises and D44 counts every lost execution as a
+    failure of the case.
+
+    Structurally it is safe, which it was not before D38: every repetition
+    builds its own trip, so concurrent executions share no chat, no run, no
+    draft and no slots. The concurrency is recorded on the run row, so a
+    reader can tell at a glance which runs are comparable with which.
+    """
+    seeds = [c for c in load_cases() if c.provenance == "seeded"]
+    return run(
+        seeds,
+        n_override=1,
+        concurrency=SMOKE_CONCURRENCY,
+        notes=f"SMOKE {len(seeds)} seeds at n=1, concurrency {SMOKE_CONCURRENCY} — NOT a baseline",
+        log=log,
+    )
+
+
 def run(
     cases: Optional[list[Case]] = None,
     *,
     n_override: Optional[int] = None,
+    concurrency: int = 1,
     priority_only: bool = False,
     baseline_ref: Optional[str] = None,
     resume_run_id: Optional[str] = None,
@@ -251,7 +328,7 @@ def run(
     # A run that is not the baseline says so in its own row. `notes` is the
     # only field that can carry it, and a probe run mistaken for the reference
     # run later is not a mistake anything else would catch.
-    run_id = resume_run_id or open_run(user, token, cases, baseline_ref, notes)
+    run_id = resume_run_id or open_run(user, token, cases, baseline_ref, notes, concurrency)
     handle = RunHandle(run_id=run_id, user=user, token=token)
     simulator = simulator or Simulator()
     done = executions_done(run_id) if resume_run_id else set()
@@ -264,9 +341,24 @@ def run(
             if (case.case_id, repetition) in done:
                 continue
             try:
-                row = execute_case(handle, case, repetition, simulator, log, provisioned=opening)
-                opening = None  # the gate's trip belongs to the first execution only
+                # The gate's trip is on the fixed calendar, so only a case that
+                # wants that calendar may inherit it (D54); a near-dated case
+                # builds its own and the gate's trip goes to the next taker.
+                inherit = opening if case.fixture_dates == "fixture" else None
+                row = execute_case(handle, case, repetition, simulator, log, provisioned=inherit)
+                if inherit is not None:
+                    opening = None  # the gate's trip belongs to one execution only
                 simulator_failures = 0
+                # The provider gets one chance to not be busy (D53). Both
+                # attempts stay in the record: the refusal is evidence about
+                # the platform, the completed one is evidence about the agent,
+                # and merging them would lose the first.
+                for attempt in range(2, MAX_ATTEMPTS_PER_REPETITION + 1):
+                    if not is_provider_refusal(row.get("error")):
+                        break
+                    log(f"    provider refused ({row['error']}) — attempt {attempt} of "
+                        f"{MAX_ATTEMPTS_PER_REPETITION}")
+                    row = execute_case(handle, case, repetition, simulator, log, attempt=attempt)
             except SimulatorFailed as exc:
                 opening = None
                 simulator_failures += 1

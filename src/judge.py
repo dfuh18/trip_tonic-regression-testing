@@ -92,16 +92,20 @@ def _criteria(case: Case) -> str:
     return "\n".join(f"- {line.strip()}" for line in case.scoring_criteria)
 
 
-def _fixture_summary() -> str:
+def _fixture_summary(case: Optional[Case] = None) -> str:
     # Imported here: the judge's scoring logic is unit-tested without a
     # fixture file, and a module-level import would make it a hard dependency.
-    from src.fixture import load_fixture, summary
+    from src.fixture import for_case, load_fixture, summary
 
-    return summary(load_fixture())
+    # The judge is shown the calendar the case actually ran on (D54).
+    # Told November while the trip was built for next week, it would mark a
+    # correct reply down for naming the wrong days -- a false regression,
+    # which D30 rules is the worse of the two errors.
+    return summary(for_case(case) if case is not None else load_fixture())
 
 
-def _references(references: list[str]) -> str:
-    blocks = [f"--- the trip this was asked about ---\n{_fixture_summary()}"]
+def _references(references: list[str], case: Optional[Case] = None) -> str:
+    blocks = [f"--- the trip this was asked about ---\n{_fixture_summary(case)}"]
     blocks += [f"--- reference {i + 1} ---\n{text.strip()}" for i, text in enumerate(references)]
     return "\n\n".join(blocks)
 
@@ -126,7 +130,7 @@ def score_pointwise(
         user_request=user_request.strip(),
         reply=reply.strip() or "(empty reply)",
         criteria=_criteria(case),
-        references=_references(references or []),
+        references=_references(references or [], case),
     )
     out = llm.generate(rendered, "Score the reply.", json_schema=POINTWISE_SCHEMA, temperature=0.0)
     parsed = out.parsed or {}
@@ -153,7 +157,7 @@ def compare_pairwise(
     """
     llm = llm or judge_llm()
     prompt = load_prompt("judge_pairwise_v1")
-    refs = _references(references or [])
+    refs = _references(references or [], case)
     outs: list[LlmReply] = []
     orderings: list[Ordering] = []
     for candidate_as in ("B", "A"):

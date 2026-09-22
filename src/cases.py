@@ -46,6 +46,8 @@ from typing import Literal, Optional, Union
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
+from src import calendar_pin
+
 SUBTREE_ROOT = Path(__file__).resolve().parent.parent
 CASES_DIR = SUBTREE_ROOT / "cases"
 REFERENCES_DIR = CASES_DIR / "references"
@@ -583,6 +585,14 @@ class Case(BaseModel):
     #: "move the Tram 28 ride" is only a case while that stop is in the
     #: fixture. Empty means the case reads nothing off the trip.
     fixture_depends_on: list[str] = Field(default_factory=list)
+    #: Which calendar the fixture trip sits on (D54). ``fixture`` is the fixed
+    #: November trip every other case uses, and a stable calendar is most of
+    #: what makes a criterion like "the Sunday" checkable. ``near`` moves the
+    #: same trip to start a few days from the run, which exactly one kind of
+    #: case needs: a forecast is only obtainable within sixteen days of being
+    #: asked for, so no fixed date can test the during-the-trip path and still
+    #: be inside the window next month.
+    fixture_dates: Literal["fixture", "near"] = "fixture"
     #: Free text for the notebook: why this case exists, what it exercises.
     notes: Optional[str] = None
 
@@ -651,13 +661,32 @@ class Case(BaseModel):
         return self
 
 
+_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
 class CaseFileError(ValueError):
     """A case file that cannot be loaded, naming the file and what is wrong."""
 
 
 def fixture() -> dict:
-    """The trip every repetition starts from (cases/fixture.json, built by B02)."""
-    return json.loads(FIXTURE_FILE.read_text(encoding="utf-8"))
+    """The trip every repetition starts from (cases/fixture.json, built by B02).
+
+    Pinned to the next upcoming November (D55), the same way ``src.fixture``
+    pins it — two loaders on two calendars would disagree about which day an
+    anchor names, and the disagreement would surface as a gate failure.
+    """
+    return calendar_pin.pin(json.loads(FIXTURE_FILE.read_text(encoding="utf-8")))
+
+
+def _trip_day_dates() -> list[str]:
+    data = fixture()
+    start = date.fromisoformat(data["trip"]["start_date"])
+    end = date.fromisoformat(data["trip"]["end_date"])
+    out, day = [], start
+    while day <= end:
+        out.append(day.isoformat())
+        day += timedelta(days=1)
+    return out
 
 
 def fixture_anchors(data: Optional[dict] = None) -> set[str]:
@@ -723,6 +752,14 @@ def load_case(
         raise CaseFileError(f"{path.name}: not valid YAML: {exc}") from exc
     if not isinstance(raw, dict):
         raise CaseFileError(f"{path.name}: expected a mapping at the top level")
+    # Case files are written against the template calendar in the fixture file;
+    # the trip is built on the pinned one (D55). Shift the dates here, once, so
+    # every consumer downstream — checks, anchors, the checker's slot windows —
+    # sees the calendar the run actually used.
+    template = json.loads(FIXTURE_FILE.read_text(encoding="utf-8"))
+    raw = calendar_pin.shift_case_dates(
+        raw, calendar_pin.template_range(template), calendar_pin.delta_for(template)
+    )
     try:
         case = Case.model_validate(raw)
     except ValidationError as exc:
@@ -739,6 +776,31 @@ def load_case(
     for ref in case.references:
         if not (REFERENCES_DIR / ref.path).exists():
             raise CaseFileError(f"{path.name}: reference file missing: references/{ref.path}")
+    # A near-dated case's trip is on a different calendar every run, so a day
+    # anchor on it would be checked here against November and built against
+    # next week — true at load and false in the trip. Titles still hold: the
+    # shift moves dates and nothing else.
+    if case.fixture_dates == "near":
+        dated = [a for a in case.fixture_depends_on if _DAY.fullmatch(a)]
+        if dated:
+            raise CaseFileError(
+                f"{path.name}: fixture_dates 'near' cannot depend on the day(s) {dated} — a near-dated "
+                f"trip is on a different calendar every run; depend on stop titles instead"
+            )
+    # A date written out in prose ("put it on the 9th") is not a field and
+    # cannot be shifted with the rest. When the pin moves the calendar, such a
+    # case asks for a day the trip no longer has — and would fail as an agent
+    # fault. Refuse it by name instead, so the fix is obvious.
+    if case.fixture_dates == "fixture":
+        trip_days = {date.fromisoformat(d).day for d in _trip_day_dates()}
+        named = calendar_pin.ordinal_days(case.opening_turn)
+        stray = sorted(named - trip_days)
+        if stray:
+            raise CaseFileError(
+                f"{path.name}: opening_turn names day(s) {stray} of the month, but the trip runs "
+                f"{sorted(trip_days)}. The fixture is pinned to the next upcoming November (D55) and "
+                f"the day numbers moved; reword the turn, or name the weekday instead"
+            )
     anchors = fixture_anchors() if known_anchors is None else known_anchors
     unknown_anchors = [a for a in case.fixture_depends_on if a not in anchors]
     if unknown_anchors:

@@ -119,14 +119,19 @@ def test_every_seed_has_its_follow_ups_and_they_all_load():
     # Every seed with follow-ups takes two, except scheduling_move_tram, which
     # takes three: both schedule_block and unschedule_block are reachable only
     # under /reschedule, so both cases that reach them derive from that seed.
-    # factual_qa_lisbon_surf_conditions has none — it was added for tool
-    # coverage, is the only case that can reach get_climate_normals, and a
-    # perturbation of it would buy no tool the suite does not already have.
+    # Three seeds have none. factual_qa_lisbon_surf_conditions was added for
+    # tool coverage, is the only case that can reach get_climate_normals, and a
+    # perturbation of it would buy no tool the suite does not already have. The
+    # two weather-forecast seeds are each other's perturbation in the sense
+    # that matters — same tool, same question, one reference apart (D56) — and
+    # a paraphrase of either would test the wording rather than the branch.
     assert set(DERIVATIONS) <= set(seeds())
     for seed_id in DERIVATIONS:
         got = sum(1 for c in expanded if c.base_case_id == seed_id)
         assert got == (3 if seed_id == "scheduling_move_tram" else 2), seed_id
-    assert sum(c.repetitions_n for c in cases) == 140
+    # 148 + 8 for factual_qa_lisbon_trip_forecast, the near-dated half of the
+    # weather pair (D54).
+    assert sum(c.repetitions_n for c in cases) == 156
 
 
 def test_no_generated_case_has_drifted_from_its_derivation():

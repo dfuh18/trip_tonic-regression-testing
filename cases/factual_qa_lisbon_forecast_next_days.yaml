@@ -1,0 +1,85 @@
+case_id: factual_qa_lisbon_forecast_next_days
+base_case_id: null
+provenance: seeded
+run_priority: 1
+function: factual_qa
+user_profile: Marta, 34, checking in on the destination before the trip. Asks a short practical question
+  and wants the days, not a paragraph.
+goal: Know what the weather is doing in Lisbon over the next few days - now, not during the trip. She
+  wants the day-by-day figures and nothing else; if Tonic offers to change anything on the trip she says
+  no thanks.
+opening_turn: '@Tonic what''s the weather doing in Lisbon over the next couple of days?'
+intent: null
+expected_tool_sequence: []
+declared_constraints:
+  checks:
+    tools_any_of:
+    - get_weather
+    tool_errors: corrected
+    tool_counts:
+      get_weather:
+        min: 1
+        max: 2
+      get_region_climate:
+        min: 0
+        max: 1
+      get_climate_normals:
+        min: 0
+        max: 1
+    turn_errors: none
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 0
+      ai_suggestions.INSERT: 0
+    trip_after:
+      blocks: fixture
+      slots: fixture
+  predicates: []
+scoring_criteria:
+- Answers day by day rather than with a single summary figure.
+- Gives both a temperature and some sense of rain for each day.
+- Presents it as a forecast for the coming days, not as a typical or average month.
+- Answers about the next few days, and does not drift into the trip's own dates.
+references:
+- title: Lisbon
+  section: get_weather(38.7071, -9.1358, today, today+3) - the shape a forecast reply has available
+  path: lisbon_forecast_shape.md
+repetitions_n: 8
+metamorphic_relation: null
+fixture_depends_on: []
+notes: 'One half of the weather pair, with factual_qa_lisbon_trip_forecast. This one asks about the next
+  few days; that one asks about the trip. The rewritten get_weather instruction (D56) turns on exactly
+  that distinction - near-term wording means TODAY is the reference, otherwise the trip dates are - and
+  neither case can test it alone, because what is being checked is which reference the agent picks.
+
+
+  It keeps the fixed November fixture deliberately. Its trip is weeks away, so an agent that reaches for
+  the trip dates here is making the mistake the instruction was rewritten to stop, and the last criterion
+  is what catches it. That mistake was the norm before: across a hundred and eighteen recorded executions
+  every get_weather call returned ''Open-Meteo error: 400'', because the old instruction named the trip
+  dates unconditionally and the trip sat seven weeks out against a sixteen-day forecast horizon. The tool
+  was exercised constantly and its working path never once.
+
+
+  Two things changed after that run and both matter to reading this case''s history. The instruction now
+  orders the three cases (near-term wording, trip dates, ask) and says what to do beyond the horizon;
+  and the tool refuses an out-of-horizon date itself with a message naming the climate tools, rather than
+  passing Open-Meteo''s bare 400 on as something that looks retryable - the agent had been retrying the
+  identical call.
+
+
+  The reference is the tool''s output SHAPE and not its values: a forecast is true for the day it was
+  fetched and no other, and D23 settles that a stored one cannot be a reference for a later run. So the
+  criteria score form - day by day, named as a forecast rather than an average - and the claim that the
+  path works is carried by tools_any_of alone, which means the tool ran AND came back without an error
+  and without a miss, so a 400 from beyond the horizon still fails the case there. tool_errors is ''corrected''
+  rather than ''none'' because the case permits two climate probes at min 0, and D33 requires a case permitting
+  a probe to allow the agent to abandon it; ''none'' would have failed an agent for trying a source and
+  moving on.
+
+
+  It carries no slash command: free text leaves the agent its whole toolset, so choosing the forecast
+  over the climate normals is the agent''s judgement. Both climate tools are permitted at min 0 and neither
+  satisfies the case - an agent that answers ''the next couple of days'' with long-run averages has answered
+  a different question.'

@@ -30,15 +30,18 @@ scoring the criterion on vibes - is worse than telling it what the trip is.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import hashlib
 import json
-from datetime import date
+import copy
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
 import httpx
 
-from src import db
+from src import calendar_pin, db
 from src.auth import SimUser
 from src.config import settings
 
@@ -64,6 +67,41 @@ def load_fixture(path: Path = FIXTURE_FILE) -> dict[str, Any]:
     if unknown:
         raise ValueError(f"fixture schedules stops it does not define: {unknown}")
     return data
+
+
+#: How far ahead a ``near``-dated fixture starts. Three days, not zero: a trip
+#: starting today makes "during the trip" and "the next few days" the same
+#: question, and the pair of weather cases exists precisely to tell them apart.
+#: The whole trip then sits at days 3-6, well inside Open-Meteo's 16-day
+#: forecast horizon (``FORECAST_DAYS`` in apps/api/.../weather.ts).
+NEAR_TRIP_STARTS_IN_DAYS = 3
+
+
+def shift_dates(fixture: dict[str, Any], start: date) -> dict[str, Any]:
+    """The same fixture, moved so the trip starts on ``start``."""
+    return calendar_pin.shift(fixture, start - date.fromisoformat(fixture["trip"]["start_date"]))
+
+
+def for_case(case: Any, today: date | None = None) -> dict[str, Any]:
+    """The fixture a case starts from — dated fixed, or dated near (D54).
+
+    Almost every case wants the fixed November trip: a stable calendar is what
+    lets a criterion say "the Sunday" and mean it. A weather case cannot have
+    that and be answerable at once, because a forecast exists only within
+    sixteen days of the day it is asked for, and no fixed date stays inside a
+    moving window. So one case's fixture is dated relative to the run.
+
+    The cost is stated rather than hidden: that case's trip is a different trip
+    in every run, so its digest differs run to run. It is still computed from
+    this same function at both the build and the gate, so the gate still
+    proves the trip is exactly what was asked for — it just cannot prove two
+    runs started from the same calendar, which for a forecast is not a
+    property that can exist.
+    """
+    base = load_fixture()
+    if getattr(case, "fixture_dates", "fixture") != "near":
+        return base
+    return shift_dates(base, (today or date.today()) + timedelta(days=NEAR_TRIP_STARTS_IN_DAYS))
 
 
 def trip_name(fixture: dict[str, Any], user: SimUser, label: str = "") -> str:
@@ -230,38 +268,68 @@ def build_children(fixture: dict[str, Any], trip_id: str, token: str) -> dict[st
     """
     ids: dict[str, Any] = {"trip": trip_id, "regions": {}, "blocks": {}, "days": {}, "slots": {}}
     ensure_members(fixture, trip_id, token)
+
+    # Two waves, each issued concurrently, because the build is more than half
+    # the wall clock of a run and almost none of it is work: 26 executions spent
+    # 14 minutes here against 10 minutes actually exercising the agent, and a
+    # 148-execution baseline pays that 148 times.
+    #
+    # Still through the member's own API, which is the part that matters (B02):
+    # the mutation triggers fire exactly as they would for a real member, and
+    # the rows this writes are excluded from the execution by id (D38), so the
+    # order they arrive in cannot affect a check.
+    #
+    # Regions and blocks share a wave because neither depends on the other.
+    # Slots wait, because a slot needs its block's id.
     with _api(token) as api:
-        for region in fixture["regions"]:
-            r = api.post(f"/trips/{trip_id}/regions", json=region)
+        def post(path: str, body: dict):
+            r = api.post(path, json=body)
             r.raise_for_status()
-            body = r.json().get("data") or {}
-            if body.get("id"):
-                ids["regions"][region["name"]] = body["id"]
-        # Keyed by title: a stop is named the same way here, in the database,
-        # in a study_mutations projection and in a case's fixture_depends_on.
-        block_ids: dict[str, str] = {}
-        for block in fixture["blocks"]:
-            body = dict(block)
-            body["place_link"] = "unlinked"
-            r = api.post(f"/trips/{trip_id}/blocks", json=body)
-            r.raise_for_status()
-            block_ids[block["title"]] = r.json()["data"]["id"]
+            return r.json()
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            region_jobs = {
+                pool.submit(post, f"/trips/{trip_id}/regions", region): region["name"]
+                for region in fixture["regions"]
+            }
+            block_jobs = {
+                pool.submit(
+                    post, f"/trips/{trip_id}/blocks", {**block, "place_link": "unlinked"}
+                ): block["title"]
+                for block in fixture["blocks"]
+            }
+            for job in as_completed(region_jobs):
+                body = job.result().get("data") or {}
+                if body.get("id"):
+                    ids["regions"][region_jobs[job]] = body["id"]
+            # Keyed by title: a stop is named the same way here, in the
+            # database, in a study_mutations projection and in a case's
+            # fixture_depends_on.
+            block_ids: dict[str, str] = {}
+            for job in as_completed(block_jobs):
+                block_ids[block_jobs[job]] = job.result()["data"]["id"]
         ids["blocks"] = dict(block_ids)
-        for slot in fixture["slots"]:
-            r = api.post(
-                f"/trips/{trip_id}/itinerary/add-block-to-day",
-                json={
-                    "block_id": block_ids[slot["block"]],
-                    "day_date": slot["day_date"],
-                    "start_time": slot["start_time"],
-                    "end_time": slot["end_time"],
-                    "time_precision": "exact",
-                },
-            )
-            r.raise_for_status()
-            created = r.json().get("data") or {}
-            if created.get("day", {}).get("id"):
-                ids["days"][slot["day_date"]] = created["day"]["id"]
-            if created.get("slot", {}).get("id"):
-                ids["slots"][slot["block"]] = created["slot"]["id"]
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            slot_jobs = {
+                pool.submit(
+                    post,
+                    f"/trips/{trip_id}/itinerary/add-block-to-day",
+                    {
+                        "block_id": block_ids[slot["block"]],
+                        "day_date": slot["day_date"],
+                        "start_time": slot["start_time"],
+                        "end_time": slot["end_time"],
+                        "time_precision": "exact",
+                    },
+                ): slot
+                for slot in fixture["slots"]
+            }
+            for job in as_completed(slot_jobs):
+                slot = slot_jobs[job]
+                created = job.result().get("data") or {}
+                if created.get("day", {}).get("id"):
+                    ids["days"][slot["day_date"]] = created["day"]["id"]
+                if created.get("slot", {}).get("id"):
+                    ids["slots"][slot["block"]] = created["slot"]["id"]
     return ids

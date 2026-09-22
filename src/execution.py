@@ -160,7 +160,12 @@ def load(execution_row: dict, base: Optional[Execution] = None) -> Execution:
                     )
 
     build = set(execution_row.get("build_mutation_ids") or [])
-    mutations = [
+    # An execution that never started has no trip: the runner records a row for
+    # a repetition the simulator's own model call lost (D38's failure policy),
+    # and it carries no trip_id. Asking for mutations on a null trip is how a
+    # coverage report over a run containing one came back as a uuid error
+    # rather than a report.
+    mutations = [] if not execution_row.get("trip_id") else [
         m
         for m in a.table("study_mutations")
         .select("id, table_name, op, origin_kind, origin_suggestion_id, changed_keys, projection, row_id")
