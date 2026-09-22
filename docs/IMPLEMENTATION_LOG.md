@@ -45,6 +45,48 @@ fact. Rough is fine; absent is not.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### L11 — Coverage found a defect that no assertion was looking for
+Phase: B · Related tasks: B05, B08, B09
+Effort: within estimate for the fix; the finding cost about three hours of
+diagnosis that was not budgeted anywhere
+What happened: `get_weather` had been called in more than a hundred recorded
+executions and had **never once succeeded** — every call returned
+`Open-Meteo error: 400`. Nothing failed. The tool was permitted at min 0 in
+every case that could reach it, so an agent that tried it, got an error and
+answered from another source satisfied `tool_errors: corrected` and scored
+well. The suite was green over a tool that did not work. What surfaced it was
+the tool-coverage report (D50), which counts calls and errors per tool across a
+run and prints `every call errored` beside the count.
+Adding a case that required the tool (D51) turned the silence into a 1/10, and
+the 1/10 turned out not to be a case-design problem at all: the agent was never
+told the current date. Every relative date it met — "the next couple of days" —
+had only the trip's own dates to resolve against, so it asked for a forecast
+seven weeks out, past the provider's sixteen-day horizon, every time. Told by
+the simulated member that "today is May 18" it took that at face value and
+requested forecasts for 2024 and 2025.
+Why it matters: §2.6.1 treats structural verification as checking that the
+agent did the expected things. This is a case where it did — the tool ran, in
+the right place, with well-formed arguments — and the system was still broken,
+because *what the tool returned* was never part of the check. Two consequences
+for the design as specified. First, a per-tool success rate over a run is not a
+reporting nicety; it is the only thing in the pipeline that could have found
+this, and it is cheap. Second, a constraint vocabulary that can say "this tool
+may be called" but not "this tool must have worked" has a blind spot exactly
+where a tool degrades rather than disappears — which is the common way a
+third-party dependency fails.
+It also bears on the claim in §3.1 that the pipeline detects regressions in the
+artifact under study. It did, on a defect that predates the study and that
+manual use had not surfaced, because a human asking about the weather during
+their own trip next week never crosses the horizon.
+Design consequence: D50, D51, D56, D57. `tools_any_of` is the vocabulary's one
+existing way to assert a tool *succeeded* (it requires a call with no error and
+no miss), and it is now used deliberately for that rather than as a synonym for
+"was called".
+Generalises: any agent with third-party tools whose failure mode is a degraded
+answer rather than a crash. The pattern to copy is not the weather fix, it is
+counting per-tool outcomes across a run and treating "permitted, called, always
+failed" as a finding rather than as absence of evidence.
+
 ### L10 — The harness's own dependencies need the same treatment as the system under test
 Phase: B · Related tasks: B06, B07, B05
 Effort: the fix was twenty minutes; the run it killed was fifteen, and a

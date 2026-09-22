@@ -605,11 +605,27 @@ Phase: B
 Tier: [FABLE]
 Depends on: B04, B15
 Estimate: 6h
-Status: in progress (2026-09-21). `src/metamorphic.py`, the derivations in
+Status: in progress (2026-09-22). `src/metamorphic.py`, the derivations in
 `cases/derivations.py`, the generated case files, `src/coverage.py` and
-`notebooks/sim/02_expand.ipynb`. The suite is **9 seeds and 17 follow-ups, 140
+`notebooks/sim/02_expand.ipynb`. The suite is **11 seeds and 17 follow-ups, 156
 executions** — above D21's 8/16/128, which D50 and D51 rule on: the extra
-cases exist to reach tools nothing could otherwise reach. 160 tests.
+cases exist to reach tools nothing could otherwise reach. 187 tests.
+
+The eleventh seed is the second half of the weather pair (D54), and the pair is
+what B05's coverage argument was for: D51 added a seed to reach `get_weather`'s
+success path, D50's report then showed that seed failing on every call, and the
+cause was not the case. The agent was never told the current date (D57), so
+"the next couple of days" resolved against the trip's own dates — it requested a
+forecast seven weeks out, past the sixteen-day horizon, every time. Fixed in the
+prompt and the tool (D56/D57); the two cases went 1/10 → 10/10 and 3/10 → 9/10,
+with `get_weather` making one call each and zero errors. **The suite found a
+defect in the artifact under study, which is the claim §3.1 makes for it**, and
+it found it through coverage rather than through a failing assertion — worth a
+log entry when B05 closes.
+
+Also in this pass: the fixture is pinned to the next upcoming November (D55), so
+it cannot silently become a past trip, and one case runs on a near-dated fixture
+(D54) because a forecast only exists within sixteen days of being asked for.
 Two independent adversarial review rounds against
 `cases/REVIEW_CRITERIA.md` (criteria 1-24, questions A-F). The second found,
 and this fixed: two `places_named_types` assertions that would have failed

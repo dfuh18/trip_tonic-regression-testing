@@ -90,3 +90,33 @@ def test_every_other_case_survives_the_pin_moving(monkeypatch):
         except cases_mod.CaseFileError as exc:
             refused.append((path.stem, str(exc)[:80]))
     assert [r[0] for r in refused] == ["scheduling_belem_morning__dir2_on_the_9th"], refused
+
+
+def test_only_the_last_attempt_of_a_repetition_is_scored():
+    """D53 keeps both attempts; the pass rate takes the highest (see D53).
+
+    Scoring both listed a case twice and let a provider outage drag the mean,
+    which is exactly the reporting error the `attempt` column exists to make
+    avoidable — and it is only avoidable if the reader does this.
+    """
+    from src.scoring import latest_attempts
+
+    rows = [
+        {"case_id": "a", "repetition": 1, "attempt": 1},
+        {"case_id": "a", "repetition": 1, "attempt": 2},
+        {"case_id": "b", "repetition": 1, "attempt": 1},
+        {"case_id": "a", "repetition": 2, "attempt": 1},
+    ]
+    kept, superseded = latest_attempts(rows)
+    assert superseded == 1
+    assert sorted((r["case_id"], r["repetition"], r["attempt"]) for r in kept) == [
+        ("a", 1, 2), ("a", 2, 1), ("b", 1, 1),
+    ]
+
+
+def test_a_row_without_an_attempt_column_still_scores():
+    """Runs recorded before the column existed default to attempt 1."""
+    from src.scoring import latest_attempts
+
+    kept, superseded = latest_attempts([{"case_id": "a", "repetition": 1}])
+    assert superseded == 0 and len(kept) == 1

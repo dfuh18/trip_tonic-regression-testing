@@ -41,6 +41,10 @@ class Scored:
 class ScoreRun:
     run_id: str
     results: list[Scored] = field(default_factory=list)
+    #: Attempts the provider refused, superseded by a later one (D53). Not
+    #: scored and not counted against the agent — they are the platform
+    #: failure rate, which is a different measurement kept in the same table.
+    superseded: int = 0
 
     @property
     def scored(self) -> list[Scored]:
@@ -105,6 +109,25 @@ def score_execution(case: Case, execution_row: dict, llm=None) -> Scored:
     return Scored(**base, score=result.score, rationale=result.rationale, reply_chars=len(reply))
 
 
+def latest_attempts(rows: list[dict]) -> tuple[list[dict], int]:
+    """The highest attempt per (case, repetition), and how many were superseded.
+
+    D53 keeps both attempts of a repetition the provider refused, because they
+    are evidence about different things. Scoring must therefore pick, and it
+    picks the last one: a repetition that completed on its second attempt is
+    one repetition that completed. Scoring both would list the case twice and
+    let a provider outage drag the mean — which is the reporting error D53's
+    column exists to make avoidable, and it is only avoidable if the reader
+    actually does this.
+    """
+    best: dict[tuple[str, int], dict] = {}
+    for row in rows:
+        key = (row["case_id"], row["repetition"])
+        if key not in best or (row.get("attempt") or 1) > (best[key].get("attempt") or 1):
+            best[key] = row
+    return list(best.values()), len(rows) - len(best)
+
+
 def score_run(run_id: str, log: Callable[[str], None] = print) -> ScoreRun:
     """Score every execution of a run once, in case order."""
     from src import db
@@ -119,8 +142,10 @@ def score_run(run_id: str, log: Callable[[str], None] = print) -> ScoreRun:
         .execute()
         .data
     )
+    rows, superseded = latest_attempts(rows)
+    rows.sort(key=lambda r: (r["case_id"], r["repetition"]))
     llm = judge_llm()
-    out = ScoreRun(run_id=run_id)
+    out = ScoreRun(run_id=run_id, superseded=superseded)
     for row in rows:
         case = cases.get(row["case_id"])
         if case is None:
@@ -135,6 +160,11 @@ def score_run(run_id: str, log: Callable[[str], None] = print) -> ScoreRun:
 
 def report(run: ScoreRun) -> str:
     lines = [f"scored {len(run.scored)}/{len(run.results)} executions, mean {run.mean}"]
+    if run.superseded:
+        lines.append(
+            f"({run.superseded} attempt(s) the provider refused, superseded by a re-run and not "
+            f"scored — D53)"
+        )
     unscored = [r for r in run.results if r.score is None]
     if unscored:
         lines.append("")

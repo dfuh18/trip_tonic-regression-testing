@@ -62,24 +62,52 @@ SMOKE_CONCURRENCY = 4
 #: spend the budget recording nothing.
 MAX_CONSECUTIVE_SIMULATOR_FAILURES = 3
 
-#: One extra attempt when the PROVIDER refused a repetition (D53). Not a
-#: general retry: an agent that hit its reasoning limit or returned an empty
-#: reply has failed, and re-running it would launder a real failure into a
-#: pass. The distinction is available because D45 gave capacity its own status
-#: — 503 for "the model provider was busy", 504 for a timeout, 502 for the
-#: agent failing to answer.
-MAX_ATTEMPTS_PER_REPETITION = 2
-PROVIDER_REFUSAL_STATUSES = ("503", "504")
+#: How many times a repetition may be attempted when the PLATFORM refused it
+#: (D59). Not a general retry budget: only a failure that is nobody's fault but
+#: the provider's is re-run, and every attempt stays in the record.
+#:
+#: Four, because a baseline needs every planned execution and one spare attempt
+#: was not enough — a 27-case run lost three executions to platform refusals,
+#: and D23's 8/8 seed criterion turns a 3.8% per-execution loss into roughly a
+#: 27% chance of losing a seed for reasons that have nothing to do with the
+#: agent.
+MAX_ATTEMPTS_PER_REPETITION = 4
+
+#: Statuses that mean the model provider could not serve the turn: it was busy
+#: (503, which D45 gave its own status) or it ran past our deadline without
+#: answering (504). Re-running these is sampling, not laundering.
+PLATFORM_REFUSAL_STATUSES = ("503", "504")
+
+#: Statuses that mean **we** refused the turn — our own per-minute or monthly AI
+#: quota (`ai-quota.ts`, `failureKind: 'rate_limited_by_us'`). Never retried,
+#: and fatal to the run: it is a statement about this harness's configuration,
+#: not about the agent, and every execution after it would hit the same wall.
+#: Retrying it would also make it worse — being rate limited is what being rate
+#: limited is caused by.
+OUR_OWN_LIMIT_STATUSES = ("429",)
 
 
-def is_provider_refusal(error: Optional[str]) -> bool:
-    """Did the provider refuse this, as opposed to the agent failing it?
+def failure_class(error: Optional[str]) -> Optional[str]:
+    """Who failed: ``platform``, ``ours``, ``agent`` — or None if nothing did.
 
-    Measured reason for caring: 3.8% of executions are lost this way, and
-    under D23's 8/8 that is a ~27% chance of losing a seed per baseline run to
-    something that is not the agent.
+    The distinction is the whole of D59's retry policy, and it is available
+    only because the API gives each cause its own status (D45, and the
+    empty-reply split that followed): 503 busy, 504 past the deadline, 429 our
+    own quota, 502 the agent genuinely failing to answer. Before that split a
+    turn killed by our 85-second deadline arrived as "the agent returned an
+    empty reply", which is both wrong and un-retryable.
     """
-    return bool(error) and any(s in error for s in PROVIDER_REFUSAL_STATUSES)
+    if not error:
+        return None
+    if any(s in error for s in OUR_OWN_LIMIT_STATUSES):
+        return "ours"
+    if any(s in error for s in PLATFORM_REFUSAL_STATUSES):
+        return "platform"
+    return "agent"
+
+
+def is_platform_refusal(error: Optional[str]) -> bool:
+    return failure_class(error) == "platform"
 
 
 @dataclass
@@ -335,6 +363,8 @@ def run(
     log(f"run {run_id[:8]}: {len(cases)} case(s), {len(done)} execution(s) already recorded")
     totals = {"cost": 0.0, "latency": 0, "tokens": 0}
     simulator_failures = 0
+    platform_retries = 0   # attempts spent on the provider being busy
+    platform_losses = 0    # repetitions the provider refused to the last attempt
     for case in cases:
         n = n_override or case.repetitions_n
         for repetition in range(1, n + 1):
@@ -349,19 +379,82 @@ def run(
                 if inherit is not None:
                     opening = None  # the gate's trip belongs to one execution only
                 simulator_failures = 0
-                # The provider gets one chance to not be busy (D53). Both
-                # attempts stay in the record: the refusal is evidence about
+                # The platform gets several chances to not be busy (D59); the
+                # agent gets none, and our own quota gets none either. Every
+                # attempt stays in the record — the refusals are evidence about
                 # the platform, the completed one is evidence about the agent,
                 # and merging them would lose the first.
                 for attempt in range(2, MAX_ATTEMPTS_PER_REPETITION + 1):
-                    if not is_provider_refusal(row.get("error")):
+                    kind = failure_class(row.get("error"))
+                    if kind == "ours":
+                        break  # handled below, as a run-level fault
+                    if kind != "platform":
                         break
-                    log(f"    provider refused ({row['error']}) — attempt {attempt} of "
-                        f"{MAX_ATTEMPTS_PER_REPETITION}")
+                    warn = (f"    WARNING platform refused {case.case_id} rep {repetition} "
+                            f"({row['error']}) — retrying, attempt {attempt} of "
+                            f"{MAX_ATTEMPTS_PER_REPETITION}")
+                    log(warn)
+                    reset.harness_log(f"RUN {run_id[:8]} {warn.strip()}")
+                    platform_retries += 1
                     row = execute_case(handle, case, repetition, simulator, log, attempt=attempt)
+                final = failure_class(row.get("error"))
+                if final == "ours":
+                    # Our own quota, which is a fact about this harness's
+                    # configuration and not about the agent. Every execution
+                    # after this one would hit the same wall, and retrying is
+                    # what being rate limited is caused by — so stop, and say
+                    # which limit and which tier to go and look at.
+                    msg = (f"RUN {run_id} ABORTED: refused by OUR OWN limit — {row['error']}. "
+                           f"This is not the provider. Check the sim account's subscription tier "
+                           f"and the per-minute/monthly caps in apps/api/src/lib/subscription-tier.ts")
+                    log(msg)
+                    reset.harness_log(msg)
+                    db.admin().table("study_runs").update({
+                        "notes": f"aborted: refused by our own rate limit/quota — {row['error']}",
+                        "finished_at": _now(),
+                    }).eq("id", run_id).execute()
+                    raise RunAborted(msg)
+                if final == "platform":
+                    lost = (f"    WARNING {case.case_id} rep {repetition} LOST to the platform after "
+                            f"{MAX_ATTEMPTS_PER_REPETITION} attempts ({row['error']})")
+                    log(lost)
+                    reset.harness_log(f"RUN {run_id[:8]} {lost.strip()}")
+                    platform_losses += 1
+                elif final == "agent":
+                    log(f"    {case.case_id} rep {repetition} failed on the AGENT "
+                        f"({row['error']}) — not retried, this is a result")
             except SimulatorFailed as exc:
                 opening = None
+                # The simulator runs on the same provider as the agent, so it
+                # meets the same queue. A member turn lost to a 429/503/504
+                # there costs the whole repetition and says nothing about the
+                # agent — so it is re-run on the same terms (D59). Everything
+                # else (a malformed persona, a parse failure) is a real fault
+                # and is recorded as one.
+                sim_attempt = 1
+                while (failure_class(f"simulator: {exc}") == "platform"
+                       and sim_attempt < MAX_ATTEMPTS_PER_REPETITION):
+                    sim_attempt += 1
+                    warn = (f"    WARNING simulator refused by the platform on {case.case_id} rep "
+                            f"{repetition} ({exc}) — retrying, attempt {sim_attempt} of "
+                            f"{MAX_ATTEMPTS_PER_REPETITION}")
+                    log(warn)
+                    reset.harness_log(f"RUN {run_id[:8]} {warn.strip()}")
+                    platform_retries += 1
+                    try:
+                        row = execute_case(handle, case, repetition, simulator, log,
+                                           attempt=sim_attempt)
+                        simulator_failures = 0
+                        break
+                    except SimulatorFailed as again:
+                        exc = again
+                else:
+                    pass
+                if simulator_failures == 0 and sim_attempt > 1:
+                    continue  # recovered on a later attempt
                 simulator_failures += 1
+                if sim_attempt > 1:
+                    platform_losses += 1
                 db.admin().table("study_case_executions").insert({
                     "run_id": run_id, "case_id": case.case_id, "base_case_id": case.base_case_id,
                     "provenance": case.provenance, "run_priority": case.run_priority,
@@ -409,5 +502,28 @@ def run(
         log("\n" + report(for_run(run_id), run_id))
     except Exception as exc:  # never let reporting break a completed run
         log(f"coverage report unavailable: {exc}")
+
+    # What failed and whose fault it was, read from the evidence rather than
+    # from the error string alone (D59). Printed every run, not on request:
+    # the misclassification this exists to catch was invisible for as long as
+    # someone had to think to go looking for it.
+    if platform_retries or platform_losses:
+        log(f"PLATFORM: {platform_retries} retry/retries spent, {platform_losses} repetition(s) "
+            f"lost after {MAX_ATTEMPTS_PER_REPETITION} attempts")
+    try:
+        from src.failures import (
+            for_run as failures_for_run,
+            latency_profile,
+            report as failures_report,
+        )
+
+        recorded = (
+            db.admin().table("study_case_executions").select("id", count="exact")
+            .eq("run_id", run_id).limit(1).execute().count or 0
+        )
+        log("\n" + failures_report(failures_for_run(run_id), recorded))
+        log("\n" + latency_profile(run_id))
+    except Exception as exc:
+        log(f"failure report unavailable: {exc}")
     reset.harness_log(f"RUN {run_id[:8]} finished: {len(existing)} executions, paced {paced:.0f}s")
     return run_id

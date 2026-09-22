@@ -31,6 +31,82 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D60 — The capacity retry gets a clock budget, and latency is read per population
+Date: 2026-09-22 · Decided by: author
+Options (retry): cap the total backoff, keep six attempts · cut attempts to
+three and let the harness do the waiting · leave it and fix only the reporting
+Chosen: **cap the total backoff at 25s** (`CAPACITY_TOTAL_BUDGET_MS`), attempts
+unchanged at six.
+Reason: D59 asked whether our own retry is a stability problem, and measurement
+said yes — but inside the API, not in the harness. Across 194 recorded turns,
+11.3% hit at least one internal retry; of those, 15 recovered and 7 did not, and
+the median latency was 13.0s against 4.5s for a clean turn. The attempt cap
+never bounded the clock: one call can wait 1+2+4+8+16s and a grounded turn makes
+several calls, so waiting could consume the whole 85s deadline and leave nothing
+to answer with. Two turns did exactly that.
+The inner retry also had the worse deal of the two. It must fit inside the
+deadline, so it gives up mid-backoff and forfeits the turn, while the harness
+retry starts with a fresh 85s. We were waiting twice for the same queue and the
+inner wait was the destructive one.
+25s keeps roughly a minute of working time and — the point that decided it over
+cutting attempts — means a turn that gives up gives up **while it can still say
+so**: the member gets the 503 "overloaded, wait about a minute" with a retry
+hint instead of a deadline timeout that reads as their request being too hard.
+Cutting attempts to three was rejected because real users have no outer retry;
+six quick 429s should still be ridden out, and it is the clock that needed
+bounding, not the persistence.
+Options (latency): report clean and retried separately · add a `wait_ms` field ·
+stop using latency as a signal
+Chosen: **report both, compare on clean turns.** No new logged field:
+`retry_count` already separates the populations, it simply was not being read,
+and adding a field would touch the event model the manuscript's Table 11
+describes. `failures.latency_profile()` prints both medians and the queued share
+at the end of every run, and warns when more than a quarter of turns queued —
+at which point a latency comparison against another run is measuring the
+provider, not the agent.
+Affects: apps/api/src/routes/ai/lib/adk-llm.ts (+ tests) · src/failures.py ·
+src/runner.py
+Reverses: none (bounds D43, which set the attempt policy)
+
+### D59 — Retry the platform, never our own limit, and say which is which
+Date: 2026-09-22 · Decided by: author
+Options: keep D53's single retry · retry any failure until it passes · retry
+platform refusals several times, fail our own limits outright
+Chosen: the third. `MAX_ATTEMPTS_PER_REPETITION` goes from 2 to **4**, and only
+for a failure the **platform** caused. Our own rate limit or monthly quota (429,
+`rate_limited_by_us`) is never retried and **aborts the run**. A genuine agent
+failure (502) is never retried at all — it is a result.
+Reason: a baseline needs every planned execution, and one spare attempt was not
+enough — a 27-case run still lost executions. Retrying everything was rejected
+for the reason D53 already gives: it would launder a real agent failure into a
+pass. Our own limit is the third case and behaves differently from both — it is
+a statement about this harness's configuration, every later execution would hit
+the same wall, and retrying is *what causes* being rate limited. Failing loudly,
+naming the tier and the file to look in, is cheaper than a run that spends an
+hour producing refusals.
+The simulator is retried on the same terms: it runs on the same provider and
+meets the same queue, and a member turn lost to a 504 there costs the whole
+repetition while saying nothing about the agent.
+**This ruling only became possible because the classification was fixed first.**
+Two executions in the last run were recorded as `agent returned 502` and were in
+fact turns killed by our own 85-second deadline: zero tokens in, zero out, two
+internal retries, 85_007ms and 85_015ms against an 85_000ms budget. ADK returns
+an aborted run as an empty event stream rather than as an error, so the
+empty-reply branch had been collecting three different failures — our deadline,
+a provider that never answered, and the agent genuinely having nothing to say —
+and reporting all three as the agent's fault. They now separate into 504, 503
+and 502 respectively, which is what a retry policy keyed on status can act on.
+`src/failures.py` reads the same evidence at the end of every run and prints who
+is to blame per failed execution, with the turn's error code, retry count,
+latency against the deadline and token movement. It flags an execution blamed on
+the agent where no model call completed — the exact pattern above — so the next
+drift is caught by the run rather than by someone thinking to look.
+Affects: apps/api/src/routes/ai/agent/agent.service.ts (empty-reply split,
+richer failure log) · src/runner.py · src/failures.py (new) ·
+tests/test_failure_policy.py
+Reverses: supersedes D53's single attempt; D53's rule that both attempts stay in
+the record, and that the pass rate takes the highest, is unchanged
+
 ### D58 — The Belem search_places cap goes to four
 Date: 2026-09-22 · Decided by: author
 Options: leave it at three · raise the seed's cap to four · raise only the
