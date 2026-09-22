@@ -392,6 +392,13 @@ TRAM_UNSCHEDULE = Derivation(
             "ai_suggestions.INSERT": 0,
         },
         "edits": {"unschedule": {"min": 1, "max": 1}, "move": 0, "schedule": 0},
+        # Names the stop. Without it every check here was satisfied by taking
+        # the Time Out Market lunch off instead of the tram: the tool ran, one
+        # slot fewer, the same number of stops, verdict `none`. The sibling
+        # names its stop through slot_scheduled; the negation had no
+        # counterpart, and a check that passes an incorrect agent is the
+        # quieter of D30's two errors and the worse one.
+        "slot_unscheduled": {"block": "Tram 28 ride through Alfama"},
         # The distinction the request turns on, and the one an agent is most
         # likely to get wrong: unscheduling takes the stop off the itinerary
         # and leaves it saved in the trip. One slot fewer, the same stops.
@@ -446,7 +453,7 @@ ALFAMA_PARAPHRASE = Derivation(
     opening_turn="@Tonic give me the short version of how Alfama came to be what it is",
     notes=(
         "Paraphrase is the stronger of the two wording relations — a model that handles typos may "
-        "still latch onto surface phrasing — so it is the invariance relation this seed gets."
+        "still latch onto surface phrasing — so it is the invariance relation this seed gets. "
         "Structurally this case is its seed: the same tools run, the same nothing is written, and what changed is the content of the answer. Its structural verdict is inherited and will read 'none' whether or not the agent answered the new question - only the judge sees the delta. That is where structural verification stops and scoring starts, and it is said here because a reader meeting 'none' in a failure report would otherwise believe something was checked."
     ),
 )
@@ -470,7 +477,7 @@ WEATHER_DIFFERENT_FACT = Derivation(
         "The month is the perturbation, and the stored climate references carry every month, so the "
         "seed's references still serve. It is also the sharper half of the pair: November and July "
         "sit at opposite ends of the Lisbon year, so an agent answering from the wrong month is "
-        "obvious in the scoring rather than arguable."
+        "obvious in the scoring rather than arguable. "
         "Structurally this case is its seed: the same tools run, the same nothing is written, and what changed is the content of the answer. Its structural verdict is inherited and will read 'none' whether or not the agent answered the new question - only the judge sees the delta. That is where structural verification stops and scoring starts, and it is said here because a reader meeting 'none' in a failure report would otherwise believe something was checked."
     ),
 )
@@ -482,7 +489,7 @@ WEATHER_PARAPHRASE = Derivation(
     notes=(
         "Paraphrased, and deliberately vaguer: 'this time of year' makes the agent resolve the month "
         "from the trip rather than from the sentence, which is the part of the seed's behaviour most "
-        "likely to break under rewording."
+        "likely to break under rewording. "
         "Structurally this case is its seed: the same tools run, the same nothing is written, and what changed is the content of the answer. Its structural verdict is inherited and will read 'none' whether or not the agent answered the new question - only the judge sees the delta. That is where structural verification stops and scoring starts, and it is said here because a reader meeting 'none' in a failure report would otherwise believe something was checked."
     ),
 )
@@ -495,7 +502,7 @@ PACKING_PARAPHRASE = Derivation(
     opening_turn="@Tonic we're trying to work out what to bring — any thoughts for the three of us?",
     notes=(
         "Advisory takes invariance alone: there is no directional perturbation of 'what should we "
-        "pack' whose expected delta a case could state without inventing a rule about advice."
+        "pack' whose expected delta a case could state without inventing a rule about advice. "
         "Structurally this case is its seed: the same tools run, the same nothing is written, and what changed is the content of the answer. Its structural verdict is inherited and will read 'none' whether or not the agent answered the new question - only the judge sees the delta. That is where structural verification stops and scoring starts, and it is said here because a reader meeting 'none' in a failure report would otherwise believe something was checked."
     ),
 )
@@ -523,7 +530,7 @@ PACKING_IRRELEVANT_DETAIL = Derivation(
     notes=(
         "The added detail is deliberately almost-relevant rather than nonsense: luggage capacity "
         "sounds like it bears on a packing list and does not, so an agent that lets it steer the "
-        "answer has been distracted by something a person would discount."
+        "answer has been distracted by something a person would discount. "
         "Structurally this case is its seed: the same tools run, the same nothing is written, and what changed is the content of the answer. Its structural verdict is inherited and will read 'none' whether or not the agent answered the new question - only the judge sees the delta. That is where structural verification stops and scoring starts, and it is said here because a reader meeting 'none' in a failure report would otherwise believe something was checked."
     ),
 )
@@ -532,7 +539,7 @@ SINTRA_ADVICE_PARAPHRASE = Derivation(
     relation="INV-1",
     suffix="inv1_paraphrase",
     opening_turn="@Tonic do you reckon Sintra needs a whole day, or would half of one do?",
-    notes="The same question in the register a person actually uses.",
+    notes="The same question in the register a person actually uses. Structurally this case is its seed: the same tools run, the same nothing is written, and what changed is the content of the answer. Its structural verdict is inherited and will read 'none' whether or not the agent answered the new question - only the judge sees the delta. That is where structural verification stops and scoring starts, and it is said here because a reader meeting 'none' in a failure report would otherwise believe something was checked.",
 )
 
 SINTRA_ADVICE_GERMAN = Derivation(
@@ -542,7 +549,6 @@ SINTRA_ADVICE_GERMAN = Derivation(
     user_profile=(
         "Tom, 41, weighing the schedule, wants a recommendation with a reason. Writes to Tonic in "
         "German, which is his first language."
-        "Structurally this case is its seed: the same tools run, the same nothing is written, and what changed is the content of the answer. Its structural verdict is inherited and will read 'none' whether or not the agent answered the new question - only the judge sees the delta. That is where structural verification stops and scoring starts, and it is said here because a reader meeting 'none' in a failure report would otherwise believe something was checked."
     ),
     goal=(
         "Decide whether Sintra deserves the whole of the Sunday or half of it. He asks in German and "
@@ -564,7 +570,7 @@ SINTRA_ADVICE_GERMAN = Derivation(
         "executions. A language switch tests what the paraphrase cannot: whether the agent answers "
         "in the member's language, and whether it still reaches the trip's own state to refer to "
         "Pena Palace when the request is not in English. The cost, stated: the judge scores a German "
-        "reply against English criteria, which the criteria are worded to survive."
+        "reply against English criteria, which the criteria are worded to survive. Structurally this case is its seed: the same tools run, the same nothing is written, and what changed is the content of the answer. Its structural verdict is inherited and will read 'none' whether or not the agent answered the new question - only the judge sees the delta. That is where structural verification stops and scoring starts, and it is said here because a reader meeting 'none' in a failure report would otherwise believe something was checked."
     ),
 )
 

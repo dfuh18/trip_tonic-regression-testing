@@ -31,4 +31,9 @@ metamorphic_relation: INV-1
 fixture_depends_on:
 - Pena Palace
 - '2026-11-08'
-notes: The same question in the register a person actually uses.
+notes: 'The same question in the register a person actually uses. Structurally this case is its seed:
+  the same tools run, the same nothing is written, and what changed is the content of the answer. Its
+  structural verdict is inherited and will read ''none'' whether or not the agent answered the new question
+  - only the judge sees the delta. That is where structural verification stops and scoring starts, and
+  it is said here because a reader meeting ''none'' in a failure report would otherwise believe something
+  was checked.'

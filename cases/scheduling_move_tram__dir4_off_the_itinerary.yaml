@@ -37,6 +37,8 @@ declared_constraints:
     trip_after:
       blocks: fixture
       slots: 2
+    slot_unscheduled:
+      block: Tram 28 ride through Alfama
   predicates: []
 scoring_criteria:
 - Confirms the tram ride is off the itinerary, in one short confirmation.

@@ -41,6 +41,7 @@ from src.cases import (
     Checks,
     SlotMoved,
     SlotScheduled,
+    SlotUnscheduled,
     as_bound,
     fixture_counts,
     minutes_of,
@@ -509,6 +510,25 @@ def _check_slot_scheduled(ex: Execution, want: SlotScheduled, findings: list[str
                      minutes_of(end) - minutes_of(start), findings)
 
 
+def _check_slot_unscheduled(ex: Execution, want: SlotUnscheduled, findings: list[str]) -> None:
+    """The stop that came off is the one the member named."""
+    block_id = ex.blocks.get(want.block)
+    deletes = [
+        m for m in ex.mutations
+        if m["table_name"] == "itinerary_slots" and m["op"] == "DELETE"
+    ]
+    if not deletes:
+        findings.append(f"nothing was unscheduled: no itinerary_slots delete")
+        return
+    removed = {(m.get("projection") or {}).get("trip_block_id") for m in deletes}
+    if block_id and block_id not in removed:
+        by_id = {v: k for k, v in ex.blocks.items()}
+        other = sorted(by_id.get(r, str(r)) for r in removed if r)
+        findings.append(
+            f"{want.block!r} is still on the itinerary; what came off was {other or 'something unidentified'}"
+        )
+
+
 def _check_mutations(ex: Execution, checks: Checks, findings: list[str]) -> None:
     for key, bound in (checks.mutation_counts or {}).items():
         table, _, op = key.partition(".")
@@ -592,6 +612,8 @@ def check(case: Case, execution: Execution) -> Verdict:
         _check_slot_moved(execution, checks.slot_moved, findings)
     if checks.slot_scheduled is not None:
         _check_slot_scheduled(execution, checks.slot_scheduled, findings)
+    if checks.slot_unscheduled is not None:
+        _check_slot_unscheduled(execution, checks.slot_unscheduled, findings)
     _check_mutations(execution, checks, findings)
     _check_trip_after(execution, checks, findings)
     _check_predicates(case, execution, findings)

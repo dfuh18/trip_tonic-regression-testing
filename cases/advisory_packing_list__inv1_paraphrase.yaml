@@ -35,7 +35,7 @@ fixture_depends_on:
 - '2026-11-06'
 - '2026-11-09'
 notes: 'Advisory takes invariance alone: there is no directional perturbation of ''what should we pack''
-  whose expected delta a case could state without inventing a rule about advice.Structurally this case
+  whose expected delta a case could state without inventing a rule about advice. Structurally this case
   is its seed: the same tools run, the same nothing is written, and what changed is the content of the
   answer. Its structural verdict is inherited and will read ''none'' whether or not the agent answered
   the new question - only the judge sees the delta. That is where structural verification stops and scoring

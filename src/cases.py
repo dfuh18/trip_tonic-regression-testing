@@ -289,6 +289,26 @@ class SlotScheduled(BaseModel):
         return self
 
 
+class SlotUnscheduled(BaseModel):
+    """A named stop comes OFF the itinerary, and stays saved in the trip.
+
+    Without it the negation case asserted only that something was unscheduled:
+    an agent that took the Time Out Market lunch off instead of the tram ride
+    satisfied every check it declared — the tool ran, one slot fewer, the same
+    number of stops — and the verdict read `none`. Its sibling names its stop
+    through ``slot_scheduled``; the negation had no counterpart, and a check
+    that passes an incorrect agent is the quieter of D30's two errors and the
+    worse one.
+
+    Read off the ``itinerary_slots.DELETE`` mutation's projection, which
+    carries ``trip_block_id``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    #: The stop's title, as the fixture and the trip call it.
+    block: str
+
+
 class Checks(BaseModel):
     """What a case asserts about an execution, declaratively (D19, D27).
 
@@ -446,6 +466,8 @@ class Checks(BaseModel):
     slot_moved: Optional[SlotMoved] = None
     #: A named stop ends up scheduled on a named day, in a window.
     slot_scheduled: Optional[SlotScheduled] = None
+    #: A named stop comes off the itinerary and stays saved in the trip.
+    slot_unscheduled: Optional[SlotUnscheduled] = None
     #: The agent's own journal of its live edits, summed over the execution.
     edits: Optional[EditCounts] = None
 
@@ -601,6 +623,8 @@ class Case(BaseModel):
             named.append(checks.slot_moved.block)
         if checks.slot_scheduled:
             named.append(checks.slot_scheduled.block)
+        if checks.slot_unscheduled:
+            named.append(checks.slot_unscheduled.block)
         if checks.places_near:
             named.append(checks.places_near.anchor)
         return named

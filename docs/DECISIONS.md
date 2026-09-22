@@ -31,6 +31,42 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D52 — The negation case names the stop it removes, and coverage stops overstating itself
+Date: 2026-09-22 · Decided by: agent, on a third review round
+Chosen: three additions, each closing a defect a review found and measurement
+confirmed.
+**`slot_unscheduled {block}`** — the one case exercising `unschedule_block`
+asserted only that *something* came off: an agent that removed the Time Out
+Market lunch instead of the tram ride satisfied every check it declared — the
+tool ran, one slot fewer, the same number of stops — and the verdict read
+`none`. Its sibling names its stop through `slot_scheduled`; the negation had
+no counterpart. Read off the `itinerary_slots.DELETE` projection's
+`trip_block_id`, which the record already carries. Verified: it passes the
+real execution and reports "'Time Out Market lunch' is still on the itinerary;
+what came off was ['Tram 28 ride through Alfama']" when the wrong stop is
+named.
+**Required versus permitted in the coverage report.** Eleven cases named
+`get_weather` and all eleven bounded it at `{min: 0}` — a probe the agent may
+try and need not — so the report read as though the tool were thoroughly
+asserted when no case required it at all. The report now separates the two and
+says so: *permitted but never REQUIRED: get_weather*. It also flags a tool
+whose every observed call errored, which `get_weather` does, because the
+fixture sits beyond the forecast horizon (Q23).
+**Two guards against defect classes that have now recurred.** A test that
+re-derives every follow-up and compares it to disk — a seed edit failed to
+reach its follow-ups twice, and only a notebook re-run happened to fix it. And
+a test that refuses harness commentary in `user_profile`: a paste error
+appended a paragraph about structural verdicts to a persona, which is what the
+simulator reads to stay in character, so it altered what was measured on four
+executions and no verdict would have shown it.
+Recorded as an agent decision: all three close holes rather than opening
+choices, change no threshold and no logging, and are reversible by editing a
+file. The one question they raise — whether a case should exercise
+`get_weather`'s success path, which this fixture cannot do at all — is the
+author's and stays open as Q23.
+Affects: src/cases.py, src/checker.py, src/coverage.py, cases/derivations.py,
+tests/ · Reverses: none
+
 ### D51 — A ninth seed, for the one tool nothing could reach
 Date: 2026-09-21 · Decided by: author (asked for directly)
 Options: swap the weather seed's DIR-1 from July to a marine question · add a

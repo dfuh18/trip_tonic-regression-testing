@@ -127,3 +127,57 @@ def test_every_seed_has_its_follow_ups_and_they_all_load():
         got = sum(1 for c in expanded if c.base_case_id == seed_id)
         assert got == (3 if seed_id == "scheduling_move_tram" else 2), seed_id
     assert sum(c.repetitions_n for c in cases) == 140
+
+
+def test_no_generated_case_has_drifted_from_its_derivation():
+    """The YAML is generated; nothing should edit it by hand, and a seed edit
+    must reach every follow-up that inherits from it.
+
+    This is the third defect of its class: a fix applied to a seed did not
+    reach the follow-ups until the notebook happened to be re-run. Deriving is
+    cheap and comparing is exact, so the drift has no reason to survive a test
+    run.
+    """
+    import yaml
+
+    from cases.derivations import DERIVATIONS
+    from src.cases import CASES_DIR
+    from src.metamorphic import derive
+
+    seed_by_id = seeds()
+    drifted = []
+    for seed_id, pair in DERIVATIONS.items():
+        for derivation in pair:
+            want = derive(seed_by_id[seed_id], derivation)
+            path = CASES_DIR / f"{want['case_id']}.yaml"
+            on_disk = yaml.safe_load(path.read_text(encoding="utf-8"))
+            if on_disk != want:
+                changed = [k for k in want if on_disk.get(k) != want[k]]
+                drifted.append(f"{want['case_id']} ({', '.join(changed)})")
+    assert not drifted, (
+        "generated cases differ from cases/derivations.py: "
+        + "; ".join(drifted)
+        + ". Re-run notebooks/sim/02_expand.ipynb."
+    )
+
+
+def test_no_persona_carries_harness_commentary():
+    """`user_profile` is what the simulator is given to stay in character, so
+    anything written there changes what is measured.
+
+    A paste error once appended a paragraph about structural verdicts reading
+    `none` to a persona, on four executions, and no verdict would have shown
+    it — the case still passed. Harness commentary belongs in `notes`.
+    """
+    from src.cases import load_cases
+
+    for case in load_cases():
+        for phrase in ("structural verdict", "the judge sees", "failure report", "checker"):
+            assert phrase not in case.user_profile.lower(), (
+                f"{case.case_id}: user_profile contains {phrase!r} — that text is read by the "
+                f"simulator as character, not by a person as commentary. Move it to notes."
+            )
+        assert len(case.user_profile) < 300, (
+            f"{case.case_id}: user_profile is {len(case.user_profile)} characters, which is a "
+            f"brief that has stopped being a brief."
+        )

@@ -32,7 +32,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Iterable, Optional
 
-from src.cases import ALL_TOOL_NAMES, ALWAYS_ALLOWED_TOOLS, Case, load_cases
+from src.cases import ALL_TOOL_NAMES, ALWAYS_ALLOWED_TOOLS, Case, as_bound, load_cases
 
 #: Tools the agent reaches for only when its preloaded context falls short, so
 #: whether they appear varies between runs of one case (D28). A case cannot
@@ -48,8 +48,28 @@ MUST_BE_DECLARED = frozenset(ALL_TOOL_NAMES) - READ_TOOLS
 @dataclass
 class Coverage:
     declared: dict[str, list[str]] = field(default_factory=dict)
+    #: Cases that assert the tool RAN, not merely that it may.
+    required: dict[str, list[str]] = field(default_factory=dict)
     observed: dict[str, int] = field(default_factory=dict)
+    #: Calls that came back with an error, per tool.
+    errored: dict[str, int] = field(default_factory=dict)
     parameters: dict[str, set[str]] = field(default_factory=dict)
+
+    @property
+    def permitted_but_never_required(self) -> list[str]:
+        """Named only as a probe. The suite would not notice it vanishing."""
+        return sorted(
+            t for t in MUST_BE_DECLARED if self.declared.get(t) and not self.required.get(t)
+        )
+
+    @property
+    def never_succeeded(self) -> list[str]:
+        """Every observed call came back an error — the tool is exercised and
+        its working path is not."""
+        return sorted(
+            t for t in MUST_BE_DECLARED
+            if self.observed.get(t) and self.errored.get(t) == self.observed.get(t)
+        )
 
     @property
     def undeclared(self) -> list[str]:
@@ -62,6 +82,24 @@ class Coverage:
         return sorted(
             t for t in MUST_BE_DECLARED if self.declared.get(t) and not self.observed.get(t)
         )
+
+
+def tools_required_by(case: Case) -> set[str]:
+    """Tools this case asserts actually **ran** — as opposed to merely
+    permitting them.
+
+    The distinction is not pedantic. Eleven cases name `get_weather`, and all
+    eleven bound it at `{min: 0, max: 1}`: a probe the agent may try and need
+    not. Counting those as eleven declarations made the coverage report read
+    as though the tool were thoroughly asserted, when no case requires it at
+    all and the suite would not notice it disappearing.
+    """
+    checks = case.declared_constraints.checks
+    required = set(case.expected_tool_sequence) | set(checks.tools_any_of or [])
+    for tool, bound in (checks.tool_counts or {}).items():
+        if as_bound(bound).min:
+            required.add(tool)
+    return required
 
 
 def tools_named_by(case: Case) -> set[str]:
@@ -83,7 +121,7 @@ def declared_coverage(cases: Optional[Iterable[Case]] = None) -> dict[str, list[
     return {t: sorted(ids) for t, ids in by_tool.items()}
 
 
-def observed_coverage(run_id: str) -> tuple[dict[str, int], dict[str, set[str]]]:
+def observed_coverage(run_id: str) -> tuple[dict[str, int], dict[str, set[str]], dict[str, int]]:
     """tool -> calls, and tool -> the argument names actually used, for one run.
 
     Parameters matter as well as tools: `move_slot` called only ever with day,
@@ -93,6 +131,7 @@ def observed_coverage(run_id: str) -> tuple[dict[str, int], dict[str, set[str]]]
     from src import db, execution as exmod
 
     calls: dict[str, int] = defaultdict(int)
+    errs: dict[str, int] = defaultdict(int)
     params: dict[str, set[str]] = defaultdict(set)
     rows = (
         db.admin()
@@ -105,13 +144,26 @@ def observed_coverage(run_id: str) -> tuple[dict[str, int], dict[str, set[str]]]
     for row in rows:
         for call in exmod.load(row).trace:
             calls[call["tool"]] += 1
+            if call.get("result_error"):
+                errs[call["tool"]] += 1
             params[call["tool"]] |= set((call.get("args") or {}).keys())
-    return dict(calls), {t: set(p) for t, p in params.items()}
+    return dict(calls), {t: set(p) for t, p in params.items()}, dict(errs)
 
 
 def for_run(run_id: str) -> Coverage:
-    calls, params = observed_coverage(run_id)
-    return Coverage(declared=declared_coverage(), observed=calls, parameters=params)
+    calls, params, errs = observed_coverage(run_id)
+    cases = list(load_cases())
+    required: dict[str, list[str]] = defaultdict(list)
+    for case in cases:
+        for tool in tools_required_by(case):
+            required[tool].append(case.case_id)
+    return Coverage(
+        declared=declared_coverage(cases),
+        required={t: sorted(ids) for t, ids in required.items()},
+        observed=calls,
+        errored=errs,
+        parameters=params,
+    )
 
 
 def bounds_at_their_cap(run_id: str) -> list[tuple[str, str, int, int]]:
@@ -151,12 +203,14 @@ def bounds_at_their_cap(run_id: str) -> list[tuple[str, str, int, int]]:
 def report(coverage: Coverage, run_id: Optional[str] = None) -> str:
     """The evidence, as a reader sees it."""
     lines = [
-        f"{'tool':22s} {'cases':>5s} {'calls':>6s}  parameters exercised",
+        f"{'tool':22s} {'req':>4s} {'perm':>5s} {'calls':>6s} {'err':>4s}  parameters exercised",
         "-" * 78,
     ]
     for tool in sorted(ALL_TOOL_NAMES):
         cases = coverage.declared.get(tool, [])
+        req = coverage.required.get(tool, [])
         calls = coverage.observed.get(tool, 0)
+        errs = coverage.errored.get(tool, 0)
         note = " (read)" if tool in READ_TOOLS else ""
         params = ", ".join(sorted(coverage.parameters.get(tool, ()))) or "-"
         flag = ""
@@ -164,7 +218,11 @@ def report(coverage: Coverage, run_id: Optional[str] = None) -> str:
             flag = "  UNDECLARED"
         elif tool in MUST_BE_DECLARED and not calls:
             flag = "  never called"
-        lines.append(f"{tool + note:22s} {len(cases):5d} {calls:6d}  {params}{flag}")
+        elif calls and errs == calls:
+            flag = "  every call errored"
+        lines.append(
+            f"{tool + note:22s} {len(req):4d} {len(cases) - len(req):5d} {calls:6d} {errs:4d}  {params}{flag}"
+        )
 
     lines.append("")
     if coverage.undeclared:
@@ -176,7 +234,19 @@ def report(coverage: Coverage, run_id: Optional[str] = None) -> str:
             + "  (a case asserts it; no execution reached it)"
         )
     if not coverage.undeclared and not coverage.declared_but_never_called:
-        lines.append("every non-read tool is both declared by a case and called by this run.")
+        lines.append("every non-read tool is declared by a case and called by this run.")
+    if coverage.permitted_but_never_required:
+        lines.append(
+            "permitted but never REQUIRED: "
+            + ", ".join(coverage.permitted_but_never_required)
+            + "  (named only at min 0 — the suite would not notice it vanishing)"
+        )
+    if coverage.never_succeeded:
+        lines.append(
+            "every observed call errored: "
+            + ", ".join(coverage.never_succeeded)
+            + "  (the tool is exercised; its working path is not)"
+        )
 
     if run_id:
         tight = bounds_at_their_cap(run_id)
