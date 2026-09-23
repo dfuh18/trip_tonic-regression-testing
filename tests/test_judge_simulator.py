@@ -3,6 +3,8 @@ prompt contents, the two-ordering rule of D23, and the turn loop of D21."""
 import json
 from dataclasses import dataclass, field
 
+import re
+
 import pytest
 
 from src.cases import Case
@@ -38,16 +40,22 @@ CASE = Case(
 
 
 def test_prompts_carry_a_version_header():
+    """That a version is declared and stripped from what the model sees — not
+    which version it is. Pinning the number makes every legitimate bump fail a
+    test, which is how a version stops being bumped."""
     for name in ("simulator_v1", "judge_pointwise_v1", "judge_pairwise_v1"):
         prompt = load_prompt(name)
-        assert prompt.version.endswith("/1")
+        assert re.fullmatch(r"[a-z-]+/\d+", prompt.version), prompt.version
         assert "<!--" not in prompt.template
 
 
 def test_pointwise_inlines_criteria_and_references_and_validates_the_score():
     llm = FakeLlm([{"score": 7, "rationale": "fine"}])
     result = score_pointwise(CASE, "find seafood", "Try Cervejaria Ramiro.", ["Ramiro is a seafood house."], llm=llm)
-    assert result.score == 7 and result.usage.prompt_version == "judge-pointwise/1"
+    # The version is recorded and matches the prompt actually loaded; which
+    # number it is belongs in the prompt file, not in an assertion here.
+    assert result.score == 7
+    assert result.usage.prompt_version == load_prompt("judge_pointwise_v1").version
     system, _, temperature = llm.calls[0]
     assert "- Names real places." in system and "Ramiro is a seafood house." in system and temperature == 0.0
     with pytest.raises(RuntimeError):

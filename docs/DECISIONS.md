@@ -31,6 +31,48 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D79 — The judge is told what day it is, and every case is now approved
+Date: 2026-09-23 · Decided by: author
+**The judge scored half of two criteria.** It was given the trip's dates via
+the fixture summary and never the current date, so a criterion contrasting
+"now" with the trip was only partly evaluable:
+- `factual_qa_lisbon_forecast_next_days` — "answers about the next few days,
+  and does not drift into the trip's own dates". It could confirm the reply
+  avoided November, because it knew the trip was in November; it could not
+  confirm the dates given *were* the next few days. Its own rationale said
+  exactly that and no more.
+- `factual_qa_lisbon_trip_forecast` — "answers about the trip's own days rather
+  than about today or the coming week". The near-dated fixture starts three
+  days out, so the two alternatives overlap and the contrast was unevaluable
+  outright.
+Those two cases are a **pair** precisely because what is under test is which
+calendar the agent resolved against (D54) — and the only instrument scoring
+them could not see the distinction. The judge now gets today's date beside the
+trip summary, the same fix D57 applied to the agent for the same reason.
+`judge_prompt_version` bumped to `judge-pointwise/2`, so scores from before and
+after stay distinguishable in `study_scores` (D71's versioning earning its
+keep). Nothing citable is invalidated: every run so far is an n=1 probe.
+
+**Every case is now approved, bound to its text.** The author reviewed the 18
+metamorphic cases (D78) and then the 11 seeds, including the eight marked
+before D74 whose wording had since been sharpened by their own guidance.
+State: **29/29 `current`** — every case marked, every mark carrying the
+`case_version` of the text that would run. §3.1's claim that the cases are the
+author's rather than the model's is evidenced for the first time.
+
+**Three tests were pinning snapshots rather than claims** and were rewritten as
+each was falsified by the review itself — "no mark carries a hash yet", "three
+seeds are still unreviewed", "unverifiable and unreviewed both exist". Each was
+a description of one afternoon. What replaced them: nothing runs unmarked,
+nothing runs drifted, and an edit after approval is visible as drift —
+exercised on a temp copy rather than observed in the live ledger. A fourth
+pinned the literal judge prompt version, which would have failed on every
+legitimate bump; it now asserts the version is declared and recorded, not which
+one it is.
+Affects: src/judge.py · src/prompts/judge_pointwise_v1.md · cases/reviewed.json
+· tests/test_tables.py · tests/test_judge_simulator.py
+Reverses: none
+
 ### D78 — The metamorphic cases are approved, and review covers every case
 Date: 2026-09-23 · Decided by: author
 The author reviewed all 18 metamorphic cases and approved them. Marks written

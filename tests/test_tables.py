@@ -190,23 +190,30 @@ def test_a_tool_with_no_alternative_named_is_still_a_gap():
     assert "search_places" in cov.permitted_but_never_required
 
 
-def test_the_three_added_seeds_are_still_unreviewed():
-    """Pinned so adopting them is a deliberate act, not a silent one.
+def test_every_case_carries_a_mark_bound_to_its_current_text():
+    """§3.1's claim, made checkable.
 
-    `reviewed.json` says the mark "is what makes a seed the author's rather
-    than the model's (3.1)", and an agent never writes one. These three were
-    added by the agent (D51, D54) and carry no mark. When the author reviews
-    them this test changes — which is the point: it makes the change visible.
+    A seed or a follow-up is the author's rather than the model's only if a
+    mark says so, and only if the mark binds to the text that would run. Both
+    populations were approved on 2026-09-23 (D78, D79) and every mark carries
+    a `case_version`, so every case reports `current`.
+
+    This replaces a pin on "three seeds are still unreviewed", which was a
+    snapshot of a moment rather than a claim — it went stale the hour the
+    author reviewed them. The invariant worth holding is that nothing runs
+    unmarked, and that a mark which no longer matches its case is visible as
+    `drifted` rather than silently accepted.
     """
-    from src.cases import review_status
+    from src.cases import load_cases, review_status
 
     status = review_status()
-    unreviewed = sorted(k for k, v in status.items() if v["state"] == "unreviewed")
-    assert unreviewed == [
-        "factual_qa_lisbon_forecast_next_days",
-        "factual_qa_lisbon_surf_conditions",
-        "factual_qa_lisbon_trip_forecast",
-    ], "seed review state changed — update this pin deliberately"
+    cases = {c.case_id for c in load_cases()}
+    assert set(status) == cases, "every case should be tracked, seeds and follow-ups alike"
+
+    unmarked = sorted(k for k, v in status.items() if v["state"] == "unreviewed")
+    drifted = sorted(k for k, v in status.items() if v["state"] == "drifted")
+    assert not unmarked, f"unmarked cases: {unmarked}"
+    assert not drifted, f"marks no longer matching their case: {drifted} — re-review or revert"
 
 
 def test_a_mark_without_a_version_is_unverifiable_and_one_with_it_is_current():
@@ -224,8 +231,11 @@ def test_a_mark_without_a_version_is_unverifiable_and_one_with_it_is_current():
 
     status = review_status()
     states = {v["state"] for v in status.values()}
-    assert "unverifiable" in states, "the pre-D74 marks should still report as uncheckable"
     assert "current" in states, "a mark carrying a sha should report as matching"
+    # No pre-D74 marks remain: the author re-affirmed all eight at their
+    # current text on 2026-09-23. The mechanism is still asserted below, so
+    # a mark written without a sha would still be caught.
+    assert "unverifiable" not in states
     for case_id, entry in status.items():
         mark = entry["mark"] or {}
         if mark.get("sha"):
@@ -296,15 +306,35 @@ def test_a_case_version_changes_when_the_case_does(tmp_path):
     assert len(before) == 12
 
 
-def test_review_status_reports_drift_once_a_mark_carries_a_version():
-    """A mark records {by, on} and, from now on, the sha of what was read.
-    Without it "the author approved this case" is a claim about a filename."""
-    from src.cases import review_status
+def test_a_mark_goes_stale_when_its_case_is_edited(tmp_path):
+    """Drift detection, exercised rather than observed.
 
-    states = {v["state"] for v in review_status().values()}
-    # today: 8 pre-version marks and 3 unmarked seeds
-    assert "unverifiable" in states
-    assert "unreviewed" in states
+    The earlier version of this test asserted that `unverifiable` and
+    `unreviewed` states existed in the live ledger — a snapshot of one
+    afternoon, which went stale the hour the author finished reviewing. What
+    is worth testing is the behaviour: a mark binds to the text it was made
+    against, and an edit afterwards is visible.
+    """
+    import shutil
+
+    from src.cases import CASES_DIR, mark_reviewed, review_status
+
+    cases_dir = tmp_path / "cases"
+    shutil.copytree(CASES_DIR, cases_dir)
+
+    target = "advisory_packing_list"
+    mark_reviewed(target, directory=cases_dir)
+    assert review_status(cases_dir)[target]["state"] == "current"
+
+    # the author edits the case after approving it
+    case_file = cases_dir / f"{target}.yaml"
+    case_file.write_text(
+        case_file.read_text(encoding="utf-8").replace("repetitions_n: 8", "repetitions_n: 6"),
+        encoding="utf-8",
+    )
+    assert review_status(cases_dir)[target]["state"] == "drifted", (
+        "an edit after approval must show as drift, not pass as approved"
+    )
 
 
 def test_marking_is_available_to_the_author_and_unused_by_the_agent():

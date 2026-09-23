@@ -3,35 +3,43 @@
   "reviewed": {
     "advisory_packing_list": {
       "by": "author",
-      "on": "2026-09-20"
+      "on": "2026-09-23",
+      "sha": "ea23fcd31f59"
     },
     "advisory_sintra_full_or_half_day": {
       "by": "author",
-      "on": "2026-09-20"
+      "on": "2026-09-23",
+      "sha": "5f135e88770f"
     },
     "factual_qa_alfama_history": {
       "by": "author",
-      "on": "2026-09-20"
+      "on": "2026-09-23",
+      "sha": "a453130ef50d"
     },
     "factual_qa_lisbon_november_weather": {
       "by": "author",
-      "on": "2026-09-20"
+      "on": "2026-09-23",
+      "sha": "91e909f159ce"
     },
     "scheduling_belem_morning": {
       "by": "author",
-      "on": "2026-09-20"
+      "on": "2026-09-23",
+      "sha": "8d7336119876"
     },
     "scheduling_move_tram": {
       "by": "author",
-      "on": "2026-09-20"
+      "on": "2026-09-23",
+      "sha": "0475c2a902ed"
     },
     "venue_lookup_seafood_lisbon": {
       "by": "author",
-      "on": "2026-09-20"
+      "on": "2026-09-23",
+      "sha": "0aa834c33680"
     },
     "venue_lookup_sintra_lunch": {
       "by": "author",
-      "on": "2026-09-20"
+      "on": "2026-09-23",
+      "sha": "5ff0b229cef1"
     },
     "advisory_packing_list__inv1_paraphrase": {
       "by": "author",
@@ -122,6 +130,21 @@
       "by": "author",
       "on": "2026-09-23",
       "sha": "584776b899ca"
+    },
+    "factual_qa_lisbon_forecast_next_days": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "0b32d82c98c5"
+    },
+    "factual_qa_lisbon_surf_conditions": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "003a8850b5bf"
+    },
+    "factual_qa_lisbon_trip_forecast": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "fd21f345e33d"
     }
   }
 }

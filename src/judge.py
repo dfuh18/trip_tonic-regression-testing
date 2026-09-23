@@ -104,8 +104,39 @@ def _fixture_summary(case: Optional[Case] = None) -> str:
     return summary(for_case(case) if case is not None else load_fixture())
 
 
+def _today_block() -> str:
+    """Today's date, for criteria that contrast "now" with the trip (D79).
+
+    The judge was given the trip's dates and never the current one, so it could
+    check only half of any criterion drawing that contrast. For
+    `factual_qa_lisbon_forecast_next_days` — "answers about the next few days,
+    and does not drift into the trip's own dates" — it could confirm the reply
+    avoided November and could not confirm the dates given were in fact the
+    next few days; its own rationale said exactly that. For the near-dated
+    `factual_qa_lisbon_trip_forecast` the trip starts three days out, so "the
+    trip's days" and "the coming week" overlap and the contrast was
+    unevaluable outright.
+
+    Those two cases are a pair precisely because the thing under test is which
+    calendar the agent resolved against (D54), and the only instrument scoring
+    them could not see the distinction.
+    """
+    from datetime import date
+
+    today = date.today()
+    return (
+        "--- when this was asked ---\n"
+        f"Today is {today.strftime('%A %d %B %Y')} ({today.isoformat()}). "
+        'Use it to judge any criterion about "the next few days", "now", or '
+        "whether a reply is about the trip rather than about the coming week."
+    )
+
+
 def _references(references: list[str], case: Optional[Case] = None) -> str:
-    blocks = [f"--- the trip this was asked about ---\n{_fixture_summary(case)}"]
+    blocks = [
+        _today_block(),
+        f"--- the trip this was asked about ---\n{_fixture_summary(case)}",
+    ]
     blocks += [f"--- reference {i + 1} ---\n{text.strip()}" for i, text in enumerate(references)]
     return "\n\n".join(blocks)
 
