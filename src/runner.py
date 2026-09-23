@@ -38,7 +38,7 @@ import httpx
 
 from src import auth, fixture, db, reset
 from src.auth import SimUser
-from src.cases import Case, by_priority, load_cases, suite_version
+from src.cases import Case, by_priority, case_version, load_cases, suite_version
 from src.config import settings
 from src.pricing import PRICING_VERSION, llm_cost_usd
 from src.ratelimit import limiter
@@ -402,6 +402,10 @@ def execute_case(
         "run_priority": case.run_priority,
         "repetition": repetition,
         "attempt": attempt,
+        # Which version of the case this ran (D74). suite_version says the
+        # suite changed; this says whether THIS case did, which is what makes
+        # two executions of one case id comparable or not.
+        "case_version": case_version(case.case_id),
         "repetitions_n": case.repetitions_n,
         "session_id": handle.user.session_id,
         "trip_id": trip_id,

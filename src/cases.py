@@ -910,9 +910,51 @@ def by_priority(cases: list[Case]) -> list[Case]:
     return sorted(cases, key=lambda c: (c.run_priority, c.provenance != "seeded", c.case_id))
 
 
+def case_version(case_id: str, directory: Path = CASES_DIR) -> str:
+    """This case's version: the first 12 hex of a hash of its file (D74).
+
+    Derived, not declared. A hand-maintained version number is a number nobody
+    bumps — the two `package.json` versions in this repo sat at their scaffold
+    defaults for 377 commits, which is the same lesson from the other side of
+    the fence. A content hash cannot drift from the thing it names.
+
+    What it buys: a review mark can say WHICH text was approved, and an
+    execution can say which version of the case produced it. `suite_version`
+    already covers the suite as a whole; this is the per-case resolution the
+    aggregate cannot give. A case edited after it was marked (D48 added a
+    check to both venue seeds, D55 moved the calendar, D58 raised a cap, D72
+    inverted the drinks assertion) is then visible as drift rather than
+    silently carrying an approval for text that no longer exists.
+    """
+    return _case_content_sha(directory / f"{case_id}.yaml")
+
+
 def _case_content_sha(path: Path) -> str:
     """Hash of a case file, for binding a review mark to what was reviewed."""
-    return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:12] if path.exists() else ""
+
+
+def mark_reviewed(case_id: str, by: str = "author", directory: Path = CASES_DIR) -> dict:
+    """Record the author's review of a case, bound to the text reviewed.
+
+    **For the author to call, never the agent.** `reviewed.json` says the mark
+    "is what makes a seed the author's rather than the model's (3.1)", so an
+    agent writing one would be forging the provenance the study rests on. This
+    function exists so that when the author does mark a case, the mark carries
+    a version and the next edit shows as drift instead of passing unnoticed.
+    """
+    import datetime
+
+    path = directory / "reviewed.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    entry = {
+        "by": by,
+        "on": datetime.date.today().isoformat(),
+        "sha": case_version(case_id, directory),
+    }
+    data.setdefault("reviewed", {})[case_id] = entry
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return entry
 
 
 def review_status(directory: Path = CASES_DIR) -> dict[str, dict]:
@@ -937,7 +979,7 @@ def review_status(directory: Path = CASES_DIR) -> dict[str, dict]:
             continue
         mark = marks.get(case.case_id)
         path = directory / f"{case.case_id}.yaml"
-        sha = _case_content_sha(path) if path.exists() else None
+        sha = _case_content_sha(path) or None
         if mark is None:
             state = "unreviewed"
         elif not mark.get("sha"):

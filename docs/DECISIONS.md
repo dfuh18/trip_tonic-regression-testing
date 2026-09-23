@@ -31,6 +31,44 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D74 — Every case carries a version, derived from its contents
+Date: 2026-09-23 · Decided by: author
+Options: a declared `version` field in each case file · a content hash · leave
+`suite_version` to cover it
+Chosen: a content hash, 12 hex of SHA-256 over the case file
+(`cases.case_version`).
+Reason: the author noticed while reviewing that cases need a version
+identifier, which is the missing half of a problem already recorded. A review
+mark says `{by, on}` — who approved and when, but not WHICH TEXT — and every
+marked seed has been edited since it was marked: D48 added `places_near` to
+both venue seeds, D55 moved the fixture calendar under every dated check, D58
+raised a cap, D72 inverted the drinks assertion. Eight of eleven marks attest
+to a version that no longer exists, and `review_status` could only report them
+`unverifiable`.
+`suite_version` does not solve it: it hashes the whole case set, so it answers
+"did the suite change" and cannot answer "did THIS case change". Two executions
+of one case id either side of an edit are not executions of the same test, and
+nothing in the record said so.
+**Derived rather than declared**, for a reason this repository has already
+demonstrated: a hand-maintained version is a number nobody bumps. The two
+`package.json` versions sat at their scaffold defaults for 377 commits (D63).
+A content hash cannot drift from the thing it names, and needs no discipline.
+Two consumers:
+- `study_case_executions.case_version` — an execution now says which version
+  of the case produced it. Null before today and **not backfilled**: the hash
+  of the file as it stands is not the hash of what those runs executed, and
+  writing it would assert something false.
+- `cases.mark_reviewed()` — writes a mark carrying the version. It exists so
+  that a mark made from now on binds to text, and the next edit shows as drift
+  instead of passing unnoticed. **The author calls it; the agent never does** —
+  `reviewed.json` says the mark is what makes a seed the author's rather than
+  the model's (§3.1), so an agent writing one forges the provenance the study
+  rests on. A test asserts there is no call site in `src/`.
+Affects: src/cases.py · src/runner.py ·
+supabase/migrations/20260923094500_study_execution_case_version.sql ·
+tests/test_tables.py
+Reverses: none; completes what D71's review-status reporting could only name
+
 ### D73 — Structural checking is simulation-only
 Date: 2026-09-23 · Decided by: author
 Options: apply the cases' structural checks to participant turns via

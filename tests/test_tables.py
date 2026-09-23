@@ -263,3 +263,50 @@ def test_the_drinks_case_asserts_the_absence_not_the_presence():
     checks = case.declared_constraints.checks
     assert checks.places_excluded_types == ["seafood_restaurant"]
     assert not checks.places_named_types
+
+
+def test_a_case_version_changes_when_the_case_does(tmp_path):
+    """D74. Derived from contents, so it cannot drift from what it names.
+
+    A hand-maintained version is a number nobody bumps — this repo's two
+    package.json versions sat at their scaffold defaults for 377 commits.
+    """
+    from src.cases import case_version
+
+    case_file = tmp_path / "demo.yaml"
+    case_file.write_text("goal: one\n", encoding="utf-8")
+    before = case_version("demo", tmp_path)
+    case_file.write_text("goal: two\n", encoding="utf-8")
+    after = case_version("demo", tmp_path)
+    assert before and after and before != after
+    assert len(before) == 12
+
+
+def test_review_status_reports_drift_once_a_mark_carries_a_version():
+    """A mark records {by, on} and, from now on, the sha of what was read.
+    Without it "the author approved this case" is a claim about a filename."""
+    from src.cases import review_status
+
+    states = {v["state"] for v in review_status().values()}
+    # today: 8 pre-version marks and 3 unmarked seeds
+    assert "unverifiable" in states
+    assert "unreviewed" in states
+
+
+def test_marking_is_available_to_the_author_and_unused_by_the_agent():
+    """`mark_reviewed` exists so a mark carries a version. It must not have
+    been called: reviewed.json says the mark is what makes a seed the
+    author's rather than the model's (§3.1)."""
+    import inspect
+
+    from src import cases
+
+    assert callable(cases.mark_reviewed)
+    # no call site anywhere in src/ — the author invokes it, the harness never does
+    src_calls = [
+        path.name
+        for path in (cases.SUBTREE_ROOT / "src").glob("*.py")
+        if "mark_reviewed(" in path.read_text(encoding="utf-8")
+        and "def mark_reviewed" not in path.read_text(encoding="utf-8")
+    ]
+    assert not src_calls, f"mark_reviewed is called from {src_calls}; only the author may mark"
