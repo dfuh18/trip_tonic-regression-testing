@@ -277,3 +277,56 @@ def test_the_expansion_notebook_states_the_real_counts():
     # The stale phrasings that were actually there.
     for stale in ("sixteen follow-up", "from the eight seeds", "those four seeds"):
         assert stale not in prose.lower(), f"stale count in notebook prose: {stale!r}"
+
+
+def test_the_admission_table_in_the_notebook_is_not_stale():
+    """A stored output describes the code as it was when the cell last ran.
+
+    Caught twice by a reader rather than by a test. Most recently: D71 lowered
+    `JOINT_LIMIT` from 3 to 2 — the over-credit an independent review found —
+    and the notebook kept showing the 16 cases the old rule credited, including
+    three (`factual_qa_alfama_history` and its follow-ups) that the corrected
+    rule does not. A published notebook whose table contradicts the code is
+    worse than one with no table.
+
+    Only the case list is asserted, not the formatting: pandas may widen,
+    wrap or reorder columns between versions and none of that is a claim.
+    """
+    import json
+    from pathlib import Path
+
+    from src import tables
+    from src.cases import CASES_DIR
+
+    nb = json.loads((Path(CASES_DIR).parent / "notebooks" / "sim" / "02_expand.ipynb")
+                    .read_text(encoding="utf-8"))
+    cell = next(
+        c for c in nb["cells"]
+        if c["cell_type"] == "code" and "unique_contribution" in "".join(c["source"])
+    )
+    stored = "".join(
+        "".join(o.get("data", {}).get("text/plain") or o.get("text") or "")
+        for o in cell.get("outputs", [])
+    )
+    assert stored.strip(), "the admission-rule cell has no stored output — re-run the notebook"
+
+    frame = tables.unique_contribution()
+    expected = set(frame[frame["carries coverage"]].index)
+    absent = set(frame[~frame["carries coverage"]].index)
+
+    # Whole ids, not substrings: case ids nest (`scheduling_move_tram` is a
+    # prefix of `scheduling_move_tram__dir1_...`), so a substring test reports
+    # a seed as present whenever one of its follow-ups is listed. The first
+    # version of this test had exactly that bug.
+    listed = {
+        line.split()[0]
+        for line in stored.splitlines()
+        if line[:1].isalpha() and line.split()
+    }
+    listed &= expected | absent
+
+    missing = sorted(expected - listed)
+    assert not missing, f"notebook's admission table is stale; missing {missing} — re-run it"
+
+    stray = sorted(listed & absent)
+    assert not stray, f"notebook's admission table still credits {stray} — re-run it"
