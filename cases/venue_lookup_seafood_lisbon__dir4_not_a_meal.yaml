@@ -36,8 +36,8 @@ declared_constraints:
     trip_after:
       blocks: fixture
       slots: fixture
-    places_named_types:
-    - bar
+    places_excluded_types:
+    - seafood_restaurant
   predicates: []
 scoring_criteria:
 - Names at least two bars or drinking spots rather than restaurants.

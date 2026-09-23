@@ -107,7 +107,15 @@ SEAFOOD_NEGATION = Derivation(
         # place id out of six, so the previous version of this case - which
         # claimed only "a different venue set from the seed" - was satisfied by
         # noise and verified nothing.
-        "places_named_types": ["bar"],
+        # The negation stated as a negation (D72). Asserting the answer
+        # CONTAINS a 'bar' measured Google's taxonomy, not the agent: the same
+        # riverside spots come back as cocktail_bar on one run and restaurant
+        # on the next, and the agent had searched "waterfront bar Cais do
+        # Sodre" in every case. What the perturbation actually claims is that
+        # the seafood answer is gone, and that is stable — the seed named a
+        # seafood venue in 10 of 13 recorded executions, this follow-up in 0
+        # of 5.
+        "places_excluded_types": ["seafood_restaurant"],
         "places_named": {"min": 2},
     },
     scoring_criteria=[

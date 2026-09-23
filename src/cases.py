@@ -412,6 +412,33 @@ class Checks(BaseModel):
     #: request never *reduces* what it surfaces; asking for a second kind of
     #: place is the perturbation that actually changes the shape of the answer.
     places_named_types: Optional[list[str]] = None
+    #: No place the reply names is of these kinds — a NEGATIVE type assertion,
+    #: for a request that says what it does not want (D72).
+    #:
+    #: The positive form cannot express "somewhere to get a drink". Google's
+    #: primary type for a riverside bar is `cocktail_bar` on one run and
+    #: `restaurant` on the next, so asserting `['bar']` measured Google's
+    #: taxonomy rather than the agent — it failed executions where the agent
+    #: had searched `waterfront bar Cais do Sodre` and returned three correct
+    #: rooftop bars, and the judge scored those 9 and 10 out of 10.
+    #:
+    #: The negation is robust because it does not depend on how a drink place
+    #: is typed, only on the answer not being the one the perturbation ruled
+    #: out. Measured over the recorded runs: the seafood seed named a
+    #: `seafood_*` venue in 10 of 13 executions, its "not a meal" follow-up in
+    #: 0 of 5. That is the delta DIR-4 claims, stated so that Google's
+    #: inconsistency cannot manufacture a false regression (D30).
+    #: `placeType` is Google's `primaryType` passed through verbatim
+    #: (`agent.tools.ts`), so these are Google's own strings and not ours.
+    #:
+    #: Its limit, stated because it is the same dependence on that taxonomy
+    #: pointed the safer way: `primaryType` is ONE string, and Google types
+    #: some seafood places plain `restaurant` — which is why the seed carries a
+    #: `seafood_*` type in 10 of 13 executions and not 13. A regressed agent
+    #: whose seafood venues all happened to be typed `restaurant` would slip
+    #: through. It fails OPEN rather than closed, which is the direction D30
+    #: asks for: a missed regression costs a finding, a false one costs trust.
+    places_excluded_types: Optional[list[str]] = None
     #: Every place the reply names is within a radius of a fixture stop — the
     #: check that says the agent answered about the right *place*, which a
     #: venue count and a venue-set comparison both miss.

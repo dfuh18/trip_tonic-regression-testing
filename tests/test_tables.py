@@ -233,3 +233,33 @@ def test_the_extra_seeds_all_carry_coverage_jointly_or_alone():
                     "factual_qa_lisbon_trip_forecast",
                     "factual_qa_lisbon_surf_conditions"):
         assert u.loc[case_id, "carries coverage"], case_id
+
+
+def test_exclusion_is_directional_but_the_positive_assertion_is_not():
+    """D72. Loose matching in both directions is right for "must name a
+    restaurant" (a seafood_restaurant satisfies it) and wrong for "must not
+    name a seafood restaurant", where it excluded every plain restaurant too —
+    firing on precisely the answers the check was rewritten to accept.
+    """
+    from src.checker import _is_kind_of, _same_place_type
+
+    # exclusion: only the kind itself, or something more specific
+    assert _is_kind_of("seafood_restaurant", "seafood_restaurant")
+    assert not _is_kind_of("restaurant", "seafood_restaurant")
+    assert not _is_kind_of("cocktail_bar", "seafood_restaurant")
+    assert not _is_kind_of("cafe", "seafood_restaurant")
+    # the positive form keeps its loose, bidirectional match
+    assert _same_place_type("restaurant", "seafood_restaurant")
+
+
+def test_the_drinks_case_asserts_the_absence_not_the_presence():
+    """The DIR-4 negation is what it says it is: a place type ruled out, not a
+    place type required. Asserting presence measured Google's taxonomy — the
+    same riverside bars came back cocktail_bar one run and restaurant the
+    next, while the agent had searched "waterfront bar" every time."""
+    from src.cases import load_cases
+
+    case = {c.case_id: c for c in load_cases()}["venue_lookup_seafood_lisbon__dir4_not_a_meal"]
+    checks = case.declared_constraints.checks
+    assert checks.places_excluded_types == ["seafood_restaurant"]
+    assert not checks.places_named_types

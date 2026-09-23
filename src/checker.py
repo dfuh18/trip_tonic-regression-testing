@@ -142,6 +142,30 @@ def _type_tokens(value: str) -> set[str]:
     return {part for part in value.lower().strip().split("_") if part}
 
 
+def _is_kind_of(observed: str, kind: str) -> bool:
+    """Is `observed` the excluded kind, or a MORE specific version of it?
+
+    Directional on purpose, unlike `_same_place_type`. Matching loosely in
+    both directions is right for a positive assertion — a case wanting
+    `restaurant` is satisfied by `seafood_restaurant` — and wrong for
+    exclusion, where it made "no seafood restaurants" exclude every plain
+    `restaurant` too, and fired on the exact answers the check was rewritten
+    to accept.
+
+    So `seafood_restaurant` excludes `seafood_restaurant` and does not exclude
+    `restaurant`: the observed type has to carry everything the excluded kind
+    names, not merely overlap it.
+    """
+    o, k = observed.lower().strip(), kind.lower().strip()
+    if not o or not k:
+        return False
+    if o == k:
+        return True
+    if _type_tokens(k) <= _type_tokens(o):
+        return True
+    return any(o in group and k in group for group in PLACE_TYPE_SYNONYMS)
+
+
 def _same_place_type(wanted: str, observed: str) -> bool:
     """One Google place type satisfies a case's request for another.
 
@@ -322,6 +346,14 @@ def _check_surfaced(ex: Execution, checks: Checks, findings: list[str]) -> None:
             if not any(_same_place_type(wanted, t) for t in have):
                 findings.append(
                     f"the reply names no {wanted!r} place; it named {sorted(have) or 'none'}"
+                )
+    if checks.places_excluded_types:
+        have = ex.place_types
+        for unwanted in checks.places_excluded_types:
+            hit = [t for t in have if _is_kind_of(t, unwanted)]
+            if hit:
+                findings.append(
+                    f"the reply names a {unwanted!r} place ({sorted(hit)}), which this request ruled out"
                 )
 
 

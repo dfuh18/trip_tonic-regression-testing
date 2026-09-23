@@ -31,6 +31,49 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D72 — The "not a meal" case asserts the absence, not the presence
+Date: 2026-09-23 · Decided by: author
+Options: keep `places_named_types: ['bar']` and report the failures as an agent
+regression · widen the accepted types · drop the structural type claim and let
+the judge own it · assert the NEGATION instead
+Chosen: assert the negation. `places_excluded_types: ['seafood_restaurant']`.
+Reason: the case detected in both runs it was checked against, so the question
+was whether the agent had regressed or the check was wrong. The evidence says
+the check:
+- the agent **searched for a bar every time** — `bar by the river…`, then
+  `bar river view…` and `waterfront bar…`. Its understanding of the request was
+  never in doubt;
+- what changed was what Google returned for those searches. `placeType` is
+  Google's `primaryType` verbatim, and the same riverside spots came back
+  `cocktail_bar` on three runs and `restaurant` on two. Javá, one of the
+  "failures", is literally a rooftop restaurant **and bar**;
+- the judge scored those executions 9 and 10 out of 10.
+So the assertion was measuring Google's taxonomy rather than the agent, and
+failing a correct answer — a false regression, which D30 calls the worse error.
+This is the third instance of that pattern after `cafe`/`pastry_shop` and
+`bar`/`barbecue_restaurant`.
+Widening the accepted list was rejected because `restaurant` is exactly what
+the seed returns, so the check would no longer discriminate the follow-up from
+its base at all. Dropping the claim was rejected because DIR-4 is one of the
+few relations with a checkable delta and the delta is real — it is just the
+other way round. The seafood seed names a `seafood_*` venue in **10 of 13**
+recorded executions; the "not a meal" follow-up in **0 of 5**. The absence is
+the stable fact.
+**A second defect surfaced while implementing it.** `_same_place_type` matches
+loosely in both directions, which is right for "must name a restaurant" (a
+`seafood_restaurant` satisfies it) and wrong for exclusion — it made "no
+seafood restaurants" exclude every plain `restaurant`, so the new check fired
+on exactly the answers it was written to accept. Exclusion is now directional
+(`_is_kind_of`): the observed type must carry everything the excluded kind
+names. Both previously-detecting runs are now 29/29 clean.
+Stated limit: `primaryType` is one string and Google types some seafood places
+plain `restaurant`, which is why the seed is 10 of 13 and not 13. A regressed
+agent whose seafood venues were all typed `restaurant` would slip through. It
+fails **open** rather than closed, which is the direction D30 asks for.
+Affects: src/cases.py (`places_excluded_types`) · src/checker.py (`_is_kind_of`)
+· cases/derivations.py · the regenerated case · tests/test_tables.py
+Reverses: the `places_named_types` half of D42's treatment of this case
+
 ### D71 — The second review's findings, and judge scores get a table
 Date: 2026-09-23 · Decided by: author (commissioned the re-review, directed the fixes)
 The reviewer was asked to check the D69/D70 remediation rather than re-derive
