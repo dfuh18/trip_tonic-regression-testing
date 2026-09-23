@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Optional
 
 from src.cases import Case, load_cases
+from src.config import settings
 from src.judge import PointwiseResult, score_pointwise
 from src.llm import judge_llm
 
@@ -126,13 +127,11 @@ def score_execution(case: Case, execution_row: dict, llm=None) -> Scored:
     # instrument, and a 429 from it is a missing measurement, not a finding.
     # Two runs lost five scores this way — including the two lowest — and an
     # unscored execution is worse than a slow one.
-    last: Optional[Exception] = None
     for attempt in range(1, MAX_JUDGE_ATTEMPTS + 1):
         try:
             result: PointwiseResult = score_pointwise(case, request, reply, references, llm=llm)
             break
         except Exception as exc:
-            last = exc
             if attempt == MAX_JUDGE_ATTEMPTS or not _judge_worth_retrying(exc):
                 return Scored(**base, score=None, rationale="", reply_chars=len(reply),
                               error=f"judge: {type(exc).__name__}: {exc}")
@@ -149,8 +148,68 @@ def latest_attempts(rows: list[dict]) -> tuple[list[dict], int]:
     return canonical(rows)
 
 
-def score_run(run_id: str, log: Callable[[str], None] = print) -> ScoreRun:
-    """Score every execution of a run once, in case order."""
+def persist(run_id: str, row: dict, scored: "Scored", judge_model: str, prompt_version: str) -> None:
+    """Write one judge score to `study_scores` (D71).
+
+    Append-only and keyed by (execution, judge model, prompt version), so
+    re-scoring under a new judge adds a row rather than overwriting one — a
+    disagreement between two judge versions is data. `on_conflict` makes a
+    re-score under the SAME judge idempotent, which is what lets a lost judge
+    pass be resumed without duplicating what it already wrote.
+
+    Never fatal: a scoring pass that cannot persist should still report its
+    numbers rather than lose them, which is the failure this table exists to
+    prevent in the first place.
+    """
+    from src import db
+
+    try:
+        db.admin().table("study_scores").upsert({
+            "execution_id": row["id"],
+            "run_id": run_id,
+            "case_id": row["case_id"],
+            "repetition": row["repetition"],
+            "attempt": row.get("attempt") or 1,
+            "judge_model": judge_model,
+            "judge_prompt_version": prompt_version,
+            "score": scored.score,
+            "rationale": scored.rationale or "",
+            "reply_chars": scored.reply_chars,
+            "error": scored.error,
+        }, on_conflict="execution_id,judge_model,judge_prompt_version").execute()
+    except Exception as exc:  # pragma: no cover - reporting must survive it
+        print(f"    WARNING could not persist score for {row['case_id']}: {exc}")
+
+
+def scores_for(run_id: str) -> list[dict]:
+    """Every persisted score for a run, newest judge version first."""
+    from src import db
+
+    return (
+        db.admin()
+        .table("study_scores")
+        .select("*")
+        .eq("run_id", run_id)
+        .order("case_id")
+        .execute()
+        .data
+    )
+
+
+def _judge_prompt_version() -> str:
+    from src.llm import load_prompt
+
+    return load_prompt("judge_pointwise_v1").version
+
+
+def score_run(run_id: str, log: Callable[[str], None] = print, persist_scores: bool = True) -> ScoreRun:
+    """Score every execution of a run once, in case order.
+
+    Scores are persisted by default (D71). They used to live only in the
+    returned object, so a lost notebook kernel cost a whole judge pass and
+    nothing could join a score to the structural verdict for the same
+    execution without re-judging.
+    """
     from src import db
 
     cases = {c.case_id: c for c in load_cases()}
@@ -173,6 +232,8 @@ def score_run(run_id: str, log: Callable[[str], None] = print) -> ScoreRun:
             continue
         scored = score_execution(case, row, llm=llm)
         out.results.append(scored)
+        if persist_scores:
+            persist(run_id, row, scored, settings.JUDGE_MODEL, _judge_prompt_version())
         mark = f"{scored.score}/10" if scored.score is not None else "—"
         log(f"  {mark:>5s}  {scored.case_id}"
             + (f"   [{scored.error}]" if scored.error else ""))

@@ -31,6 +31,75 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D71 — The second review's findings, and judge scores get a table
+Date: 2026-09-23 · Decided by: author (commissioned the re-review, directed the fixes)
+The reviewer was asked to check the D69/D70 remediation rather than re-derive
+the picture. Verdict: **converging, not converged** — eight of ten prior
+findings genuinely fixed, but two of the fixes were wrong in instructive ways.
+
+**The resume fix traded a lossy resume for a FATAL one (N1).** Withholding a
+repetition was correct; re-executing it at `attempt=1` was not. Every attempt
+is a row, `(run_id, case_id, repetition, attempt)` is unique, and a postgrest
+violation *raises* — so it escaped `execute_case` as neither `SimulatorFailed`
+nor `RunAborted` and would have killed a resumed run outright, leaving the run
+row unfinalised. A two-hour baseline dying at ninety minutes could not have
+been continued at all. Attempt numbering now continues from what the record
+already holds (`attempts_used`), and the same off-by-one is fixed in the
+simulator handler (N2), which restarted its own counter at 1.
+This was reported to the author as working, on the strength of checking the
+decision function and not the write. The lesson is narrow and worth keeping:
+verifying which rows a function *selects* says nothing about whether the next
+write *lands*.
+
+**The recovery fix had landed on dead code (N3).** D69 claimed a recovered
+repetition "contributed nothing to the run's cost, latency or token counts".
+False — `totals` is write-only and the run row is summed from a database
+re-read, both before and after. The fix was a no-op and its test was a
+tautology (`assert ... or True`). What recovery actually skipped was the
+**failure policy**: a repetition that recovered from a simulator refusal and
+then returned 429 sailed straight past the rule that says our own quota stops
+the run. The policy is now one function, `settle()`, that both paths call.
+
+**A threshold was set without escalating it (N4).** `JOINT_LIMIT = 3` credited
+a tool required by *three* cases as a sole route — delete one and it is still
+covered twice. Six cases were credited with coverage they do not carry. Now 2,
+which is the rule D69 describes. Recorded here because CLAUDE.md's
+stop-and-ask list covers thresholds and this one was not escalated when set.
+
+**D70's drift detector fired on D70 (N5).** `failures.report()` flags an
+agent-blamed failure where no tokens moved as a suspect classification — which
+is exactly what a correct deadline failure looks like, by D70's own evidence.
+Deadline failures are now excluded from that warning.
+
+**D70's logging repair covered one of three sites (N7).** The main invoke catch
+had already computed `failureKind` and did not pass it, so a capacity error
+thrown raw out of `generateContentAsync` still landed as `other` — the precise
+defect D70 claimed to have fixed, surviving at the sibling call.
+
+**Judge scores now have a table.** `study_scores`, shaped after
+`study_verdicts`: keyed by (execution, judge model, prompt version),
+append-only, `score` nullable with an `error` explaining why, and a check that
+one of the two is present. Until now `score_run` returned an in-memory object
+and 160 scores would have existed only in a notebook output cell — a lost
+kernel costing a full judge pass, and no way to join a score to the structural
+verdict for the same execution without re-judging. The structural side has had
+its table since the beginning; this was an asymmetry rather than a decision.
+
+**Both write paths were then exercised live** against a throwaway run, which is
+the assurance the payload-keys check could not give: `record_simulator_failure`
+writes its rows, `study_scores` accepts a scored row and an unscored one, two
+judge versions coexist, the unique index **does** reject a repeated attempt
+(confirming N1 was real), and the cascade cleans up. Nothing was left behind.
+Also fixed: the printed legend still described 504 as retried (contradicting
+D70 in the artefact a reader sees), a dead `is_platform_refusal`, an unread
+binding in `scoring`, and a constant comment describing the wrong tuple.
+`run()` now has 15 tests including four that do not stub the resume logic —
+stubbing it is why N1 survived the first review.
+Affects: src/runner.py · src/scoring.py · src/failures.py · src/tables.py ·
+tests/test_runner_loop.py · apps/api/src/routes/ai/agent/agent.service.ts ·
+supabase/migrations/20260923071500_study_scores.sql
+Reverses: the resume half of D69; corrects D69's finding-2 claim outright
+
 ### D70 — Where a 504 came from decides what it means
 Date: 2026-09-22 · Decided by: author
 Options: retry every 504 as a platform refusal (D59's position) · fail every

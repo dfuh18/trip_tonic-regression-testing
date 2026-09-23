@@ -119,7 +119,7 @@ def report(failures: list[Failure], total: int) -> str:
         f"{len(failures)} failed execution(s) of {total} — "
         + ", ".join(f"{k}: {v}" for k, v in sorted(blame.items())),
         "",
-        "  platform = the provider was busy or ran past our deadline; retried (D59)",
+        "  platform = the provider was busy, or refused the harness's own call; retried (D59/D70)",
         "  ours     = our own rate limit or monthly quota; never retried, aborts the run",
         "  harness  = the simulator or the harness broke; not the agent's fault and not a result",
         "  agent    = the agent genuinely failed to answer; this is a result, not noise",
@@ -142,7 +142,13 @@ def report(failures: list[Failure], total: int) -> str:
             f"side a member who waited 85 seconds has been failed, and an agent that starts doing "
             f"it has regressed. A rising number here IS the latency regression.",
         ]
+    # A deadline failure is EXPECTED to look like this: D70's own evidence is
+    # that both observed 504s moved zero tokens after internal retries. Without
+    # the exclusion every correct deadline failure would print a warning saying
+    # the classification had drifted — the detector firing on the thing it was
+    # built to describe.
     stale = [f for f in failures if f.blame == "agent"
+             and "504" not in f.error
              and f.turns and f.turns[-1].never_answered and f.turns[-1].retry_count]
     if stale:
         lines += [

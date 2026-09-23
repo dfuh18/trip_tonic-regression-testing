@@ -29,8 +29,9 @@ class FakeTable:
     the real client does.
     """
 
-    def __init__(self, sink):
+    def __init__(self, sink, rows=None):
         self.sink = sink
+        self.rows = rows or []
         self._op = "select"
 
     def insert(self, payload):
@@ -60,16 +61,19 @@ class FakeTable:
         return self
 
     def execute(self):
-        data = [{"id": "fake"}] if self._op == "insert" else []
-        return type("R", (), {"data": data, "count": 0})()
+        data = [{"id": "fake"}] if self._op == "insert" else list(self.rows)
+        return type("R", (), {"data": data, "count": len(data)})()
 
 
 class FakeDb:
-    def __init__(self):
+    """`rows` is what a select returns — the rows a previous run left behind."""
+
+    def __init__(self, rows=None):
         self.writes: list[tuple[str, dict]] = []
+        self.rows = rows or []
 
     def table(self, name):
-        return FakeTable(self.writes)
+        return FakeTable(self.writes, self.rows)
 
 
 def make_case(case_id="c1", n=1) -> Case:
@@ -126,7 +130,10 @@ def harness(monkeypatch):
     monkeypatch.setattr(runner.reset, "assert_clean", lambda *a, **k: None)
     monkeypatch.setattr(runner.reset, "harness_log", lambda msg: state["logs"].append(msg))
     monkeypatch.setattr(runner, "open_run", lambda *a, **k: "run-1")
-    monkeypatch.setattr(runner, "executions_done", lambda run_id: set())
+    # NOT stubbed by default any more: `executions_done` and `attempts_used`
+    # are the resume logic, and stubbing them is exactly why the attempt
+    # collision survived the last review.
+    state["seed_rows"] = lambda rows: setattr(fake_db, "rows", rows)
     monkeypatch.setattr(runner.fixture, "for_case", lambda case: {})
 
     def script(outcomes):
@@ -258,17 +265,91 @@ def test_consecutive_simulator_losses_abort_the_run(harness):
     assert "consecutive simulator failures" in str(err.value)
 
 
-def test_a_recovered_repetition_still_counts_toward_the_run_totals(harness):
-    """The second bug in the same block: recovery used `continue`, which
-    skipped the totals, so a repetition that succeeded on attempt 2
-    contributed nothing to the run's cost, latency or tokens."""
+def test_a_recovered_repetition_still_goes_through_the_failure_policy(harness):
+    """N3, and the real content of a fix that had landed on dead code.
+
+    Recovery fell through to a `totals` dict that nothing ever reads — the run
+    row is summed from a database re-read — so the "fix" was a no-op and its
+    test was a tautology. What recovery actually skipped was the failure
+    policy: a repetition that recovered from a simulator refusal and then came
+    back 429 sailed past the rule that says our own quota stops the run.
+    """
     harness["script"]([
         runner.SimulatorFailed("ServerError: 504 DEADLINE_EXCEEDED"),
-        ok_row("c1", 1, 2),
+        err_row("c1", 1, "agent returned 429 on turn 1", attempt=2),
+    ])
+    with pytest.raises(runner.RunAborted) as err:
+        run_one(make_case())
+    assert "OUR OWN limit" in str(err.value)
+
+
+def test_a_recovered_repetition_that_then_fails_on_the_platform_is_counted(harness):
+    """Same path, the other outcome: it must be logged as a platform loss
+    rather than passing silently."""
+    harness["script"]([
+        runner.SimulatorFailed("ServerError: 504 DEADLINE_EXCEEDED"),
+        err_row("c1", 1, "agent returned 503 on turn 1", attempt=2),
+        err_row("c1", 1, "agent returned 503 on turn 1", attempt=3),
+        err_row("c1", 1, "agent returned 503 on turn 1", attempt=4),
     ])
     logs = []
     run_one(make_case(), log=logs.append)
-    # the per-execution line is only printed from the totals path
-    assert any("cost" in line or "0.01" in line for line in logs) or True
-    updates = [p for op, p in harness["db"].writes if op == "update"]
-    assert updates, "the run row should still be finalised"
+    assert any("LOST to the platform" in line for line in logs)
+
+
+# --- resume (N1) ------------------------------------------------------------
+
+def test_resume_continues_the_attempt_numbering(harness):
+    """N1. Every attempt is a row and (run, case, repetition, attempt) is
+    unique, so re-executing a withheld repetition at attempt 1 collides with
+    the row already there — and a postgrest violation RAISES, escaping
+    `execute_case` as neither SimulatorFailed nor RunAborted, killing the
+    resumed run with its row left unfinalised.
+
+    Strictly worse than the lossy resume it replaced: a two-hour baseline that
+    died at ninety minutes could not be continued at all.
+    """
+    harness["seed_rows"]([
+        {"case_id": "c1", "repetition": 1, "attempt": 1,
+         "error": "simulator: ServerError: 504 DEADLINE_EXCEEDED",
+         "cost_usd": 0, "latency_ms": 0, "token_count": 0},
+    ])
+    harness["script"]([ok_row("c1", 1, 2)])
+    runner.run([make_case()], n_override=1, resume_run_id="run-1", log=lambda s: None)
+    assert [a for _, _, a in harness["calls"]] == [2], "must continue at attempt 2, not restart at 1"
+
+
+def test_resume_skips_a_repetition_that_produced_a_result(harness):
+    """A completed execution, or one the agent itself failed, is a result and
+    is not re-run."""
+    harness["seed_rows"]([
+        {"case_id": "c1", "repetition": 1, "attempt": 1, "error": None,
+         "cost_usd": 0, "latency_ms": 0, "token_count": 0},
+    ])
+    harness["script"]([ok_row("c1", 1)])
+    runner.run([make_case()], n_override=1, resume_run_id="run-1", log=lambda s: None)
+    assert harness["calls"] == [], "a completed repetition must not be re-executed"
+
+
+def test_resume_does_not_re_run_an_exhausted_repetition(harness):
+    """Attempts spent is a result too — it was recorded as lost."""
+    harness["seed_rows"]([
+        {"case_id": "c1", "repetition": 1, "attempt": runner.MAX_ATTEMPTS_PER_REPETITION,
+         "error": "agent returned 503 on turn 1",
+         "cost_usd": 0, "latency_ms": 0, "token_count": 0},
+    ])
+    harness["script"]([ok_row("c1", 1)])
+    runner.run([make_case()], n_override=1, resume_run_id="run-1", log=lambda s: None)
+    assert harness["calls"] == []
+
+
+def test_a_simulator_retry_does_not_reuse_an_attempt_number(harness):
+    """N2, the same collision from the other direction: the handler used to
+    restart its counter at 1, writing a row for an attempt `execute_case` had
+    already written."""
+    boom = runner.SimulatorFailed("ServerError: 504 DEADLINE_EXCEEDED")
+    harness["script"]([boom] * 6)
+    run_one(make_case())
+    inserts = [p for op, p in harness["db"].writes if op == "insert"]
+    attempts = [p["attempt"] for p in inserts]
+    assert attempts == sorted(set(attempts)), f"attempt numbers must not repeat: {attempts}"

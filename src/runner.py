@@ -76,9 +76,8 @@ MAX_CONSECUTIVE_SIMULATOR_FAILURES = 3
 #: agent.
 MAX_ATTEMPTS_PER_REPETITION = 4
 
-#: Statuses that mean the model provider could not serve a call: it was busy
-#: (503, which D45 gave its own status) or, on the HARNESS's own calls, Vertex
-#: refused with its own deadline. Re-running these is sampling, not laundering.
+#: The provider being busy, on the AGENT's turn. 503 only: a 504 there is our
+#: own 85-second deadline and is the agent's failure, not the platform's (D70).
 PLATFORM_REFUSAL_STATUSES = ("503",)
 
 #: What the provider returns to the simulator and the judge when IT gives up.
@@ -128,10 +127,6 @@ def failure_class(error: Optional[str]) -> Optional[str]:
     # Anything else the agent returned — 502 (no reply, reasoning limit) and
     # 504 (past our deadline) — is a result about the agent.
     return "agent"
-
-
-def is_platform_refusal(error: Optional[str]) -> bool:
-    return failure_class(error) == "platform"
 
 
 @dataclass
@@ -289,6 +284,35 @@ def executions_done(run_id: str) -> set[tuple[str, int]]:
         if blame is None or blame == "agent" or (r.get("attempt") or 1) >= MAX_ATTEMPTS_PER_REPETITION:
             done.add(key)
     return done
+
+
+def attempts_used(run_id: str) -> dict[tuple[str, int], int]:
+    """The highest attempt already recorded for each repetition of a run.
+
+    A resumed run must continue the attempt numbering, not restart it. Every
+    attempt is a row and `(run_id, case_id, repetition, attempt)` is unique, so
+    re-executing a withheld repetition at attempt 1 collides with the row that
+    is already there — and a postgrest constraint violation raises rather than
+    returning an error, so it escapes `execute_case`, is neither
+    `SimulatorFailed` nor `RunAborted`, and kills the resumed run outright with
+    the run row left unfinalised.
+
+    That is strictly worse than the lossy resume it replaced: a two-hour
+    baseline that dies at ninety minutes could not be continued at all.
+    """
+    rows = (
+        db.admin()
+        .table("study_case_executions")
+        .select("case_id, repetition, attempt")
+        .eq("run_id", run_id)
+        .execute()
+        .data
+    )
+    used: dict[tuple[str, int], int] = {}
+    for r in rows:
+        key = (r["case_id"], r["repetition"])
+        used[key] = max(used.get(key, 0), r.get("attempt") or 1)
+    return used
 
 
 def collect(trip_id: str, suggestion_ids: list[str], exclude_mutations: tuple[str, ...] = ()) -> dict:
@@ -504,17 +528,61 @@ def run(
     simulator_failures = 0
     platform_retries = 0   # attempts spent on the provider being busy
     platform_losses = 0    # repetitions the provider refused to the last attempt
+    # Where each repetition's attempt numbering continues from. Empty for a
+    # fresh run; on a resume it is what stops the re-execution colliding with
+    # the rows already there.
+    used = attempts_used(run_id) if resume_run_id else {}
+
+    def settle(row: dict, case: Case, repetition: int) -> None:
+        """Apply the failure policy to a completed execution.
+
+        One function because there are two ways to arrive at a finished row —
+        the ordinary path and recovery from a simulator refusal — and only the
+        first used to run this. A repetition that recovered and then came back
+        `429` slipped past the "our own quota is fatal" rule entirely, and one
+        that came back `503` was never counted as a platform loss.
+        """
+        nonlocal platform_losses
+        final = failure_class(row.get("error"))
+        if final == "ours":
+            # Our own quota, which is a fact about this harness's
+            # configuration and not about the agent. Every execution after
+            # this one would hit the same wall, and retrying is what being
+            # rate limited is caused by — so stop, and say which limit and
+            # which tier to go and look at.
+            msg = (f"RUN {run_id} ABORTED: refused by OUR OWN limit — {row['error']}. "
+                   f"This is not the provider. Check the sim account's subscription tier "
+                   f"and the per-minute/monthly caps in apps/api/src/lib/subscription-tier.ts")
+            log(msg)
+            reset.harness_log(msg)
+            db.admin().table("study_runs").update({
+                "notes": f"aborted: refused by our own rate limit/quota — {row['error']}",
+                "finished_at": _now(),
+            }).eq("id", run_id).execute()
+            raise RunAborted(msg)
+        if final == "platform":
+            lost = (f"    WARNING {case.case_id} rep {repetition} LOST to the platform after "
+                    f"{MAX_ATTEMPTS_PER_REPETITION} attempts ({row['error']})")
+            log(lost)
+            reset.harness_log(f"RUN {run_id[:8]} {lost.strip()}")
+            platform_losses += 1
+        elif final == "agent":
+            log(f"    {case.case_id} rep {repetition} failed on the AGENT "
+                f"({row['error']}) — not retried, this is a result")
+
     for case in cases:
         n = n_override or case.repetitions_n
         for repetition in range(1, n + 1):
             if (case.case_id, repetition) in done:
                 continue
+            first = used.get((case.case_id, repetition), 0) + 1
             try:
                 # The gate's trip is on the fixed calendar, so only a case that
                 # wants that calendar may inherit it (D54); a near-dated case
                 # builds its own and the gate's trip goes to the next taker.
-                inherit = opening if case.fixture_dates == "fixture" else None
-                row = execute_case(handle, case, repetition, simulator, log, provisioned=inherit)
+                inherit = opening if (case.fixture_dates == "fixture" and first == 1) else None
+                row = execute_case(handle, case, repetition, simulator, log,
+                                   provisioned=inherit, attempt=first)
                 if inherit is not None:
                     opening = None  # the gate's trip belongs to one execution only
                 simulator_failures = 0
@@ -523,11 +591,8 @@ def run(
                 # attempt stays in the record — the refusals are evidence about
                 # the platform, the completed one is evidence about the agent,
                 # and merging them would lose the first.
-                for attempt in range(2, MAX_ATTEMPTS_PER_REPETITION + 1):
-                    kind = failure_class(row.get("error"))
-                    if kind == "ours":
-                        break  # handled below, as a run-level fault
-                    if kind != "platform":
+                for attempt in range(first + 1, MAX_ATTEMPTS_PER_REPETITION + 1):
+                    if failure_class(row.get("error")) != "platform":
                         break
                     warn = (f"    WARNING platform refused {case.case_id} rep {repetition} "
                             f"({row['error']}) — retrying, attempt {attempt} of "
@@ -536,32 +601,7 @@ def run(
                     reset.harness_log(f"RUN {run_id[:8]} {warn.strip()}")
                     platform_retries += 1
                     row = execute_case(handle, case, repetition, simulator, log, attempt=attempt)
-                final = failure_class(row.get("error"))
-                if final == "ours":
-                    # Our own quota, which is a fact about this harness's
-                    # configuration and not about the agent. Every execution
-                    # after this one would hit the same wall, and retrying is
-                    # what being rate limited is caused by — so stop, and say
-                    # which limit and which tier to go and look at.
-                    msg = (f"RUN {run_id} ABORTED: refused by OUR OWN limit — {row['error']}. "
-                           f"This is not the provider. Check the sim account's subscription tier "
-                           f"and the per-minute/monthly caps in apps/api/src/lib/subscription-tier.ts")
-                    log(msg)
-                    reset.harness_log(msg)
-                    db.admin().table("study_runs").update({
-                        "notes": f"aborted: refused by our own rate limit/quota — {row['error']}",
-                        "finished_at": _now(),
-                    }).eq("id", run_id).execute()
-                    raise RunAborted(msg)
-                if final == "platform":
-                    lost = (f"    WARNING {case.case_id} rep {repetition} LOST to the platform after "
-                            f"{MAX_ATTEMPTS_PER_REPETITION} attempts ({row['error']})")
-                    log(lost)
-                    reset.harness_log(f"RUN {run_id[:8]} {lost.strip()}")
-                    platform_losses += 1
-                elif final == "agent":
-                    log(f"    {case.case_id} rep {repetition} failed on the AGENT "
-                        f"({row['error']}) — not retried, this is a result")
+                settle(row, case, repetition)
             except SimulatorFailed as exc:
                 opening = None
                 # The simulator runs on the same provider as the agent, so it
@@ -570,20 +610,11 @@ def run(
                 # agent — so it is re-run on the same terms (D59). Everything
                 # else (a malformed persona, a parse failure) is a real fault
                 # and is recorded as one.
-                # Each refused attempt is recorded before the next is tried
-                # (D67). D53's rule is that both attempts stay in the record
-                # because the refusal is evidence about the platform, and the
-                # simulator path was keeping only the one that succeeded — so
-                # a simulator refusal recovered on attempt 2 vanished from the
-                # platform-failure rate entirely and survived only in the log.
-                # Recovery is tracked explicitly and never inferred from
-                # `simulator_failures`. Inferring it was wrong in a way that
-                # depended on the PREVIOUS repetition: that counter is reset to
-                # zero by any success, so after a passing repetition a total
-                # loss satisfied `simulator_failures == 0` and was treated as a
-                # recovery — no final row, no `platform_losses`, no abort
-                # counter, and the run continued as if nothing had been lost.
-                sim_attempt = 1
+                #
+                # The counter continues from the attempt that just failed, for
+                # the same reason a resume does: `record_simulator_failure`
+                # writes a row per attempt and the key is unique.
+                sim_attempt = first
                 recovered = False
                 while (failure_class(f"simulator: {exc}") == "platform"
                        and sim_attempt < MAX_ATTEMPTS_PER_REPETITION):
@@ -605,7 +636,7 @@ def run(
                         exc = again
                 if not recovered:
                     simulator_failures += 1
-                    if sim_attempt > 1:
+                    if sim_attempt > first:
                         platform_losses += 1
                     record_simulator_failure(run_id, handle, case, repetition, sim_attempt, exc)
                     line = f"{case.case_id} rep {repetition}: SIMULATOR FAILED — {exc}"
@@ -619,10 +650,10 @@ def run(
                         }).eq("id", run_id).execute()
                         raise RunAborted(f"{simulator_failures} consecutive simulator failures") from exc
                     continue
-                # Recovered: fall through to the totals below rather than
-                # `continue`. The old path skipped them, so a repetition that
-                # succeeded on attempt 2 contributed nothing to the run's cost,
-                # latency or token counts.
+                # Recovered on a later attempt. The failure policy still has to
+                # run: this row can carry its own agent-side failure, and one
+                # of them (our own quota) is supposed to stop the run.
+                settle(row, case, repetition)
             except RunAborted as exc:
                 reset.harness_log(f"RUN {run_id} ABORTED at {case.case_id} rep {repetition}: {exc}")
                 db.admin().table("study_runs").update({"notes": f"aborted: {exc}", "finished_at": _now()}).eq("id", run_id).execute()

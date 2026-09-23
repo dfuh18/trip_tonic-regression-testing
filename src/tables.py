@@ -309,7 +309,12 @@ def unique_contribution() -> "DataFrame":
     #: prose two cells away claimed they existed to reach a tool nothing else
     #: could. That contradiction is D66's disjunction error one level up, at
     #: the case level, and this is the same fix (D69).
-    JOINT_LIMIT = 3
+    # Two, not three. `others < LIMIT` admits `others == LIMIT - 1`, so three
+    # credited a tool required by THREE cases — delete one and it is still
+    # covered twice, which is not "nothing else would reach it". Six cases were
+    # being credited with coverage they do not carry. (A threshold, and it
+    # should have been escalated when it was first set; recorded in D71.)
+    JOINT_LIMIT = 2
 
     rows = []
     for c in cases:
