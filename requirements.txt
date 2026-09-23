@@ -20,6 +20,16 @@ python-dotenv>=1,<2
 pyyaml>=6,<7
 pandas>=2,<3
 matplotlib>=3,<4
+# Figure-level plots (catplot/relplot/displot) pick the chart from the data and
+# facet it, which suits a dataset where nearly every question is "split by
+# function, provenance or relation".
+seaborn>=0.13,<1
+# The comparisons 4.3 needs: paired pass rates between two runs (McNemar,
+# exact binomial), score distributions (Wilcoxon), coverage (Fisher), and
+# confidence intervals on a rate. Added before the baseline rather than after,
+# so the run can be checked for whether it COLLECTS what the tests need.
+scipy>=1.11,<2
+statsmodels>=0.14,<1
 pytest>=8,<9
 
 # The simulator and the judge (B06, B09; D20): Gemini through the Vertex express
