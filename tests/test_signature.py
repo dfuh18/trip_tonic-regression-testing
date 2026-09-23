@@ -24,7 +24,16 @@ def a_trace() -> list[dict]:
 
 
 def test_rule_version_is_recorded() -> None:
-    assert SIGNATURE_RULE_VERSION == "1"
+    """That a version is declared, not which one it is (D80).
+
+    Bumping the signature rule is a planned, versioned act — D24 says results
+    computed under different versions are not comparable, which is an argument
+    for recording it, not for freezing it. Pinning the literal would fail the
+    first time someone did the thing the constant exists to support.
+    """
+    import re
+
+    assert re.fullmatch(r"\d+", SIGNATURE_RULE_VERSION), SIGNATURE_RULE_VERSION
 
 
 def test_identical_traces_give_equal_signatures() -> None:

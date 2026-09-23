@@ -31,6 +31,79 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D80 — Assert the relation, not the reading
+Date: 2026-09-23 · Decided by: author (commissioned the audit, directed the fixes)
+An independent audit of all 252 tests, prompted by four tests being falsified
+in one week by *correct* work rather than by regressions.
+
+**Verdict: systemic in mechanism, cheap in consequence, and the real damage was
+outside the test suite.** The evidence for the mechanism is total — every one
+of ~40 commits touching `src/` also touched `tests/` in the same commit, never
+once separately. Tests here are written as *evidence the change works*, which
+is the posture that writes down a reading. A docstring since deleted said so
+outright: *"Pinned so adopting them is a deliberate act… When the author
+reviews them this test changes — which is the point."* That is the defect
+stated as a design goal.
+The audit also found the project's own design encourages it, and named the
+confusion exactly: `suite_version`, `case_version`, `CHECKER_VERSION` and
+`judge_prompt_version` are deliberate content pins, because the artifact's
+thesis is that change must be detectable. The test suite adopted that reasoning
+about itself. But **a hash reports drift; a test blocks the commit** — which is
+why `test_tables.py`'s hard gate on unmarked cases sat in direct contradiction
+to `runner.py`'s considered choice to warn and not refuse.
+Counter-evidence, recorded because it bounds the claim: ~190 of 209 tests
+encode real invariants, one line in 375 asserts was dead, and all four
+falsified tests lived a day or less.
+
+**The rule.** *Assert the relation, not the reading.* A test may compute both
+sides from the artifact, or bound one side; it must not contain a side that
+project data determines. If someone doing correct planned work would have to
+edit your test to record what they just did, you wrote down an observation.
+Corollaries: a version is a **shape**, never a value; a count is a **bound or a
+derivation**, never an equality.
+
+**Fixed.** Two literal version pins that survived D79's fix — one of them two
+assertions below the fixed version of itself, the fourth instance of the
+one-of-N pattern (D70's `study?.fail` sites, D73's four `study_verdicts`
+claims). Three count pins in `test_metamorphic.py` became a derivation from
+`DERIVATIONS`, a property about which seeds may exceed the budget, and a named
+`D21_EXECUTION_CEILING`. Two hard-coded case-id lists became properties over
+`unique_contribution()`. A `words` dict that would raise `KeyError` rather than
+fail an assertion. The hard review gate became a tracking invariant plus a
+mechanism test on a temp copy.
+
+**The published notebook was the real cost.** `01_cases` — the stage-1 worked
+example — told readers for three days that the suite had **8 cases** and was
+**8 of 8 reviewed**, against 29 and 29/29. `02_expand` had two guards of
+exactly the right shape; nobody generalised them, so the notebook that was
+wrong had none. `tests/test_notebook_freshness.py` now parametrizes them over
+every published notebook, deriving every expected number from `load_cases()`.
+Run-scoped notebooks are exempt by *stating the run they describe*, not by
+filename.
+
+**And the mechanised part took three attempts, which is the part worth
+keeping.** The dead-assert sweep was written, passed, and was then shown to
+pass with a dead assert planted in front of it — a vacuous check for vacuous
+checks. Two causes, both mine: a tracer matching frame filenames by string
+prefix against an absolute path, recording nothing; and a `continue` written
+for "this file was skipped" that turned total failure into green. The second
+attempt fixed the matching and took over fifteen minutes, because a
+Python-level trace callback over a 253-test suite is what C-accelerated
+coverage tooling exists for. The third uses `coverage.py`, runs in two minutes,
+fails when the sweep measures nothing, and was verified by planting a dead
+assert and watching it name the line.
+It immediately found one I had left: an `elif` branch unreachable because every
+mark now carries a sha, so the test could not exercise the state it was named
+after. Both mark shapes are now constructed rather than looked for.
+Docs were checked and are **not** affected: counts in `DECISIONS.md` and
+`REVIEW_LOG.md` sit in dated append-only entries, where a count is a historical
+fact rather than a stale spec.
+Affects: tests/test_no_dead_asserts.py (new) · tests/test_notebook_freshness.py
+(new) · tests/test_metamorphic.py · tests/test_tables.py · tests/test_signature.py
+· tests/test_judge_simulator.py · conftest.py · notebooks/sim/01_cases.ipynb ·
+requirements.txt
+Reverses: none
+
 ### D79 — The judge is told what day it is, and every case is now approved
 Date: 2026-09-23 · Decided by: author
 **The judge scored half of two criteria.** It was given the trip's dates via

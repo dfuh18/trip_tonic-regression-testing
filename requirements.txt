@@ -31,6 +31,10 @@ seaborn>=0.13,<1
 scipy>=1.11,<2
 statsmodels>=0.14,<1
 pytest>=8,<9
+# The dead-assert sweep (D80): executed-line data per test file. Used
+# instead of a hand-rolled sys.settrace callback, which took fifteen
+# minutes against two for the C-accelerated tool.
+coverage>=7,<8
 
 # The simulator and the judge (B06, B09; D20): Gemini through the Vertex express
 # endpoint with the same key as the agent.

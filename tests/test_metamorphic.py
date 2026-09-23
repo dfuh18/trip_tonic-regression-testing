@@ -17,6 +17,13 @@ from src.metamorphic import (
 )
 
 
+#: The most executions the suite may cost without a fresh decision. D21 set the
+#: budget at 128; D50, D51 and D61 each raised it for a case that was the only
+#: route to a tool or a relation. Stated as a ceiling because the rule is "keep
+#: it at a minimum to cover all tools" — a number to stay under, not to hit.
+D21_EXECUTION_CEILING = 160
+
+
 def seeds():
     return {c.case_id: c for c in load_cases() if c.provenance == "seeded"}
 
@@ -115,27 +122,41 @@ def test_every_seed_has_its_follow_ups_and_they_all_load():
 
     cases = load_cases()
     expanded = [c for c in cases if c.provenance == "metamorphic"]
-    assert len(expanded) == 18
-    # Every seed with follow-ups takes two, except scheduling_move_tram, which
-    # takes three: both schedule_block and unschedule_block are reachable only
-    # under /reschedule, so both cases that reach them derive from that seed.
-    # venue_lookup_seafood_lisbon takes a third for INV-2 (D61): it is the one
-    # seed whose words become a search_places QUERY ARGUMENT, so it is the one
-    # place a typo can reach past the model instead of being absorbed by it.
-    # Three seeds have none. factual_qa_lisbon_surf_conditions was added for
-    # tool coverage, is the only case that can reach get_climate_normals, and a
-    # perturbation of it would buy no tool the suite does not already have. The
-    # two weather-forecast seeds are each other's perturbation in the sense
-    # that matters — same tool, same question, one reference apart (D56) — and
-    # a paraphrase of either would test the wording rather than the branch.
+
+    # Derived, not pinned: the follow-up count IS what `derivations.py`
+    # declares, so asserting a literal would only restate it and would fail
+    # every time a derivation is added — which D50, D51 and D61 each did.
+    declared = sum(len(pair) for pair in DERIVATIONS.values())
+    assert len(expanded) == declared, "a generated case exists with no derivation behind it"
+
     assert set(DERIVATIONS) <= set(seeds())
-    for seed_id in DERIVATIONS:
+    for seed_id, pair in DERIVATIONS.items():
         got = sum(1 for c in expanded if c.base_case_id == seed_id)
-        expected = 3 if seed_id in ("scheduling_move_tram", "venue_lookup_seafood_lisbon") else 2
-        assert got == expected, seed_id
-    # 148 + 8 for factual_qa_lisbon_trip_forecast, the near-dated half of the
-    # weather pair (D54), + 4 for the INV-2 follow-up (D61).
-    assert sum(c.repetitions_n for c in cases) == 160
+        assert got == len(pair), f"{seed_id}: {got} files for {len(pair)} derivations"
+
+    # D21 budgeted two follow-ups per seed. Where a seed takes a third, the
+    # reason is recorded — `scheduling_move_tram` because schedule_block and
+    # unschedule_block are both reachable only under /reschedule (D52), and
+    # `venue_lookup_seafood_lisbon` because it is the one seed whose request
+    # can carry a typo to a tool (D61). The property, rather than the names:
+    # nothing exceeds two without a recorded exception.
+    over_budget = {s: len(p) for s, p in DERIVATIONS.items() if len(p) > 2}
+    assert all(n == 3 for n in over_budget.values()), over_budget
+    assert len(over_budget) <= 2, (
+        f"{len(over_budget)} seeds now exceed D21's two-per-seed budget: "
+        f"{sorted(over_budget)} — each needs a decision recording why"
+    )
+
+    # A ceiling, not an equality. The budget has moved three times already
+    # (128 -> 140 -> 160, D50/D51/D61) and D50 states the rule as "keep it at
+    # a minimum to cover all tools", not as a number. An equality here fails
+    # the moment the author does the thing the rule allows; a ceiling still
+    # catches the case set growing without anyone deciding to grow it.
+    executions = sum(c.repetitions_n for c in cases)
+    assert executions <= D21_EXECUTION_CEILING, (
+        f"{executions} executions exceeds the ceiling of {D21_EXECUTION_CEILING}; "
+        f"raise it deliberately, with a decision saying what the extra cases reach"
+    )
 
 
 def test_no_generated_case_has_drifted_from_its_derivation():
@@ -264,11 +285,15 @@ def test_the_expansion_notebook_states_the_real_counts():
     # Either spelling. The prose was tightened to a report register, where a
     # digit reads better than a word; what matters is that the NUMBER is stated
     # and correct, not how it is spelled.
+    # A dict of spellings raises KeyError for a count it has no word for,
+    # which is a worse failure than an assertion — the test would crash rather
+    # than report. Digits are what the prose uses since it was tightened to a
+    # report register; the word form is accepted where it survives.
     words = {8: "eight", 11: "eleven", 18: "eighteen", 29: "twenty-nine"}
 
     def states(n: int) -> bool:
         low = prose.lower()
-        return words[n] in low or str(n) in low
+        return str(n) in low or (words.get(n) is not None and words[n] in low)
 
     assert states(follow_n), f"notebook does not say there are {follow_n} follow-ups"
     assert states(seeds_n), f"notebook does not say there are {seeds_n} seeds"

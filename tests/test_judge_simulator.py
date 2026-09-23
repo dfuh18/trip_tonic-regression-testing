@@ -122,7 +122,11 @@ def test_simulator_opens_verbatim_with_intent_and_stops_when_done():
     assert sent[0] == ("/find seafood near Cais do Sodré", "find")
     assert sent[1] == ("and something cheaper?", None)
     assert result.stopped == "done" and len(result.turns) == 2
-    assert result.simulator_calls == 2 and result.simulator_prompt_version == "simulator/1"
+    # The version is recorded and matches the prompt actually loaded — the
+    # same form used for the judge above. Pinning the literal was missed when
+    # that one was fixed, two assertions away in this file (D80).
+    assert result.simulator_calls == 2
+    assert result.simulator_prompt_version == load_prompt("simulator_v1").version
     assert result.suggestion_ids == ["s1", "s2"]
 
 

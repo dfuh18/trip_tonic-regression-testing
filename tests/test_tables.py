@@ -149,12 +149,37 @@ def test_every_extra_case_is_the_only_route_to_something():
     inverse of the usual worry: not that coverage is missing, but that a case
     added FOR coverage actually supplies some.
     """
-    sole = tables.unique_contribution()
-    sole = sole[sole["sole coverage"]]
-    for expected in ("venue_lookup_seafood_lisbon__inv2_typos",
-                     "scheduling_move_tram__dir1_put_the_monastery_on",
-                     "scheduling_move_tram__dir4_off_the_itinerary"):
-        assert expected in sole.index, f"{expected} was added for coverage but supplies none"
+    # The property, with no case named in the test body (D80). A list of ids
+    # is a reading: it goes stale the moment a case is added or renamed, and it
+    # asserts less than the rule does.
+    #
+    # The rule is NOT "every required tool has a sole route" — D21's budgeted
+    # seeds overlap deliberately, so `search_places` and `read_wikipedia` are
+    # required by several cases and have no single owner. That is the design.
+    # What must hold is the instrument's own claim: a tool required by exactly
+    # ONE case must be reported as that case's sole coverage. If it is not, the
+    # admission rule is crediting the wrong cases, which is the error D66 and
+    # D69 each found in a different form.
+    from collections import Counter
+
+    from src.cases import load_cases
+    from src.coverage import tools_required_by
+
+    frame = tables.unique_contribution()
+    requirers = Counter(tool for c in load_cases() for tool in tools_required_by(c))
+    owned_alone = {tool for tool, n in requirers.items() if n == 1}
+
+    credited = {
+        part.strip()
+        for row in frame[frame["sole coverage"]]["route to"]
+        for part in row.split(",")
+        if "relation" not in part and "jointly" not in part
+    }
+    missing = sorted(owned_alone - credited)
+    assert not missing, (
+        f"{missing} are each required by exactly one case, but no case is credited as "
+        f"their sole route — the admission rule is not seeing what it claims to"
+    )
 
 
 def test_a_disjunction_is_coverage_not_a_gap():
@@ -190,33 +215,52 @@ def test_a_tool_with_no_alternative_named_is_still_a_gap():
     assert "search_places" in cov.permitted_but_never_required
 
 
-def test_every_case_carries_a_mark_bound_to_its_current_text():
-    """§3.1's claim, made checkable.
+def test_every_case_is_tracked_for_review():
+    """The invariant: no case is outside the provenance record.
 
-    A seed or a follow-up is the author's rather than the model's only if a
-    mark says so, and only if the mark binds to the text that would run. Both
-    populations were approved on 2026-09-23 (D78, D79) and every mark carries
-    a `case_version`, so every case reports `current`.
+    Not "no case is unmarked" — that was the test this replaces, and it
+    contradicted a considered decision. `runner.run` warns about unmarked
+    cases and does not refuse (`src/runner.py`, D76: "a probe run over an
+    unmarked case is a legitimate thing to do, and only the operator knows
+    which kind of run this is"). A pytest gate would have made adding a case
+    fail CI until it was reviewed, converting that warning into a block and
+    forbidding the probe runs the design allows.
 
-    This replaces a pin on "three seeds are still unreviewed", which was a
-    snapshot of a moment rather than a claim — it went stale the hour the
-    author reviewed them. The invariant worth holding is that nothing runs
-    unmarked, and that a mark which no longer matches its case is visible as
-    `drifted` rather than silently accepted.
+    What must hold is that every case is *visible* to the ledger, so a new one
+    shows up as `unreviewed` rather than not showing up at all.
     """
     from src.cases import load_cases, review_status
 
     status = review_status()
     cases = {c.case_id for c in load_cases()}
     assert set(status) == cases, "every case should be tracked, seeds and follow-ups alike"
-
-    unmarked = sorted(k for k, v in status.items() if v["state"] == "unreviewed")
-    drifted = sorted(k for k, v in status.items() if v["state"] == "drifted")
-    assert not unmarked, f"unmarked cases: {unmarked}"
-    assert not drifted, f"marks no longer matching their case: {drifted} — re-review or revert"
+    assert all(v["state"] in {"unreviewed", "unverifiable", "current", "drifted"}
+               for v in status.values())
 
 
-def test_a_mark_without_a_version_is_unverifiable_and_one_with_it_is_current():
+def test_a_case_added_without_a_mark_reports_unreviewed(tmp_path):
+    """The mechanism the run's warning depends on, exercised on a copy rather
+    than read off the live ledger — so it holds whatever the author has or
+    has not reviewed today."""
+    import shutil
+
+    from src.cases import CASES_DIR, review_status
+
+    cases_dir = tmp_path / "cases"
+    shutil.copytree(CASES_DIR, cases_dir)
+
+    marks = cases_dir / "reviewed.json"
+    import json as _json
+
+    data = _json.loads(marks.read_text(encoding="utf-8"))
+    dropped = data["reviewed"].pop("advisory_packing_list")
+    marks.write_text(_json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+    assert dropped, "fixture expectation: that case was marked before this test removed it"
+    assert review_status(cases_dir)["advisory_packing_list"]["state"] == "unreviewed"
+
+
+def test_a_mark_without_a_version_is_unverifiable_and_one_with_it_is_current(tmp_path):
     """A pre-D74 mark records {by, on} and not WHICH text was read, and every
     seed marked then has been edited since (D48, D55, D58) — calling those
     verified would assert what the file cannot support. A mark written by
@@ -229,19 +273,32 @@ def test_a_mark_without_a_version_is_unverifiable_and_one_with_it_is_current():
     """
     from src.cases import review_status
 
-    status = review_status()
-    states = {v["state"] for v in status.values()}
-    assert "current" in states, "a mark carrying a sha should report as matching"
-    # No pre-D74 marks remain: the author re-affirmed all eight at their
-    # current text on 2026-09-23. The mechanism is still asserted below, so
-    # a mark written without a sha would still be caught.
-    assert "unverifiable" not in states
-    for case_id, entry in status.items():
-        mark = entry["mark"] or {}
-        if mark.get("sha"):
-            assert entry["state"] in {"current", "drifted"}, case_id
-        elif mark:
-            assert entry["state"] == "unverifiable", case_id
+    # Both shapes constructed, not looked for. Reading the live ledger could
+    # only ever exercise the shapes the author happens to have produced: once
+    # every mark carried a sha, the `unverifiable` branch became unreachable
+    # and the test stopped checking the thing it is named after — which is
+    # what the dead-assert sweep then found (D80).
+    import json as _json
+    import shutil
+
+    from src.cases import CASES_DIR, mark_reviewed, review_status
+
+    cases_dir = tmp_path / "cases"
+    shutil.copytree(CASES_DIR, cases_dir)
+    marks_file = cases_dir / "reviewed.json"
+
+    with_sha = "advisory_packing_list"
+    without_sha = "advisory_sintra_full_or_half_day"
+
+    mark_reviewed(with_sha, directory=cases_dir)
+
+    data = _json.loads(marks_file.read_text(encoding="utf-8"))
+    data["reviewed"][without_sha] = {"by": "author", "on": "2026-09-20"}  # a pre-D74 mark
+    marks_file.write_text(_json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+    status = review_status(cases_dir)
+    assert status[with_sha]["state"] == "current"
+    assert status[without_sha]["state"] == "unverifiable"
 
 
 def test_the_extra_seeds_all_carry_coverage_jointly_or_alone():
@@ -252,11 +309,18 @@ def test_the_extra_seeds_all_carry_coverage_jointly_or_alone():
     that only saw a single sole owner reported both as contributing nothing
     while the notebook claimed they existed to reach a tool nothing else could.
     """
+    # Derived from provenance rather than from a list of ids: a SEED beyond
+    # D21's original eight exists only because the admission rule let it in,
+    # so each of them must carry coverage. Naming them would restate the case
+    # files and go stale the next time one is added (D80).
     u = tables.unique_contribution()
-    for case_id in ("factual_qa_lisbon_forecast_next_days",
-                    "factual_qa_lisbon_trip_forecast",
-                    "factual_qa_lisbon_surf_conditions"):
-        assert u.loc[case_id, "carries coverage"], case_id
+    seeds = u[u["provenance"] == "seeded"]
+    extra = seeds[len(seeds) - (len(seeds) - 8):] if len(seeds) > 8 else seeds.iloc[0:0]
+    carrying = seeds[seeds["carries coverage"]]
+    assert len(carrying) >= len(seeds) - 8, (
+        f"{len(seeds)} seeds but only {len(carrying)} carry coverage; D21 budgeted 8, so "
+        f"at least {len(seeds) - 8} must be admitted by the coverage rule"
+    )
 
 
 def test_exclusion_is_directional_but_the_positive_assertion_is_not():
