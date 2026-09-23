@@ -32,6 +32,96 @@
     "venue_lookup_sintra_lunch": {
       "by": "author",
       "on": "2026-09-20"
+    },
+    "advisory_packing_list__inv1_paraphrase": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "fcc82bcfc719"
+    },
+    "advisory_packing_list__inv3_irrelevant_detail": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "1b11d8d483bc"
+    },
+    "advisory_sintra_full_or_half_day__inv1_paraphrase": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "5f55fc9f4280"
+    },
+    "advisory_sintra_full_or_half_day__inv4_german": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "28236bb54c02"
+    },
+    "factual_qa_alfama_history__dir1_the_earthquake": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "172865ac171e"
+    },
+    "factual_qa_alfama_history__inv1_paraphrase": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "fa3c7580a544"
+    },
+    "factual_qa_lisbon_november_weather__dir1_july_instead": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "741a4b53de1c"
+    },
+    "factual_qa_lisbon_november_weather__inv1_paraphrase": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "9fcdb7eb6453"
+    },
+    "scheduling_belem_morning__dir2_on_the_9th": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "8d98500ebd81"
+    },
+    "scheduling_belem_morning__dir3_a_full_day": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "7be862a31dda"
+    },
+    "scheduling_move_tram__dir1_put_the_monastery_on": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "411415723a84"
+    },
+    "scheduling_move_tram__dir2_sunday_afternoon": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "f3b08d5dea18"
+    },
+    "scheduling_move_tram__dir4_off_the_itinerary": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "e9a1cfb7b495"
+    },
+    "venue_lookup_seafood_lisbon__dir1_and_a_hotel": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "7d40f31f06dd"
+    },
+    "venue_lookup_seafood_lisbon__dir4_not_a_meal": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "9cbb4430f35a"
+    },
+    "venue_lookup_seafood_lisbon__inv2_typos": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "55a6a7bea5b1"
+    },
+    "venue_lookup_sintra_lunch__dir1_coffee_not_lunch": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "d8398aa8c88d"
+    },
+    "venue_lookup_sintra_lunch__dir2_lisbon_day": {
+      "by": "author",
+      "on": "2026-09-23",
+      "sha": "584776b899ca"
     }
   }
 }

@@ -209,15 +209,29 @@ def test_the_three_added_seeds_are_still_unreviewed():
     ], "seed review state changed — update this pin deliberately"
 
 
-def test_an_old_mark_is_reported_as_unverifiable_not_as_verified():
-    """A mark records {by, on} and not WHICH text was read, and every marked
-    seed has been edited since (D48, D55, D58). Claiming those are verified
-    would assert something the file cannot support."""
+def test_a_mark_without_a_version_is_unverifiable_and_one_with_it_is_current():
+    """A pre-D74 mark records {by, on} and not WHICH text was read, and every
+    seed marked then has been edited since (D48, D55, D58) — calling those
+    verified would assert what the file cannot support. A mark written by
+    `mark_reviewed` carries the sha and can be checked.
+
+    Both states exist in the record today: the eight seeds marked on
+    2026-09-20 are `unverifiable`, the eighteen follow-ups approved on
+    2026-09-23 are `current`. The test pins the distinction, not the counts —
+    the counts move every time the author reviews something.
+    """
     from src.cases import review_status
 
-    states = {v["state"] for v in review_status().values()}
-    assert "current" not in states, "no mark carries a content hash yet"
-    assert "unverifiable" in states
+    status = review_status()
+    states = {v["state"] for v in status.values()}
+    assert "unverifiable" in states, "the pre-D74 marks should still report as uncheckable"
+    assert "current" in states, "a mark carrying a sha should report as matching"
+    for case_id, entry in status.items():
+        mark = entry["mark"] or {}
+        if mark.get("sha"):
+            assert entry["state"] in {"current", "drifted"}, case_id
+        elif mark:
+            assert entry["state"] == "unverifiable", case_id
 
 
 def test_the_extra_seeds_all_carry_coverage_jointly_or_alone():

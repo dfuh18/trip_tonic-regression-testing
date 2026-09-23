@@ -31,6 +31,40 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D78 — The metamorphic cases are approved, and review covers every case
+Date: 2026-09-23 · Decided by: author
+The author reviewed all 18 metamorphic cases and approved them. Marks written
+on that instruction, each carrying the `case_version` of the text read (D74),
+so all 18 report `current` rather than `unverifiable`.
+Two things this changed in the mechanism:
+- **`review_status` now covers every case, not only the seeds.** A follow-up is
+  hand-chosen too — the perturbation and the expected delta in
+  `cases/derivations.py` are authored decisions (D21, D22), not derivations of
+  the seed — so it is the author's or the model's on the same terms. Reporting
+  only seeds had left 18 of 29 cases outside the provenance record entirely.
+- **`review_report` splits by provenance**, because the two populations are
+  approved separately and at different times: the seeds one by one in
+  `sim/01_cases`, the follow-ups as a set once their derivations settled. One
+  number over both hides which is unevidenced.
+State now: metamorphic 18/18 `current`; seeded 8/11 marked but all eight
+`unverifiable` (marked before D74 carried a version) and three unreviewed.
+**Also: the three added seeds were introduced in prose and never shown.**
+`sim/01_cases` presented eight; D51 and D54 added three more under the coverage
+rule rather than D21's budget, and no notebook displayed them. `sim/02_expand`
+now presents them where the admission rule justifies them — the request each
+makes, the tool it is the only route to, and why the two forecast seeds are a
+pair rather than a duplicate (which calendar the agent resolves against cannot
+be tested by a case that does not say which period it means).
+A test that pinned "no mark carries a content hash yet" was rewritten: it was
+asserting a transient state rather than the distinction, and the author's
+approval falsified it within a week of being written. It now asserts that a
+mark with a sha reports `current` or `drifted` and one without reports
+`unverifiable`, which is the claim that holds regardless of how much has been
+reviewed.
+Affects: src/cases.py · notebooks/sim/02_expand.ipynb · cases/reviewed.json ·
+tests/test_tables.py
+Reverses: none
+
 ### D77 — Both routes to a finished row spend the retry budget
 Date: 2026-09-23 · Decided by: author
 The third review's one genuinely new defect (its D1). A repetition that

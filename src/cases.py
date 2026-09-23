@@ -958,7 +958,12 @@ def mark_reviewed(case_id: str, by: str = "author", directory: Path = CASES_DIR)
 
 
 def review_status(directory: Path = CASES_DIR) -> dict[str, dict]:
-    """Which seeds carry the author's mark, and whether it still binds.
+    """Which cases carry the author's mark, and whether it still binds.
+
+    Covers **every** case, not only the seeds. Follow-ups are hand-chosen too
+    — the perturbation and the expected delta in `cases/derivations.py` are
+    authored decisions (D21, D22), not derivations of the seed — so they are
+    the author's or the model's on the same terms.
 
     Two separate questions, and the file answered only the first. A mark is
     ``{by, on}`` — it records that the author read the case on a date, not
@@ -975,8 +980,6 @@ def review_status(directory: Path = CASES_DIR) -> dict[str, dict]:
     marks = json.loads((directory / "reviewed.json").read_text(encoding="utf-8")).get("reviewed", {})
     out: dict[str, dict] = {}
     for case in load_cases(directory):
-        if case.provenance != "seeded":
-            continue
         mark = marks.get(case.case_id)
         path = directory / f"{case.case_id}.yaml"
         sha = _case_content_sha(path) or None
@@ -993,20 +996,36 @@ def review_status(directory: Path = CASES_DIR) -> dict[str, dict]:
 
 
 def review_report(directory: Path = CASES_DIR) -> str:
+    """Review state, split by provenance.
+
+    Split because the two populations are approved separately and at different
+    times: the seeds were read one by one in `sim/01_cases`, the follow-ups as
+    a set once their derivations settled. Reporting one number over both hides
+    which of them is unevidenced.
+    """
     status = review_status(directory)
-    unreviewed = sorted(k for k, v in status.items() if v["state"] == "unreviewed")
-    drifted = sorted(k for k, v in status.items() if v["state"] == "drifted")
-    unverifiable = sorted(k for k, v in status.items() if v["state"] == "unverifiable")
-    lines = [f"seed review: {len(status) - len(unreviewed)}/{len(status)} marked"]
-    if unreviewed:
-        lines.append("  UNREVIEWED (no author mark — §3.1 calls these the model's, not the author's):")
-        lines += [f"    {c}" for c in unreviewed]
-    if drifted:
-        lines.append("  DRIFTED (edited since the mark):")
-        lines += [f"    {c}" for c in drifted]
-    if unverifiable:
-        lines.append(
-            f"  marked without a content hash, so the mark cannot be checked against the "
-            f"current text: {len(unverifiable)} seed(s)"
-        )
+    by_provenance: dict[str, list[str]] = {}
+    for case in load_cases(directory):
+        by_provenance.setdefault(case.provenance, []).append(case.case_id)
+
+    lines: list[str] = []
+    for provenance in sorted(by_provenance):
+        ids = by_provenance[provenance]
+        states = {i: status[i]["state"] for i in ids if i in status}
+        marked = sum(1 for s in states.values() if s != "unreviewed")
+        lines.append(f"{provenance}: {marked}/{len(ids)} marked")
+        for state, label in (
+            ("unreviewed", "UNREVIEWED (no author mark — §3.1 calls these the model's)"),
+            ("drifted", "DRIFTED (edited since the mark)"),
+        ):
+            hit = sorted(i for i, s in states.items() if s == state)
+            if hit:
+                lines.append(f"  {label}:")
+                lines += [f"    {i}" for i in hit]
+        stale = sum(1 for s in states.values() if s == "unverifiable")
+        if stale:
+            lines.append(f"  {stale} marked before D74, carrying no version to check against")
+        current = sum(1 for s in states.values() if s == "current")
+        if current:
+            lines.append(f"  {current} marked and still matching the text that was read")
     return "\n".join(lines)
