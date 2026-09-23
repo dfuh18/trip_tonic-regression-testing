@@ -38,68 +38,89 @@ def _pd():
     return pd
 
 
-#: The tables one run writes, and how each reaches the run. A table that cannot
-#: be reached from a run id is not part of a run's evidence.
+#: Every study table, and how a run reaches it. Enumerated against the SCHEMA,
+#: not against the event model — the first version of this list was written
+#: from the document and named two tables that do not exist under those names
+#: (`survey_demographics`, `survey_post_task`), while missing two that do.
+#: A completeness report assembled from prose is a completeness report with the
+#: document's blind spots built in.
 RUN_TABLES: dict[str, str] = {
     "study_runs": "id",
     "study_case_executions": "run_id",
     "study_scores": "run_id",
+    "study_structural_verdicts": "run_id",
 }
 
-#: Tables reached through an execution rather than by `run_id`. They carry most
-#: of the event model's fields — the turn level and the mutation level — and
-#: leaving them out is how the first version of this report answered "0 gaps"
-#: while never looking at them. A completeness check that does not look
-#: everywhere gives exactly the false reassurance it exists to prevent.
-VIA_EXECUTION: dict[str, str] = {
-    "study_suggestions": "id",      # matched against an execution's suggestion_ids
-    "study_mutations": "trip_id",   # matched against an execution's trip_id
-}
+#: Reached through an execution rather than by `run_id`. These carry most of
+#: the event model's fields — the turn level and the mutation level.
+VIA_EXECUTION: tuple[str, ...] = ("study_suggestions", "study_mutations")
 
-#: Written only in the participant round, so empty here by design rather than
-#: by omission: `checker.record` puts a simulation verdict on the execution row
-#: (author's ruling, 2026-09-21), and `study_verdicts` holds verdicts computed
-#: after the fact over rows that have no case.
+#: Empty in a simulated run by design, with the reason. Each is asserted
+#: against the schema: if one of these tables ever gains rows in a simulated
+#: run, the reason below is wrong.
 EMPTY_IN_SIMULATION: dict[str, str] = {
-    "study_verdicts": "no writer in either round after D73 — simulation verdicts live on "
-                      "study_case_executions and the participant round is not structurally checked",
+    "study_verdicts": "no writer in either round after D73 — simulation verdicts are appended to "
+                      "study_structural_verdicts, and the participant round is not structurally checked",
     "study_sessions": "participant round only",
-    "survey_demographics": "participant round only (D02)",
-    "survey_post_task": "participant round only (D02)",
+    "study_survey_demographics": "participant round only (D02)",
+    "study_survey_post_task": "participant round only (D02)",
+    "study_user_actions": "participant round only (D12) — the simulator declines in prose and never "
+                          "accepts or rejects a suggestion",
+    "study_feedback": "participant round only (§4.2.2) — thumbs come from a person",
 }
 
-#: Columns that are *expected* to be null much of the time, with the reason.
-#: Listed so the completeness report can tell "empty because nothing happened"
-#: apart from "empty because nobody writes it" — which is the distinction the
-#: whole exercise turns on.
-EXPECTED_SPARSE: dict[str, str] = {
-    "finished_at": "set when the run ends; null mid-run",
-    "error": "only a failed execution has one",
-    "baseline_ref": "null on a baseline run by definition (D03)",
-    "structural_outcome": "written by the checker, which runs after the run",
-    "structural_findings": "only an execution with findings has any",
-    "base_case_id": "seeds have none",
-    "metamorphic_relation": "seeds have none",
-    "trip_id": "null when the repetition never started (D38)",
-    "rationale": "empty when the judge could not score",
-    "notes": "free text, optional",
-    "judge_prompt_version": "null on runs that predate the judge table",
-    "api_version": "null on runs before versioning (D63)",
-    "api_commit": "null on runs before versioning (D63)",
-    "app_version": "null on runs before versioning (D63)",
-    "attempt": "defaults to 1",
-    "error_code": "only a FAILED turn has one; a clean run populates none "
-                  "(observed as llm_error/empty_reply in earlier runs)",
-    "user_action": "written by the app from a participant's accept/reject "
-                   "(§4.2.2); the simulator cannot produce one",
-    "private_to": "the quiet-run mechanism exists and nothing sets it",
-    "run_id": "null on a group-visible edit receipt, by invariant",
-    "agent_intent": "only a slash-command turn carries one",
-    "result_found": "only read_wikipedia and get_region_climate set it (D40)",
-    "structural_check_outcome": "nothing writes it (D73): a structural verdict "
-                                "belongs to an execution, not a turn, and lives "
-                                "on study_case_executions",
-    "thumb_feedback": "participant round only (§4.2.2)",
+#: Columns allowed to be empty, keyed by **(table, column)**.
+#:
+#: Keyed by the pair, not the bare name, because the bare name leaked: the
+#: reason written for `study_scores.judge_prompt_version` (where the column is
+#: NOT NULL) silenced `study_runs.judge_prompt_version`, which genuinely has no
+#: writer. The gate built to find unwritten fields hid one. A reason must name
+#: the table it excuses.
+EXPECTED_SPARSE: dict[tuple[str, str], str] = {
+    ("study_runs", "finished_at"): "set when the run ends; null mid-run",
+    ("study_runs", "baseline_ref"): "null on a baseline run by definition (D03)",
+    ("study_runs", "notes"): "free text, optional",
+    ("study_runs", "api_version"): "null on runs before versioning (D63)",
+    ("study_runs", "api_commit"): "null on runs before versioning (D63)",
+    ("study_runs", "app_version"): "null on runs before versioning (D63)",
+    ("study_runs", "judge_prompt_version"): "null on runs before D76, when the field gained a writer",
+
+    ("study_case_executions", "error"): "only a failed execution has one",
+    ("study_case_executions", "structural_outcome"): "written by the checker, which runs after the run",
+    ("study_case_executions", "structural_findings"): "only an execution with findings has any",
+    ("study_case_executions", "base_case_id"): "seeds have none",
+    ("study_case_executions", "trip_id"): "null when the repetition never started (D38)",
+    ("study_case_executions", "case_version"): "null on runs before D74",
+    ("study_case_executions", "attempt"): "defaults to 1",
+
+    ("study_scores", "error"): "only an unscored execution has one",
+    ("study_scores", "rationale"): "empty when the judge could not score",
+    ("study_scores", "score"): "null when the execution could not be scored",
+
+    ("study_structural_verdicts", "findings"): "empty when the verdict is 'none'",
+    ("study_structural_verdicts", "case_version"): "null for a verdict recomputed over a run "
+                                                   "that predates D74",
+
+    ("study_suggestions", "error_code"): "only a FAILED turn has one; a clean run populates none "
+                                         "(observed as llm_error/empty_reply in earlier runs)",
+    ("study_suggestions", "user_action"): "participant round only (D12)",
+    ("study_suggestions", "thumb_feedback"): "participant round only (§4.2.2)",
+    ("study_suggestions", "private_to"): "the quiet-run mechanism exists and nothing sets it",
+    ("study_suggestions", "run_id"): "null on a group-visible edit receipt, by invariant",
+    ("study_suggestions", "agent_intent"): "only a slash-command turn carries one",
+    ("study_suggestions", "structural_check_outcome"): "nothing writes it (D73): a structural verdict "
+                                                       "belongs to an execution, not a turn",
+
+    ("study_mutations", "actor_user_id"): "null for an agent edit",
+    # Verified rather than assumed: across 1000 recorded mutations, changed_keys
+    # is populated for exactly the 15 UPDATEs and no INSERT or DELETE, and
+    # origin_suggestion_id for the 23 agent-originated rows and none of the
+    # fixture build's own API calls.
+    ("study_mutations", "changed_keys"): "only an UPDATE has changed keys",
+    ("study_mutations", "origin_suggestion_id"): "only a mutation the AGENT caused has an origin; "
+                                                 "the fixture build's rows have none",
+    ("study_scores", "(no rows)"): "this run has not been judged — a fact about the run, not a "
+                                   "missing writer",
 }
 
 
@@ -139,7 +160,8 @@ def completeness(run_id: str) -> "DataFrame":
         data = extra[table] if key is None else _rows(table, key, run_id)
         if not data:
             rows.append({"table": table, "column": "(no rows)", "rows": 0,
-                         "populated": 0, "share": 0.0, "always null": True, "expected": ""})
+                         "populated": 0, "share": 0.0, "always null": True,
+                         "expected": EXPECTED_SPARSE.get((table, "(no rows)"), "")})
             continue
         for column in sorted(data[0].keys()):
             filled = sum(1 for r in data if r.get(column) not in (None, "", [], {}))
@@ -150,7 +172,7 @@ def completeness(run_id: str) -> "DataFrame":
                 "populated": filled,
                 "share": round(filled / len(data), 2),
                 "always null": filled == 0,
-                "expected": EXPECTED_SPARSE.get(column, ""),
+                "expected": EXPECTED_SPARSE.get((table, column), ""),
             })
     for table, why in EMPTY_IN_SIMULATION.items():
         rows.append({"table": table, "column": "(whole table)", "rows": 0,

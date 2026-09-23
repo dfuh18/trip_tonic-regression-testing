@@ -716,21 +716,54 @@ def check_run(run_id: str, *, persist: bool = True) -> list[tuple[dict, Verdict]
             continue
         verdict = check(case, execution_for(row))
         if persist:
-            record(row["id"], verdict)
+            record(row, verdict)
         results.append((row, verdict))
     return results
 
 
-def record(execution_row_id: str, verdict: Verdict) -> None:
-    """Write the verdict where the execution is (D27, and the author's ruling
-    of 2026-09-21): outcome and findings beside each other on
-    ``study_case_executions``. ``study_verdicts`` is the participant round's,
-    for verdicts computed after the fact over rows that have no case."""
-    from src import db
+def record(execution_row: dict, verdict: Verdict) -> None:
+    """Append the verdict, and mirror the latest onto the execution (D76).
 
-    db.admin().table("study_case_executions").update(
+    This used to be an UPDATE and nothing else, with `CHECKER_VERSION` computed
+    and never written. Re-checking a run therefore rewrote its verdicts in
+    place: after D72 inverted the drinks assertion, the runs that happened to
+    be re-checked changed and the ones that did not kept their old value, so
+    two runs disagree in the record for a reason the record cannot explain.
+
+    `study_scores` had already made the opposite argument — a disagreement
+    between two versions is data, and overwriting destroys the only evidence
+    that they disagreed. That applies unchanged here; it was simply applied to
+    the judge and not to the checker.
+
+    So the verdict is appended, keyed by the checker that produced it and
+    carrying the case version it judged. The column on the execution stays as a
+    convenience mirror of the newest verdict, because every existing reader
+    uses it — it is no longer the only copy, which is the point.
+    """
+    from src import db
+    from src.cases import case_version
+
+    execution_id = execution_row["id"] if isinstance(execution_row, dict) else execution_row
+    a = db.admin()
+
+    if isinstance(execution_row, dict) and execution_row.get("run_id"):
+        a.table("study_structural_verdicts").upsert({
+            "execution_id": execution_id,
+            "run_id": execution_row["run_id"],
+            "case_id": execution_row["case_id"],
+            "repetition": execution_row["repetition"],
+            "attempt": execution_row.get("attempt") or 1,
+            "checker_version": CHECKER_VERSION,
+            # What the case said when this verdict was computed. Falls back to
+            # the version recorded at run time where the file has since moved.
+            "case_version": execution_row.get("case_version") or case_version(execution_row["case_id"]),
+            "outcome": verdict.outcome,
+            "findings": verdict.findings,
+        }, on_conflict="execution_id,checker_version").execute()
+
+    a.table("study_case_executions").update(
         {
             "structural_outcome": verdict.outcome,
             "structural_findings": verdict.findings,
         }
-    ).eq("id", execution_row_id).execute()
+    ).eq("id", execution_id).execute()

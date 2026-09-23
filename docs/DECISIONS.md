@@ -31,6 +31,67 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D76 — Verdicts are appended and versioned; the completeness gate can see its own gaps
+Date: 2026-09-23 · Decided by: author (directed the fixes after the third review)
+The third review found all seven of D71's fixes real — a first, after two
+rounds where a shipped fix was a no-op or backwards — and three defects worth
+acting on before a baseline.
+
+**Structural verdicts were mutable and unversioned, and the damage was already
+in the record.** `checker.record()` was an UPDATE on `study_case_executions`,
+and `CHECKER_VERSION` was computed and never written. So re-checking a run
+rewrote its verdicts in place. After D72 inverted the drinks assertion, the
+runs that happened to be re-checked changed and the ones that were not kept
+their old value:
+
+    09f288e9  ..._dir4_not_a_meal  detected (1 finding)
+    3cf2fd09  same case            none     (silently overwritten)
+
+Two runs disagreeing for a reason the record could not explain. The
+`study_scores` migration had made the opposite argument three days earlier — "a
+disagreement between two versions is data, and resolving it by overwriting
+would destroy the only evidence that they disagreed" — and it had been applied
+to the judge and not to the checker.
+`study_structural_verdicts` now holds one row per (execution, checker version),
+appended, carrying the `case_version` it judged. A verdict is only
+interpretable against the case it was computed from, and cases are edited (D48,
+D55, D58, D72). The column on the execution stays as a convenience mirror of
+the newest verdict, because every existing reader uses it; it is no longer the
+only copy.
+**Stated plainly: backfilling this destroyed the inconsistency rather than
+preserving it.** Re-checking all four runs under `checker/1` made the record
+coherent — every verdict now names its checker and its case version — but the
+old `detected` on `09f288e9` is gone. That value was an artefact of my own
+uneven re-checking rather than a finding, and it was uninterpretable (no case
+version, no checker version). The trade is defensible and it is still a
+deletion, so it is recorded as one.
+
+**The completeness gate was hiding one of the things it looks for.**
+`EXPECTED_SPARSE` was keyed by bare column name, so the reason written for
+`study_scores.judge_prompt_version` (NOT NULL there) silenced
+`study_runs.judge_prompt_version`, which genuinely had no writer. It is now
+keyed by (table, column). The gate also inspected 5 of 11 study tables and
+named two that do not exist under those names — it had been written from the
+event model rather than from the schema, so it inherited the document's blind
+spots. Rebuilt against the schema: 12 tables, every empty one either excused by
+name or reported.
+`open_run` now records `judge_prompt_version`, closing the field the leak hid.
+
+**The new write paths were exercised before the baseline, not by it.** A
+two-case probe run (`94eec75a`, $0.03) wrote `case_version` per execution,
+`judge_prompt_version` on the run, and appended verdicts carrying both. This
+repository's own lesson from D71's N1 is that verifying which rows a function
+SELECTS says nothing about whether the next write lands; a 160-execution
+baseline as the first exercise of three new columns would have been the same
+mistake at 80× the cost.
+Every survey now reports **zero gaps** across the probe, `edcfa1b4` and
+`3cf2fd09`.
+Affects: supabase/migrations/20260923120000_study_structural_verdicts.sql ·
+src/checker.py · src/runner.py · src/survey.py ·
+notebooks/sim/run_survey.ipynb
+Reverses: none; corrects the verdict half of the 2026-09-21 ruling, which put
+the verdict on the execution row and left it unversioned
+
 ### D75 — The Sintra lunch search_places cap goes to four
 Date: 2026-09-23 · Decided by: author
 Chosen: four, on the seed, which is where the bound lives and where its two

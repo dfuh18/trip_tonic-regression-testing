@@ -191,6 +191,11 @@ def open_run(
         "simulator_model": settings.SIMULATOR_MODEL,
         "simulator_prompt_version": _prompt_version(),
         "judge_model": settings.JUDGE_MODEL,
+        # Which judge prompt the run declares. It had no writer: the survey's
+        # excuse for the study_scores column of the same name leaked onto this
+        # one and silenced it (D76). Recorded here as well as per score, so a
+        # run says which judge it intended even before anything is scored.
+        "judge_prompt_version": _judge_prompt_version_or_none(),
         "notes": notes or f"{len(cases)} cases, pricing {PRICING_VERSION}",
     }
     # Concurrency belongs in the record: a run made four-at-a-time and one made
@@ -246,6 +251,19 @@ def serving_api(log: Callable[[str], None] = print) -> dict[str, Optional[str]]:
             f"is {head}. This run does NOT measure the code on disk — restart the API, or accept "
             f"that the record's git_sha and its api_commit disagree.")
     return info
+
+
+def _judge_prompt_version_or_none() -> Optional[str]:
+    """The judge prompt's version, or None if the judge is not configured.
+
+    Never fatal: a run that cannot name its judge prompt should still open.
+    """
+    try:
+        from src.llm import load_prompt
+
+        return load_prompt("judge_pointwise_v1").version
+    except Exception:
+        return None
 
 
 def _prompt_version() -> str:
