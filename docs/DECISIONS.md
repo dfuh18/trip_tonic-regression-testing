@@ -31,6 +31,25 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D75 — The Sintra lunch search_places cap goes to four
+Date: 2026-09-23 · Decided by: author
+Chosen: four, on the seed, which is where the bound lives and where its two
+follow-ups inherit it from.
+Reason: the same finding as D58 and found the same way. D50's coverage report
+flagged `venue_lookup_sintra_lunch__dir2_lisbon_day` using three of three
+searches — a bound sitting exactly on observed behaviour, so a correct agent
+that searched once more would fail the case. That is a false regression, which
+D30 ranks as the worse of the two constraint errors.
+Raised on the seed rather than the follow-up alone, as D58 was: the DIR-2
+perturbation changes the day and should not also carry a different tool budget.
+All three of the family now cap at four.
+Worth noting the instrument did its job twice now without being asked to: the
+"bounds this run sat exactly at" line exists to surface a cap before a run
+depends on it, and both times it has named the case before the case failed.
+Affects: cases/venue_lookup_sintra_lunch.yaml and its two regenerated
+follow-ups
+Reverses: none
+
 ### D74 — Every case carries a version, derived from its contents
 Date: 2026-09-23 · Decided by: author
 Options: a declared `version` field in each case file · a content hash · leave
