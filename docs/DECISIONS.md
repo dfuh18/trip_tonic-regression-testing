@@ -31,6 +31,31 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D77 — Both routes to a finished row spend the retry budget
+Date: 2026-09-23 · Decided by: author
+The third review's one genuinely new defect (its D1). A repetition that
+recovered from a simulator refusal and then returned a **platform** failure was
+handed straight to `settle()`, outside the retry loop — so its remaining
+attempts were never spent, `platform_losses` counted it as lost, and the log
+said "LOST to the platform after 4 attempts" when two had been used.
+Same class as the defect `settle()` was extracted to fix one round earlier: a
+second path that skipped a policy the first path applied. The fix is the same
+shape — `drive()` now holds the retry loop, both routes call it, and neither
+can diverge from the other without the other changing too.
+Two smaller things fell out of it. The simulator handler restarted its attempt
+numbering at `first` even when the failure happened later in the loop, so a
+`progress` cell now carries the attempt outward; and a recovered repetition
+that then succeeds is no longer reported as a platform loss.
+**The test that was supposed to catch this certified it instead.** It scripted
+four outcomes, consumed two, and asserted on the log string — so it passed on
+the broken path, which is how the defect survived D71's round. The replacement
+asserts on the **attempts actually consumed**, because that is the thing that
+was wrong; a log line is not evidence about control flow. Verified by
+reintroducing the bug: two tests fail with it, seventeen pass without it. That
+check is worth more than the fix.
+Affects: src/runner.py (`drive`) · tests/test_runner_loop.py
+Reverses: none; completes D71's `settle()` extraction
+
 ### D76 — Verdicts are appended and versioned; the completeness gate can see its own gaps
 Date: 2026-09-23 · Decided by: author (directed the fixes after the third review)
 The third review found all seven of D71's fixes real — a first, after two

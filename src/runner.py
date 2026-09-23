@@ -592,12 +592,47 @@ def run(
             log(f"    {case.case_id} rep {repetition} failed on the AGENT "
                 f"({row['error']}) — not retried, this is a result")
 
+    def drive(row: dict, case: Case, repetition: int, from_attempt: int, progress: dict) -> dict:
+        """Spend the remaining attempts on a platform refusal, then settle.
+
+        Both routes to a finished row go through here. The recovery route used
+        to call `settle()` directly, which meant a repetition that recovered
+        from a simulator refusal and THEN hit a 503 was written off without its
+        remaining attempts being tried — and logged as "LOST after 4 attempts"
+        when two had been used. Same class of defect as the one `settle()`
+        itself was extracted to fix: a second path that skipped a policy the
+        first path applied.
+
+        `progress` carries the attempt number outward, because a
+        `SimulatorFailed` raised in here is caught by the handler below, which
+        has to continue the numbering from where this got to rather than from
+        where the repetition started.
+        """
+        nonlocal platform_retries
+        for attempt in range(from_attempt + 1, MAX_ATTEMPTS_PER_REPETITION + 1):
+            if failure_class(row.get("error")) != "platform":
+                break
+            warn = (f"    WARNING platform refused {case.case_id} rep {repetition} "
+                    f"({row['error']}) — retrying, attempt {attempt} of "
+                    f"{MAX_ATTEMPTS_PER_REPETITION}")
+            log(warn)
+            reset.harness_log(f"RUN {run_id[:8]} {warn.strip()}")
+            platform_retries += 1
+            progress["attempt"] = attempt
+            row = execute_case(handle, case, repetition, simulator, log, attempt=attempt)
+        settle(row, case, repetition)
+        return row
+
     for case in cases:
         n = n_override or case.repetitions_n
         for repetition in range(1, n + 1):
             if (case.case_id, repetition) in done:
                 continue
             first = used.get((case.case_id, repetition), 0) + 1
+            # How far this repetition's attempt numbering has got. Read by the
+            # simulator handler, which must continue from where the failure
+            # happened rather than restart at `first`.
+            progress = {"attempt": first}
             try:
                 # The gate's trip is on the fixed calendar, so only a case that
                 # wants that calendar may inherit it (D54); a near-dated case
@@ -613,17 +648,7 @@ def run(
                 # attempt stays in the record — the refusals are evidence about
                 # the platform, the completed one is evidence about the agent,
                 # and merging them would lose the first.
-                for attempt in range(first + 1, MAX_ATTEMPTS_PER_REPETITION + 1):
-                    if failure_class(row.get("error")) != "platform":
-                        break
-                    warn = (f"    WARNING platform refused {case.case_id} rep {repetition} "
-                            f"({row['error']}) — retrying, attempt {attempt} of "
-                            f"{MAX_ATTEMPTS_PER_REPETITION}")
-                    log(warn)
-                    reset.harness_log(f"RUN {run_id[:8]} {warn.strip()}")
-                    platform_retries += 1
-                    row = execute_case(handle, case, repetition, simulator, log, attempt=attempt)
-                settle(row, case, repetition)
+                row = drive(row, case, repetition, first, progress)
             except SimulatorFailed as exc:
                 opening = None
                 # The simulator runs on the same provider as the agent, so it
@@ -636,7 +661,7 @@ def run(
                 # The counter continues from the attempt that just failed, for
                 # the same reason a resume does: `record_simulator_failure`
                 # writes a row per attempt and the key is unique.
-                sim_attempt = first
+                sim_attempt = progress["attempt"]
                 recovered = False
                 while (failure_class(f"simulator: {exc}") == "platform"
                        and sim_attempt < MAX_ATTEMPTS_PER_REPETITION):
@@ -648,6 +673,7 @@ def run(
                     log(warn)
                     reset.harness_log(f"RUN {run_id[:8]} {warn.strip()}")
                     platform_retries += 1
+                    progress["attempt"] = sim_attempt
                     try:
                         row = execute_case(handle, case, repetition, simulator, log,
                                            attempt=sim_attempt)
@@ -658,7 +684,7 @@ def run(
                         exc = again
                 if not recovered:
                     simulator_failures += 1
-                    if sim_attempt > first:
+                    if sim_attempt > progress["attempt"]:
                         platform_losses += 1
                     record_simulator_failure(run_id, handle, case, repetition, sim_attempt, exc)
                     line = f"{case.case_id} rep {repetition}: SIMULATOR FAILED — {exc}"
@@ -672,10 +698,11 @@ def run(
                         }).eq("id", run_id).execute()
                         raise RunAborted(f"{simulator_failures} consecutive simulator failures") from exc
                     continue
-                # Recovered on a later attempt. The failure policy still has to
-                # run: this row can carry its own agent-side failure, and one
-                # of them (our own quota) is supposed to stop the run.
-                settle(row, case, repetition)
+                # Recovered on a later attempt. It goes through the same loop as
+                # the ordinary path: the row can carry its own platform failure
+                # (which still has attempts owed to it) or an agent failure
+                # (one of which is supposed to stop the run).
+                row = drive(row, case, repetition, sim_attempt, progress)
             except RunAborted as exc:
                 reset.harness_log(f"RUN {run_id} ABORTED at {case.case_id} rep {repetition}: {exc}")
                 db.admin().table("study_runs").update({"notes": f"aborted: {exc}", "finished_at": _now()}).eq("id", run_id).execute()

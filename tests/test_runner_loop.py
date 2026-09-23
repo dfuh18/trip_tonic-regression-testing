@@ -283,18 +283,58 @@ def test_a_recovered_repetition_still_goes_through_the_failure_policy(harness):
     assert "OUR OWN limit" in str(err.value)
 
 
-def test_a_recovered_repetition_that_then_fails_on_the_platform_is_counted(harness):
-    """Same path, the other outcome: it must be logged as a platform loss
-    rather than passing silently."""
+def test_a_recovered_repetition_still_gets_its_remaining_attempts(harness):
+    """D1, and the test that used to certify the bug.
+
+    A repetition that recovered from a simulator refusal and then returned a
+    503 was handed straight to the failure policy, skipping the retry loop —
+    so its remaining attempts were never spent, and the log claimed it was
+    "LOST after 4 attempts" when two had been used.
+
+    The previous version of this test scripted four outcomes, consumed two,
+    and asserted on that log string, so it passed on the broken path. Asserting
+    on the ATTEMPTS CONSUMED is the whole point: that is the thing that was
+    wrong, and a log line is not evidence about control flow.
+    """
+    boom = runner.SimulatorFailed("ServerError: 504 DEADLINE_EXCEEDED")
     harness["script"]([
-        runner.SimulatorFailed("ServerError: 504 DEADLINE_EXCEEDED"),
+        boom,                                                      # attempt 1
         err_row("c1", 1, "agent returned 503 on turn 1", attempt=2),
         err_row("c1", 1, "agent returned 503 on turn 1", attempt=3),
         err_row("c1", 1, "agent returned 503 on turn 1", attempt=4),
     ])
     logs = []
     run_one(make_case(), log=logs.append)
+    assert [a for _, _, a in harness["calls"]] == [1, 2, 3, 4], (
+        "the recovered repetition must spend its remaining attempts, not be "
+        "written off after two"
+    )
     assert any("LOST to the platform" in line for line in logs)
+
+
+def test_a_recovered_repetition_can_still_succeed_on_a_later_attempt(harness):
+    """The same path, the other outcome: recovery, then a platform refusal,
+    then a clean run — no loss should be reported at all."""
+    harness["script"]([
+        runner.SimulatorFailed("ServerError: 504 DEADLINE_EXCEEDED"),  # 1
+        err_row("c1", 1, "agent returned 503 on turn 1", attempt=2),   # 2
+        ok_row("c1", 1, attempt=3),                                    # 3
+    ])
+    logs = []
+    run_one(make_case(), log=logs.append)
+    assert [a for _, _, a in harness["calls"]] == [1, 2, 3]
+    assert not any("LOST to the platform" in line for line in logs)
+
+
+def test_a_recovered_repetition_that_hits_our_own_quota_still_aborts(harness):
+    """N3 stays fixed: the quota rule applies on the recovery path too."""
+    harness["script"]([
+        runner.SimulatorFailed("ServerError: 504 DEADLINE_EXCEEDED"),
+        err_row("c1", 1, "agent returned 429 on turn 1", attempt=2),
+    ])
+    with pytest.raises(runner.RunAborted) as err:
+        run_one(make_case())
+    assert "OUR OWN limit" in str(err.value)
 
 
 # --- resume (N1) ------------------------------------------------------------
