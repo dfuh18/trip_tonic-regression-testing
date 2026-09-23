@@ -175,7 +175,7 @@ live application.*
 | `turn_index` | integer | app | Table 11 | |
 | `user_turn` | text | app | Table 11 | **Recorded verbatim** |
 | `resulting_state_shape` | jsonb | app | Table 11 | |
-| `structural_check_outcome` | enum `none` \| `detected` | harness | Table 11 | Drives the label in Table 12 |
+| `structural_check_outcome` | enum `none` \| `detected` | **nobody — not written** | Table 11 | **Superseded 2026-09-23 (D73).** A structural verdict belongs to an EXECUTION, not a turn, and is written to `study_case_executions.structural_outcome` / `.structural_findings` (ruling of 2026-09-21). Structural checking is simulation-only: the cases match the simulated fixture closely and do not transfer to a participant's own trip — measured, 10 of 20 check keys are fixture-anchored and `trip_after` is in all 29 cases, so no case transfers whole. The column stays for the record; nothing populates it |
 | `request_type` | text | derived | Table 11, §4.2.2 | **Bucketed class label from the tool calls made**, assigned at suggestion completion |
 | `session_id` | uuid FK | app | Table 11 (author addition) | Joins a suggestion to its session, and so to `run_type` |
 | `user_action` | enum `accepted` \| `rejected` \| `ignored` \| `user_initiated` | app | Table 11 | Indirect feedback (§4.2.2). `ignored` throughout — the manuscript's `left` was renamed 2026-09-17 (D05) so Table 11 and Table 12 agree |
@@ -229,6 +229,15 @@ triggers reading the `x-study-origin` request header.
 
 Not stored; computed in analysis from `structural_check_outcome` and
 `user_action`. Recorded here so the derivation is versioned with the schema.
+
+> **Open (2026-09-23, Q27).** As written this table needs both inputs, and
+> after D73 no round produces both: the simulated round has structural
+> verdicts and no `user_action` (the simulator declines in prose, it never
+> accepts or rejects a suggestion — observed 0 of 32 turns), and the
+> participant round has `user_action` and, by the same ruling, no structural
+> verdict. The derivation therefore cannot be computed as specified. It needs
+> the author's decision before the participant round; the options are in
+> `OPEN_QUESTIONS.md`.
 
 | Structural defect | User action | Label | Interpretation |
 |---|---|---|---|

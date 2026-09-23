@@ -30,6 +30,40 @@ wait; one blocking a Phase A task cannot.
 
 ## Open
 
+### Q27 — Table 12's label has no round that can produce it
+Raised: 2026-09-23 (from D73) · Blocks: the participant-round analysis, not the baseline
+
+Table 12 derives a label from `structural_check_outcome` x `user_action`:
+Positive, Neutral, Lacks quality, Failure. Every row needs both.
+
+After D73 no round produces both:
+
+| | structural verdict | `user_action` |
+|---|---|---|
+| simulated | yes, on the execution row | no — observed 0 of 32 turns |
+| participant | no, by D73 | yes |
+
+- **Option A — drop Table 12 and report the two axes separately.** The
+  simulated round reports structural pass rates and judge scores; the
+  participant round reports `user_action` and thumbs. Honest, loses the
+  cross-tabulation the manuscript describes.
+- **Option B — substitute the judge for the checker in the participant round.**
+  The judge needs only a request and a reply (P3), so it transfers where the
+  structural checks do not. The label becomes "judge verdict x user action",
+  which is computable in both rounds and keeps the shape of Table 12. Changes
+  what the label means, and the manuscript says structural.
+- **Option C — give the simulated round a `user_action` proxy.** The personas
+  already accept or decline in prose; a rule could map that to the enum. Cheap,
+  but it is a simulated user action standing in for a real one, and §4.2.2
+  calls `user_action` indirect feedback from a person.
+
+**Recommendation: B**, with the manuscript amended to say the label's
+structural axis is the judge outside the simulated round. It is the only option
+that leaves Table 12 computable in both rounds, and P3 already establishes the
+judge as blind to everything but request, reply and rubric. A is the fallback
+if the manuscript cannot move.
+
+
 ### Q26 — [RESOLVED 2026-09-22, see D68] — Should a case require `get_region_climate` specifically?
 Raised: 2026-09-22 (from D66) · Blocks: nothing; the suite runs either way
 

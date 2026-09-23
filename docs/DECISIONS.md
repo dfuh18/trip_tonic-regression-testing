@@ -31,6 +31,38 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D73 — Structural checking is simulation-only
+Date: 2026-09-23 · Decided by: author
+Options: apply the cases' structural checks to participant turns via
+shape-matching · apply a transferable subset of them · keep structural checking
+to the simulated round
+Chosen: keep it separate. Participant conversations are not structurally
+checked.
+Reason: the checks are written against the fixture trip and the cases match it
+closely, so they do not transfer. Measured before the ruling: of the 20 check
+keys in use, **10 are fixture-anchored** (`trip_after`, `places_near`,
+`slot_scheduled`, `slot_moved`, `slot_days`, `edits`, `draft_reuses_blocks`,
+`mutation_changed_keys`, `slot_unscheduled`, `draft_slot_starts_between`'s
+day anchors) and `trip_after` appears in **all 29 cases** — so no case could
+transfer whole, only a subset, and a subset of a case's constraints is not that
+case's claim.
+Consequences, recorded because they are easy to discover late:
+- `study_suggestions.structural_check_outcome` has no writer and will not get
+  one. The event model listed it as harness-written; it is now marked
+  superseded there rather than quietly left empty. The column stays — dropping
+  a column to tidy a record is how a record stops being append-only.
+- `study_verdicts` now has no writer in **either** round. It was kept for the
+  participant round under the 2026-09-21 ruling; that use is gone. Left in
+  place, empty and documented, for the same reason.
+- Table 12's derived label becomes uncomputable, since it crosses
+  `structural_check_outcome` with `user_action` and no round produces both.
+  Raised as Q27 rather than resolved here — it is a manuscript question.
+The simulated round's record is unaffected and is complete: verdict and
+findings on every execution, judge score per execution in `study_scores`
+(D71), turns, mutations and versions, joined by `src/survey.py`.
+Affects: docs/event-model.md · docs/OPEN_QUESTIONS.md (Q27) · src/survey.py
+Reverses: the participant-round half of the 2026-09-21 verdict-location ruling
+
 ### D72 — The "not a meal" case asserts the absence, not the presence
 Date: 2026-09-23 · Decided by: author
 Options: keep `places_named_types: ['bar']` and report the failures as an agent

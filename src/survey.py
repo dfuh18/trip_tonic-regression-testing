@@ -61,7 +61,8 @@ VIA_EXECUTION: dict[str, str] = {
 #: (author's ruling, 2026-09-21), and `study_verdicts` holds verdicts computed
 #: after the fact over rows that have no case.
 EMPTY_IN_SIMULATION: dict[str, str] = {
-    "study_verdicts": "participant round only; simulation verdicts live on study_case_executions",
+    "study_verdicts": "no writer in either round after D73 — simulation verdicts live on "
+                      "study_case_executions and the participant round is not structurally checked",
     "study_sessions": "participant round only",
     "survey_demographics": "participant round only (D02)",
     "survey_post_task": "participant round only (D02)",
@@ -95,6 +96,10 @@ EXPECTED_SPARSE: dict[str, str] = {
     "run_id": "null on a group-visible edit receipt, by invariant",
     "agent_intent": "only a slash-command turn carries one",
     "result_found": "only read_wikipedia and get_region_climate set it (D40)",
+    "structural_check_outcome": "nothing writes it (D73): a structural verdict "
+                                "belongs to an execution, not a turn, and lives "
+                                "on study_case_executions",
+    "thumb_feedback": "participant round only (§4.2.2)",
 }
 
 
