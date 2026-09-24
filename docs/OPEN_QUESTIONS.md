@@ -30,6 +30,65 @@ wait; one blocking a Phase A task cannot.
 
 ## Open
 
+### Q34 — What a seed verdict means against a best-of baseline
+Raised: 2026-09-24 by agent (from the comparison rehearsal, `sim/04_regress`) · Blocks: reading B11's verdicts · Phase: B
+
+Rehearsal: n = 1 run 5f4f6841 against a test baseline of each case's best
+execution (D86). 8 of 31 cases fail: 1 structurally (the duplication defect),
+4 with both orderings preferring the baseline on stylistic grounds the judge
+calls "slightly better" (candidates scoring 9–10 point-wise), and 3 because
+the two orderings disagree (position bias, 3 of 31). Three of 13 seeds
+already fail on the judge at n = 1. At n = 8 with D23's 8/8 rule, most seeds
+will likely fail, and a seed `fail` will mostly mean "not reliably as good as
+its best reply" rather than "regressed".
+
+Options:
+- **A — keep D23 and D86 as they are** and report seed verdicts with that
+  reading stated. Judge fails are read one by one, as `04_regress` §5 does.
+- **B — count a disagreeing pair as undecided** rather than failed: position
+  bias becomes a measured judge variance, not a failure of the agent.
+- **C — let the pair-wise prompt say what a tie is**: differences it would
+  itself call "slight" are a tie. This changes the judge protocol (a new
+  prompt version) and the D23 threshold in effect.
+- **D — calibrate first**: compare the baseline run against *itself*
+  across repetitions (rep 1 vs rep 2 …) at full n. That measures how often
+  the judge prefers one of two replies from the *same* system, which is the
+  noise floor a regression has to clear.
+
+Trade-off: A is honest but may make seed verdicts uninformative. B and C
+change what counts as a failure. D costs judge calls but turns the question
+into a number before any rule is changed.
+Recommendation: **D on the real baseline run, then decide between A and B.**
+C only if D shows the judge's "slightly better" is mostly noise.
+Status: open
+
+### Q33 — Where pair-wise verdicts are stored
+Raised: 2026-09-24 by agent · Blocks: B11 at full n (not the rehearsal) · Phase: B
+
+`src/comparison.py` judges a candidate run against the adopted baseline
+(D23, both orderings). The verdicts are the regression run's result, and
+today they live in a JSON cache under `runs/comparisons/`, which git
+ignores. That survives a lost kernel (it resumes rather than re-judges), but
+it is on one machine, outside the record, and nothing in the database says
+a run was ever compared. Point-wise scores had the same problem until D71
+gave them `study_scores`.
+
+Options: **A** a `study_comparisons` table shaped like `study_scores`
+(candidate execution, baseline execution, judge model, pair-wise prompt
+version, both orderings, rationale, error), append-only, unique per
+(candidate execution, baseline execution, judge model, prompt version) ·
+**B** keep the JSON cache and commit the regression notebook's outputs as
+the record · **C** store the verdicts on the candidate's
+`study_case_executions` row.
+Trade-off: A is a migration and a new table in the event model, but it makes
+the result queryable next to everything it is joined with, which is the
+reason D71 exists. B leaves the result of stage 3.2 outside the database. C
+mixes a comparison into the execution record, and an execution can be
+compared against more than one baseline.
+Recommendation: **A**, added before the full regression run. The rehearsal
+can proceed on the cache.
+Status: open
+
 ### Q32 — [RESOLVED 2026-09-24, see D82: A] — What the judge scores when a request spans turns
 Raised: 2026-09-24 by author · Blocks: marking D81's seeds, C02 (P3), C05 (freeze) · Phase: B and C
 

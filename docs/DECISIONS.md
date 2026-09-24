@@ -31,6 +31,26 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D86 — The baseline is each case's best clean execution
+Date: 2026-09-24 · Decided by: author (raised by agent from the comparison rehearsal)
+Options: the top-scoring structurally clean execution · a median one · the
+first clean one
+Chosen: **top-scoring**, as `comparison.propose_baseline` ranks it:
+structurally clean first, then the highest point-wise score, then the
+earliest repetition. The author still reads and adopts per case (B10).
+Reason: the author's. The higher the reference, the more a comparison can
+tell. Against a median reply, a prompt change that makes answers slightly
+better would pass unnoticed, because "at least as good as average" is easy.
+Against the best reply, it shows. The cost is stated and accepted: ordinary
+variance fails some repetitions that are merely a little weaker than the
+best, and under D23 a seed needs all eight. The rehearsal showed this
+already: two packing-list executions scoring 9 and 10 point-wise lost both
+orderings to a 10/10 baseline. Those failures are read, not counted blindly:
+`04_regress` shows every failure's judge rationale beside its structural
+verdict, and the structural checks do not depend on the baseline at all.
+Affects: src/comparison.py (unchanged: it already ranks this way) ·
+notebooks/sim/03_baseline · notebooks/sim/04_regress · Reverses: none
+
 ### D85 — A score on an execution that acted again after turn 1 says so
 Date: 2026-09-24 · Decided by: agent (asked for by the author: "it should be clearly marked")
 The judge scores turn 1 only (D34), and D82 kept that for the multi-step

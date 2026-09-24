@@ -1,6 +1,6 @@
 # Manuscript sync — where the implementation has moved past the text
 
-State as of 2026-09-24 (branch `feat/thesis-regression-testing`, `ac3a1cb`),
+State as of 2026-09-24 (branch `feat/thesis-regression-testing`, after `ac3a1cb`),
 read against manuscript revision `260917`. Before the baseline run and the pilot.
 Every item names the decision (`D…`), log entry (`L…`) or open question (`Q…`)
 that holds the full reasoning.
@@ -50,6 +50,28 @@ that holds the full reasoning.
 - **Tool coverage is a first-class output**: calls, errors and misses per tool
   per run. It is also the rule for letting a case into the suite (D50, D66, D68). This is
   the instrument that found the weather defect (L11).
+- **Position bias in the pair-wise judge** (D23, Q34): an LLM judge comparing two
+  replies can prefer one for *where* it appears, not for what it says, and it
+  does so most when the two are close. The comparison is therefore asked twice
+  with the order swapped (baseline as A, then candidate as A). A judge deciding
+  on content answers consistently: `A`,`B` when the baseline is better, `B`,`A`
+  when the candidate is, `tie`,`tie` when equal. A judge deciding on position
+  answers inconsistently, e.g. `A`,`A`, which picks the first slot once for each
+  reply. The candidate passes only if **both** orderings hold, so position bias
+  can fail an execution but never pass one: the control is conservative by
+  design. Measured in the rehearsal (n = 1 run `5f4f6841` against a best-of
+  test baseline): **3 of 31 comparisons disagreed (~10 %)**. Examples:
+  `A`,`A` on the Belém full day (pure slot preference), `A`,`tie` on the
+  Sunday tram move, `tie`,`B` on the riverside-drink search. In each the judge
+  could not rank the two replies consistently, which is evidence they were
+  about equally good, and D23 charges each to the agent. **Consequence for
+  §3.1's 8/8 seed rule:** at ~10 % per comparison, a seed has about a **56 %**
+  chance (1 − 0.9⁸) that at least one of its eight repetitions disagrees, so
+  position bias alone could fail roughly half the seeds before any real
+  regression. Q34 proposes counting a disagreeing pair as **undecided** and
+  reporting the disagreement rate as a property of the judge. A real regression
+  still shows as a consistent preference for the baseline in both orderings.
+  Name this as a threat to validity in §3.7/§4.5 whichever way Q34 goes.
 - **Request shapes / segmentation** (Q28, Q29, open): the four `request_type`
   classes are too coarse and the D24 signature too fine for §4.3; a 7-class
   "request shape" and a rule that splits runs into requests are proposed. The
@@ -232,6 +254,17 @@ All were author rulings, made before any baseline:
 
 ### 3.4.7 Results so far — [fill]
 
+- **Comparison rehearsal** (`sim/03_baseline`, `sim/04_regress`): n = 1 run
+  `5f4f6841` (31 cases, judge mean 9.35) against a test baseline of each case's
+  best execution (D86). The flow works end to end (31/31 compared, 0 judge
+  errors; a self-comparison of 29 identical pairs returned `tie`,`tie` every
+  time). **8 of 31 cases fail: 1 structurally** (the D83 duplication), **4 with
+  both orderings preferring the baseline** on points the judge itself calls
+  "slightly better" (candidates scoring 9–10 point-wise), and **3 on position
+  bias** (orderings disagree). Against a best-of baseline, a seed `fail` will
+  mostly mean "not reliably as good as its best reply" rather than "regressed"
+  (Q34).
+
 - Verification runs so far are at n = 1 only (e.g. `42cab17a`, 29 cases, all
   structurally clean after fixes). **[fill: baseline run id, n = 8/4,
   executions, cost, duration, score distribution]**
@@ -249,3 +282,5 @@ All were author rulings, made before any baseline:
 - **Q29** Request boundary for participant data (segmentation rule C + slash/reference).
 - **Q22** Telemetry bounds — deferred until a baseline exists.
 - **D83 finding** — fix the duplicate-scheduling behaviour before the baseline or keep it as a known target.
+- **Q33** Where pair-wise verdicts are stored (a `study_comparisons` table, as `study_scores` for point-wise).
+- **Q34** What a seed verdict means against a best-of baseline: position bias and "slightly better" preferences, measured first as the judge's own noise floor.
