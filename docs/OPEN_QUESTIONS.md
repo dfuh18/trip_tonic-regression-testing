@@ -30,7 +30,7 @@ wait; one blocking a Phase A task cannot.
 
 ## Open
 
-### Q34 — What a seed verdict means against a best-of baseline
+### Q34 — [RESOLVED 2026-09-24, see D88] — What a seed verdict means against a best-of baseline
 Raised: 2026-09-24 by agent (from the comparison rehearsal, `sim/04_regress`) · Blocks: reading B11's verdicts · Phase: B
 
 Rehearsal: n = 1 run 5f4f6841 against a test baseline of each case's best
@@ -60,7 +60,7 @@ change what counts as a failure. D costs judge calls but turns the question
 into a number before any rule is changed.
 Recommendation: **D on the real baseline run, then decide between A and B.**
 C only if D shows the judge's "slightly better" is mostly noise.
-Status: open
+Status: resolved — D88 (any contradictory pair is a position draw: passes, counted and listed)
 
 ### Q33 — [RESOLVED 2026-09-24, see D87] — Where pair-wise verdicts are stored
 Raised: 2026-09-24 by agent · Blocks: B11 at full n (not the rehearsal) · Phase: B

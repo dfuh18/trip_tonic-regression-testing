@@ -15,10 +15,12 @@ Three steps, each the input of the next:
    ``case.opening_turn`` (D34). Every verdict is written to
    ``study_comparisons`` as it is made (Q33), which is also how a lost kernel
    resumes instead of re-judging — the loss D71 fixed for point-wise scores.
-3. **Pass rates (D23).** An execution passes when its structural verdict is
-   ``none`` **and** the pair-wise verdict holds; a structural ``detected``
-   fails it regardless of the judge. A seed case passes only when every
-   repetition passes; an expanded case at ≥ 75 %.
+3. **Pass rates (D23, amended by D88).** An execution passes when its
+   structural verdict is ``none`` **and** the judge does not consistently
+   prefer the baseline; a structural ``detected`` fails it regardless of the
+   judge. A pair whose two orderings contradict each other is a **position
+   draw**: it passes, and is counted and shown as one (D88). A seed case passes
+   only when every repetition passes; an expanded case at ≥ 75 %.
 
 A comparison that could not be made (the judge failed after its retries) is a
 missing measurement, not a failure of the agent, and a case with one is
@@ -160,13 +162,15 @@ class Comparison:
 
     @property
     def passed(self) -> Optional[bool]:
-        """D23: structural ``detected`` fails outright; otherwise the judge
-        decides. ``None`` when nothing could decide."""
-        if self.structural == "detected":
-            return False
-        if self.structural != "none" or self.error or self.at_least_as_good is None:
-            return None  # not yet checked, or not judged: nothing decided
-        return self.structural == "none" and self.at_least_as_good
+        """The execution verdict under the rule in force (``RULE``, D88).
+        Structural ``detected`` fails outright; ``None`` when nothing decided."""
+        return passed_under(self, RULE)
+
+    @property
+    def position_draw(self) -> bool:
+        """Passes only because a contradiction between the two orderings is
+        read as a draw: D23's strict reading would have failed it (D88)."""
+        return bool(self.passed) and passed_under(self, "strict") is False
 
 
 def baseline_key(baseline: dict) -> str:
@@ -306,28 +310,38 @@ def compare_run(
                     time.sleep(_judge_backoff_s(attempt))
         c = out[-1]
         _persist(candidate_run_id, row, c, baseline)
-        log(f"  {'pass' if c.passed else ('----' if c.passed is None else 'FAIL'):>4s}  "
+        mark = "DRAW" if c.position_draw else ("pass" if c.passed else ("----" if c.passed is None else "FAIL"))
+        log(f"  {mark:>4s}  "
             f"{c.case_id} rep {c.repetition}  {c.orderings or c.error or ''}")
     return out
 
 
 def comparison_frame(comparisons: list[Comparison]) -> "DataFrame":
     pd = _pd()
-    return pd.DataFrame([{**asdict(c), "passed": c.passed} for c in comparisons])
+    return pd.DataFrame([{**asdict(c), "passed": c.passed, "position draw": c.position_draw}
+                         for c in comparisons])
 
 
 # --- 3. pass rates ---------------------------------------------------------------
 
 
-def pass_rates(comparisons: list[Comparison]) -> "DataFrame":
-    """Per case: repetitions, passes, rate, threshold and the D23 verdict."""
+def pass_rates(comparisons: list[Comparison], reading: Optional[str] = None) -> "DataFrame":
+    """Per case: repetitions, passes, rate, threshold and the verdict.
+
+    ``reading`` is the rule in force (``RULE``) unless given. ``position
+    draws`` counts the executions that pass only because their orderings
+    contradicted each other, and ``pass rate (strict)`` is D23's reading beside
+    it, so a pass bought by a position draw is never silent (D88)."""
     pd = _pd()
+    reading = reading or RULE
     cases = {c.case_id: c for c in load_cases()}
     rows = []
     for case_id in sorted({c.case_id for c in comparisons}):
         mine = [c for c in comparisons if c.case_id == case_id]
-        decided = [c for c in mine if c.passed is not None]
-        passes = sum(1 for c in decided if c.passed)
+        verdicts = [passed_under(c, reading) for c in mine]
+        strict = [passed_under(c, "strict") for c in mine]
+        decided = [v for v in verdicts if v is not None]
+        passes = sum(1 for v in decided if v)
         seed = cases[case_id].provenance == "seeded" if case_id in cases else False
         threshold = SEED_PASS_RATE if seed else EXPANDED_PASS_RATE
         rate = passes / len(mine) if mine else float("nan")
@@ -339,9 +353,13 @@ def pass_rates(comparisons: list[Comparison]) -> "DataFrame":
             "case": case_id, "provenance": "seeded" if seed else "metamorphic",
             "executions": len(mine), "passed": passes,
             "structural fails": sum(1 for c in mine if c.structural == "detected"),
-            "judge says worse": sum(1 for c in mine if c.structural != "detected" and c.at_least_as_good is False),
+            "judge prefers baseline": sum(1 for c, v in zip(mine, verdicts)
+                                          if v is False and c.structural != "detected"),
+            "position draws": sum(1 for v, st in zip(verdicts, strict) if v and st is False),
             "not compared": len(mine) - len(decided),
-            "pass rate": rate, "threshold": threshold, "verdict": verdict,
+            "pass rate": rate,
+            "pass rate (strict)": sum(1 for v in strict if v) / len(mine) if mine else float("nan"),
+            "threshold": threshold, "verdict": verdict,
         })
     return pd.DataFrame(rows).set_index("case")
 
@@ -377,6 +395,11 @@ INCONSISTENT = {
     "leans candidate (one ordering)", "leans baseline (one ordering)",
     "same slot both times: first (A)", "same slot both times: second (B)",
 }
+
+#: The reading in force (D88, amending D23): a fail that exists only because
+#: the two orderings contradict each other is a draw, and passes. Only a
+#: consistent preference for the baseline fails on the judge.
+RULE = "any_draw"
 
 #: How a pair of answers becomes an execution verdict.
 #: ``strict``   D23: both orderings must hold (candidate at least as good).
@@ -421,15 +444,8 @@ def passed_under(c: Comparison, reading: str) -> Optional[bool]:
 
 
 def verdicts_under(comparisons: list[Comparison], reading: str) -> "DataFrame":
-    """``pass_rates`` recomputed with every execution read under ``reading``."""
-    from dataclasses import replace
-
-    adjusted = []
-    for c in comparisons:
-        p = passed_under(c, reading)
-        # Re-express the reading's result through the fields pass_rates reads.
-        adjusted.append(replace(c, at_least_as_good=p if p is not None else c.at_least_as_good))
-    return pass_rates(adjusted)
+    """``pass_rates`` with every execution read under ``reading``."""
+    return pass_rates(comparisons, reading)
 
 
 def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float, float]:

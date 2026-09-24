@@ -6,8 +6,10 @@ SEED = "venue_lookup_seafood_lisbon"
 FOLLOW = "venue_lookup_seafood_lisbon__inv2_typos"
 
 
-def C(case, rep, structural="none", good=True, error=None):
-    return Comparison(case, rep, f"{case}-{rep}", "base", structural, good, ["tie", "tie"], "", error)
+def C(case, rep, structural="none", good=True, error=None, orderings=None):
+    if orderings is None:  # a consistent pair matching `good`
+        orderings = [] if error else (["tie", "tie"] if good else ["A", "B"])
+    return Comparison(case, rep, f"{case}-{rep}", "base", structural, good, orderings, "", error)
 
 
 def test_structural_detected_fails_regardless_of_the_judge():
@@ -22,7 +24,7 @@ def test_an_unchecked_or_unjudged_execution_decides_nothing():
 def test_a_seed_needs_every_repetition():
     rates = pass_rates([C(SEED, r) for r in range(1, 8)] + [C(SEED, 8, good=False)])
     assert rates.loc[SEED, "verdict"] == "fail"
-    assert rates.loc[SEED, "judge says worse"] == 1
+    assert rates.loc[SEED, "judge prefers baseline"] == 1
 
 
 def test_an_expanded_case_passes_at_three_of_four():
@@ -43,21 +45,19 @@ def test_a_verdict_survives_the_round_trip_through_its_row(monkeypatch):
     from src import comparison as cmp
 
     monkeypatch.setattr(cmp, "_judge_identity", lambda: ("judge-model", "judge-pairwise/1"))
-    c = C(SEED, 2, good=False)
-    c.orderings = ["A", "tie"]
+    c = C(SEED, 2, good=False, orderings=["A", "B"])
     row = cmp._record("run-1", {"attempt": 1}, c, {"_kind": "test", "cases": {SEED: {"execution_id": "base"}}})
-    assert row["ordering_candidate_b"] == "A" and row["ordering_candidate_a"] == "tie"
+    assert row["ordering_candidate_b"] == "A" and row["ordering_candidate_a"] == "B"
     assert row["baseline_kind"] == "test" and len(row["baseline_key"]) == 12
     back = cmp._from_row(row)
-    assert (back.orderings, back.at_least_as_good, back.passed) == (["A", "tie"], False, False)
+    assert (back.orderings, back.at_least_as_good, back.passed) == (["A", "B"], False, False)
 
 
 def test_a_refusal_is_recorded_without_orderings(monkeypatch):
     from src import comparison as cmp
 
     monkeypatch.setattr(cmp, "_judge_identity", lambda: ("m", "v"))
-    refused = C(SEED, 1, good=None, error="judge: 429")
-    refused.orderings = []  # a refusal has no answers, as compare_run records it
+    refused = C(SEED, 1, good=None, error="judge: 429")  # a refusal has no answers
     row = cmp._record("run-1", {}, refused, {"cases": {}})
     assert row["ordering_candidate_b"] is None and row["error"] == "judge: 429"
     assert cmp._from_row(row).passed is None
@@ -95,3 +95,25 @@ def test_structural_detected_fails_under_every_reading():
 def test_wilson_interval_brackets_the_share():
     p, lo, hi = wilson(3, 31)
     assert lo < p < hi and 0 <= lo and hi <= 1
+
+
+# --- D88: a position-only fail passes, and says so ------------------------------
+
+
+def test_a_position_only_fail_passes_and_is_marked_as_a_draw():
+    for orderings in (["A", "A"], ["A", "tie"], ["tie", "B"]):
+        c = C(SEED, 1, good=False, orderings=orderings)
+        assert c.passed is True and c.position_draw is True, orderings
+
+
+def test_a_consistent_preference_for_the_baseline_still_fails():
+    c = C(SEED, 1, good=False, orderings=["A", "B"])
+    assert c.passed is False and c.position_draw is False
+
+
+def test_pass_rates_show_draws_beside_the_strict_rate():
+    rates = pass_rates([C(SEED, 1), C(SEED, 2, good=False, orderings=["A", "A"])])
+    assert rates.loc[SEED, "verdict"] == "pass"
+    assert rates.loc[SEED, "position draws"] == 1
+    assert rates.loc[SEED, "pass rate (strict)"] == 0.5
+    assert pass_rates([C(SEED, 1), C(SEED, 2, good=False, orderings=["A", "A"])], "strict").loc[SEED, "verdict"] == "fail"

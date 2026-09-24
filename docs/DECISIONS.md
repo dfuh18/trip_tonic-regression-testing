@@ -31,6 +31,35 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D88 — A fail from position alone is a draw, and passes visibly (resolves Q34)
+Date: 2026-09-24 · Decided by: author (escalated by agent as Q34)
+Options: D23 strict (a contradictory pair fails) · a same-slot pick is a draw ·
+any contradictory pair is a draw
+Chosen: **any contradictory pair is a draw** ("if only position would make a
+fail it should pass, but record it clearly"). The judge still compares in
+both orderings (D23's control is unchanged). An execution now fails on the
+judge only when **both** orderings prefer the baseline. When the orderings
+contradict each other (the same slot winning both times, or the baseline
+preferred in one order only), the fail would come from position alone. That
+is a **position draw**: it passes, and it is recorded as one:
+- `Comparison.position_draw` marks it; `pass_rates` counts `position draws`
+  per case and shows `pass rate (strict)` (D23's reading) beside the verdict;
+- `compare_run` logs it as `DRAW`, not `pass`;
+- `sim/04_regress` lists every draw separately from the failures and
+  recomputes all verdicts under the strict reading next to the rule in force.
+Nothing is lost: both orderings are stored in `study_comparisons` (D87), so
+every reading can be recomputed.
+Structural `detected` still fails whatever the judge says. A consistent
+preference for the baseline still fails, so a real regression is caught.
+Reason: the order-swap exposes position bias, and the pass rule decides what
+it costs. On the rehearsal, 3 of 30 pairs (10 %) were draws, which projects to a
+~57 % chance that a seed fails on position alone at 8/8 under the strict
+reading. That would be a property of the judge charged to the agent.
+Effect on the rehearsal: 5 of 31 cases fail (was 8 under strict); 3 cases
+pass with one position draw each.
+Affects: src/comparison.py · notebooks/sim/04_regress · tests/test_comparison.py ·
+Amends: D23 (how a contradictory pair counts) · Closes: Q34
+
 ### D87 — Pair-wise verdicts get a table (resolves Q33)
 Date: 2026-09-24 · Decided by: author (escalated by agent as Q33)
 Options: A a `study_comparisons` table · B the local JSON cache plus committed

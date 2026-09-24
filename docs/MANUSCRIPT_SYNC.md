@@ -24,10 +24,12 @@ that holds the full reasoning.
 
 ### B. Should add: facts the text does not have yet
 
-- **Pass rule** (D23): seed passes only at 8/8; follow-up at ≥ 75 %; a structural
-  `detected` fails the execution whatever the judge says; the pair-wise judge runs
-  in **both orderings** at temperature 0 and passes only if both say "at least as
-  good".
+- **Pass rule** (D23, amended by D88): seed passes only at 8/8; follow-up at
+  ≥ 75 %; a structural `detected` fails the execution whatever the judge says.
+  The pair-wise judge runs in **both orderings** at temperature 0. An execution
+  fails on the judge only when **both** orderings prefer the baseline. When the
+  orderings contradict each other, it is a **position draw**: it passes, and is
+  counted per case with D23's strict pass rate shown beside it.
 - **Judge protocol**: scores the **first reply against the opening turn** (D34),
   is told today's date (D79), and is the **same model family as the agent**
   (`gemini-3.5-flash`, D20). The last point is a limitation to name in §3.7/§4.5.
@@ -54,7 +56,7 @@ that holds the full reasoning.
 - **Tool coverage is a first-class output**: calls, errors and misses per tool
   per run. It is also the rule for letting a case into the suite (D50, D66, D68). This is
   the instrument that found the weather defect (L11).
-- **Position bias in the pair-wise judge** (D23, Q34): an LLM judge comparing two
+- **Position bias in the pair-wise judge** (D23, D88): an LLM judge comparing two
   replies can prefer one for *where* it appears, not for what it says, and it
   does so most when the two are close. The comparison is therefore asked twice
   with the order swapped (baseline as A, then candidate as A). A judge deciding
@@ -72,10 +74,23 @@ that holds the full reasoning.
   §3.1's 8/8 seed rule:** at ~10 % per comparison, a seed has about a **56 %**
   chance (1 − 0.9⁸) that at least one of its eight repetitions disagrees, so
   position bias alone could fail roughly half the seeds before any real
-  regression. Q34 proposes counting a disagreeing pair as **undecided** and
-  reporting the disagreement rate as a property of the judge. A real regression
-  still shows as a consistent preference for the baseline in both orderings.
-  Name this as a threat to validity in §3.7/§4.5 whichever way Q34 goes.
+  regression. **Ruled (D88): a contradictory pair is a position draw.** It
+  passes, is counted and listed per case, and D23's strict pass rate is reported
+  beside the rule in force. A real regression still shows as a consistent
+  preference for the baseline in both orderings, and still fails. Under D88 the
+  rehearsal has 5 of 31 cases failing instead of 8. Name position bias and this
+  ruling in §3.7/§4.5: the judge's own noise is measured and reported, not
+  charged to the agent.
+  **[cite: source needed.]** The manuscript currently cites nothing for
+  position bias. The swap-both-orderings control (§3.1, D23) and this ruling
+  both need a source where the judge is introduced (§2.6 / §3.4 Judge).
+  Candidates, to verify before citing: Zheng et al. (2023), *Judging
+  LLM-as-a-Judge with MT-Bench and Chatbot Arena* (NeurIPS Datasets and
+  Benchmarks), which documents position bias and evaluates swapping the order
+  as a mitigation; Wang et al. (2023), *Large Language Models are not Fair
+  Evaluators*, which shows verdicts flip with answer order and proposes
+  evaluating both positions. Check whether Guan et al. (2025), already cited
+  for point-wise vs pair-wise, covers it too.
 - **Request shapes / segmentation** (Q28, Q29, open): the four `request_type`
   classes are too coarse and the D24 signature too fine for §4.3; a 7-class
   "request shape" and a rule that splits runs into requests are proposed. The
@@ -262,12 +277,13 @@ All were author rulings, made before any baseline:
   `5f4f6841` (31 cases, judge mean 9.35) against a test baseline of each case's
   best execution (D86). The flow works end to end (31/31 compared, 0 judge
   errors; a self-comparison of 29 identical pairs returned `tie`,`tie` every
-  time). **8 of 31 cases fail: 1 structurally** (the D83 duplication), **4 with
-  both orderings preferring the baseline** on points the judge itself calls
-  "slightly better" (candidates scoring 9–10 point-wise), and **3 on position
-  bias** (orderings disagree). Against a best-of baseline, a seed `fail` will
-  mostly mean "not reliably as good as its best reply" rather than "regressed"
-  (Q34).
+  time). Under D88, **5 of 31 cases fail: 1 structurally** (the D83
+  duplication) and **4 with both orderings preferring the baseline** on points
+  the judge itself calls "slightly better" (candidates scoring 9–10
+  point-wise). **3 more pass as position draws** (orderings disagree); under
+  D23's strict reading they failed. Against a best-of baseline (D86), what
+  remains of a seed `fail` on the judge is a consistent preference for the best
+  reply: a high bar that notices small changes, read one failure at a time.
 
 - Verification runs so far are at n = 1 only (e.g. `42cab17a`, 29 cases, all
   structurally clean after fixes). **[fill: baseline run id, n = 8/4,
@@ -281,10 +297,12 @@ All were author rulings, made before any baseline:
 
 ## Open before the manuscript can be final
 
+- **Citation** for LLM-judge position bias and the order-swap control (see Part 1 B, "Position bias").
+
 - **Q27** Table 12 — which axis replaces the structural verdict in the participant round.
 - **Q28** Request-shape rule, and whether "advisory" means "called no tool".
 - **Q29** Request boundary for participant data (segmentation rule C + slash/reference).
 - **Q22** Telemetry bounds — deferred until a baseline exists.
 - **D83 finding** — fix the duplicate-scheduling behaviour before the baseline or keep it as a known target.
 
-- **Q34** What a seed verdict means against a best-of baseline: position bias and "slightly better" preferences, measured first as the judge's own noise floor.
+
