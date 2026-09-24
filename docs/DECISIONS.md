@@ -31,6 +31,41 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D87 — Pair-wise verdicts get a table (resolves Q33)
+Date: 2026-09-24 · Decided by: author (escalated by agent as Q33)
+Options: A a `study_comparisons` table · B the local JSON cache plus committed
+notebook outputs · C verdicts on the candidate's execution row
+Chosen: **A.** Migration `20260924194027_study_comparisons.sql`, pushed. Shaped
+after `study_scores` (D71):
+- one row per candidate execution, baseline execution, judge model and
+  pair-wise prompt version;
+- both orderings kept in their positions (`ordering_candidate_b`,
+  `ordering_candidate_a`), with the verdict, the rationale and the candidate's
+  structural outcome as a snapshot;
+- `baseline_kind` (`adopted` | `test`) and `baseline_key` (a hash of the
+  baseline's entries), so a rehearsal's verdicts can never be read as
+  stage 3.2's;
+- a check refuses a row that is neither decided nor explained by an `error`;
+- RLS on, service_role only, as every harness table.
+
+`comparison.compare_run` writes each verdict as it is made and resumes from
+the table. The JSON cache is gone. `survey` counts the table in the run's
+completeness report, and a run with no comparisons is explained there (a
+baseline run never has any).
+Verified against the live table, 2026-09-24:
+- the rehearsal's 31 verdicts were written through the new path and read back
+  identically, with a judge that raises if called, so resuming makes no judge
+  calls;
+- a fresh judged comparison of the probe run wrote 6 rows, and the two
+  executions that *are* the baseline came back `tie`/`tie`;
+- the table refused a row that was neither decided nor explained;
+- `sim/04_regress` re-executed from the table with the same 23 pass / 8 fail;
+- the schema-hardening (65) and permissions (10) audits pass.
+Reason: the result of stage 3.2 belongs in the record it is joined with, for
+the same reason D71 gave point-wise scores a table.
+Affects: supabase/migrations · src/comparison.py · src/survey.py ·
+notebooks/sim/04_regress · Reverses: none · Closes: Q33
+
 ### D86 — The baseline is each case's best clean execution
 Date: 2026-09-24 · Decided by: author (raised by agent from the comparison rehearsal)
 Options: the top-scoring structurally clean execution · a median one · the

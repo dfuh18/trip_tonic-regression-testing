@@ -62,7 +62,7 @@ Recommendation: **D on the real baseline run, then decide between A and B.**
 C only if D shows the judge's "slightly better" is mostly noise.
 Status: open
 
-### Q33 — Where pair-wise verdicts are stored
+### Q33 — [RESOLVED 2026-09-24, see D87] — Where pair-wise verdicts are stored
 Raised: 2026-09-24 by agent · Blocks: B11 at full n (not the rehearsal) · Phase: B
 
 `src/comparison.py` judges a candidate run against the adopted baseline
@@ -87,7 +87,7 @@ mixes a comparison into the execution record, and an execution can be
 compared against more than one baseline.
 Recommendation: **A**, added before the full regression run. The rehearsal
 can proceed on the cache.
-Status: open
+Status: resolved — D87 (A, `study_comparisons`)
 
 ### Q32 — [RESOLVED 2026-09-24, see D82: A] — What the judge scores when a request spans turns
 Raised: 2026-09-24 by author · Blocks: marking D81's seeds, C02 (P3), C05 (freeze) · Phase: B and C

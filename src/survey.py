@@ -48,6 +48,7 @@ RUN_TABLES: dict[str, str] = {
     "study_runs": "id",
     "study_case_executions": "run_id",
     "study_scores": "run_id",
+    "study_comparisons": "run_id",
     "study_structural_verdicts": "run_id",
 }
 
@@ -119,6 +120,13 @@ EXPECTED_SPARSE: dict[tuple[str, str], str] = {
     ("study_mutations", "changed_keys"): "only an UPDATE has changed keys",
     ("study_mutations", "origin_suggestion_id"): "only a mutation the AGENT caused has an origin; "
                                                  "the fixture build's rows have none",
+    ("study_comparisons", "error"): "only a comparison the judge refused has one",
+    ("study_comparisons", "ordering_candidate_b"): "null only when the judge refused (see error)",
+    ("study_comparisons", "ordering_candidate_a"): "null only when the judge refused (see error)",
+    ("study_comparisons", "at_least_as_good"): "null only when the judge refused (see error)",
+    ("study_comparisons", "structural_outcome"): "null when the execution had not been checked yet",
+    ("study_comparisons", "rationale"): "empty when the judge refused",
+    ("study_comparisons", "(no rows)"): "this run has not been compared - a baseline run never is (Q33)",
     ("study_scores", "(no rows)"): "this run has not been judged — a fact about the run, not a "
                                    "missing writer",
 }

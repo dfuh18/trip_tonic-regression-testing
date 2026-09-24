@@ -12,9 +12,9 @@ Three steps, each the input of the next:
 2. **Comparison (B11, D23).** Every execution of the candidate run is judged
    pair-wise against its case's baseline reply, in both orderings, and holds
    only when both say "at least as good". The first reply of each, against
-   ``case.opening_turn`` (D34). Verdicts are cached to ``runs/comparisons/``
-   so a lost kernel resumes instead of re-judging — the loss D71 fixed for
-   point-wise scores. Persisting them to the database is Q33.
+   ``case.opening_turn`` (D34). Every verdict is written to
+   ``study_comparisons`` as it is made (Q33), which is also how a lost kernel
+   resumes instead of re-judging — the loss D71 fixed for point-wise scores.
 3. **Pass rates (D23).** An execution passes when its structural verdict is
    ``none`` **and** the pair-wise verdict holds; a structural ``detected``
    fails it regardless of the judge. A seed case passes only when every
@@ -38,7 +38,6 @@ from src.cases import CASES_DIR, load_cases
 
 ADOPTED_BASELINE = CASES_DIR / "baseline.json"
 RUNS_DIR = CASES_DIR.parent / "runs"
-COMPARISON_CACHE = RUNS_DIR / "comparisons"
 
 #: D23. A seed is minimum functionality, so one failure in eight is a failure.
 SEED_PASS_RATE = 1.0
@@ -125,7 +124,12 @@ def write_baseline(proposal: "DataFrame", path: Path, *, by: str, note: str) -> 
 
 
 def load_baseline(path: Path = ADOPTED_BASELINE) -> dict:
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+    """The baseline file, tagged with its kind: ``adopted`` for
+    ``cases/baseline.json``, ``test`` for anything else. The kind travels into
+    every verdict taken against it, so a rehearsal cannot pass as stage 3.2."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    data["_kind"] = "test" if is_test_baseline(path) else "adopted"
+    return data
 
 
 def is_test_baseline(path: Path) -> bool:
@@ -165,11 +169,67 @@ class Comparison:
         return self.structural == "none" and self.at_least_as_good
 
 
-def _cache_path(candidate_run_id: str, baseline: dict) -> Path:
+def baseline_key(baseline: dict) -> str:
+    """A hash of the baseline's entries: which execution stands for which case."""
     import hashlib
 
-    key = hashlib.sha256(json.dumps(baseline.get("cases", {}), sort_keys=True).encode()).hexdigest()[:10]
-    return COMPARISON_CACHE / f"{candidate_run_id}__{key}.json"
+    return hashlib.sha256(json.dumps(baseline.get("cases", {}), sort_keys=True).encode()).hexdigest()[:12]
+
+
+def _judge_identity() -> tuple[str, str]:
+    from src.config import settings
+    from src.llm import load_prompt
+
+    return settings.JUDGE_MODEL, load_prompt("judge_pairwise_v1").version
+
+
+def _record(run_id: str, row: dict, c: Comparison, baseline: dict) -> dict:
+    model, version = _judge_identity()
+    orderings = list(c.orderings) + [None, None]
+    return {
+        "run_id": run_id, "execution_id": c.execution_id,
+        "baseline_execution_id": c.baseline_execution_id,
+        "case_id": c.case_id, "repetition": c.repetition, "attempt": row.get("attempt") or 1,
+        "baseline_kind": baseline.get("_kind", "test"), "baseline_key": baseline_key(baseline),
+        "judge_model": model, "judge_prompt_version": version,
+        "structural_outcome": c.structural,
+        "ordering_candidate_b": orderings[0], "ordering_candidate_a": orderings[1],
+        "at_least_as_good": c.at_least_as_good, "rationale": c.rationale, "error": c.error,
+    }
+
+
+def _persist(run_id: str, row: dict, c: Comparison, baseline: dict) -> None:
+    """Write one verdict to ``study_comparisons`` (Q33). Upsert on the
+    judge-version key, so a retry that finally obtains a verdict replaces the
+    refusal recorded for the same comparison, and nothing else is overwritten."""
+    from src import db
+
+    db.admin().table("study_comparisons").upsert(
+        _record(run_id, row, c, baseline),
+        on_conflict="execution_id,baseline_execution_id,judge_model,judge_prompt_version",
+    ).execute()
+
+
+def stored_comparisons(run_id: str, baseline: dict) -> dict[str, dict]:
+    """Verdicts already in the database for this run, this baseline and this
+    judge version, keyed by candidate execution."""
+    from src import db
+
+    model, version = _judge_identity()
+    rows = (db.admin().table("study_comparisons").select("*")
+            .eq("run_id", run_id).eq("baseline_key", baseline_key(baseline))
+            .eq("judge_model", model).eq("judge_prompt_version", version).execute().data)
+    return {r["execution_id"]: r for r in rows}
+
+
+def _from_row(r: dict) -> Comparison:
+    return Comparison(
+        case_id=r["case_id"], repetition=r["repetition"], execution_id=r["execution_id"],
+        baseline_execution_id=r["baseline_execution_id"], structural=r.get("structural_outcome"),
+        at_least_as_good=r.get("at_least_as_good"),
+        orderings=[o for o in (r.get("ordering_candidate_b"), r.get("ordering_candidate_a")) if o],
+        rationale=r.get("rationale") or "", error=r.get("error"),
+    )
 
 
 def compare_run(
@@ -179,7 +239,13 @@ def compare_run(
     llm=None,
     log: Callable[[str], None] = print,
 ) -> list[Comparison]:
-    """Judge every execution of a run against its case's baseline reply."""
+    """Judge every execution of a run against its case's baseline reply.
+
+    Resumes from ``study_comparisons``: a candidate execution that already has
+    a decided verdict for this baseline and judge version is read, not
+    re-judged. Its structural verdict is taken from the execution as it is now,
+    since the stored snapshot is only what the comparison saw.
+    """
     from src.execution import latest_attempts
     from src.judge import compare_pairwise
     from src.llm import judge_llm
@@ -187,10 +253,7 @@ def compare_run(
     from src.survey import _rows
 
     cases = {c.case_id: c for c in load_cases()}
-    cache = _cache_path(candidate_run_id, baseline)
-    done: dict[str, dict] = {}
-    if cache.exists():
-        done = {r["execution_id"]: r for r in json.loads(cache.read_text(encoding="utf-8"))}
+    done = {k: v for k, v in stored_comparisons(candidate_run_id, baseline).items() if not v.get("error")}
 
     by_id = {}
     base_ids = [e["execution_id"] for e in baseline.get("cases", {}).values()]
@@ -205,7 +268,9 @@ def compare_run(
     llm = llm or judge_llm()
     for row in rows:
         if row["id"] in done:
-            out.append(Comparison(**done[row["id"]]))
+            c = _from_row(done[row["id"]])
+            c.structural = row.get("structural_outcome")
+            out.append(c)
             continue
         case = cases.get(row["case_id"])
         entry = baseline.get("cases", {}).get(row["case_id"])
@@ -214,13 +279,14 @@ def compare_run(
                     structural=row.get("structural_outcome"), at_least_as_good=None,
                     orderings=[], rationale="")
         if case is None or entry is None or entry["execution_id"] not in by_id:
+            # Not a judge result: nothing to persist, and no baseline row to key it to.
             out.append(Comparison(**base, error="no baseline for this case"))
             continue
         _, candidate = first_reply(row)
         _, reference = first_reply(by_id[entry["execution_id"]])
         if not candidate.strip():
-            # No reply is the agent's failure, not a missing measurement.
-            out.append(Comparison(**{**base, "at_least_as_good": False,
+            # No reply is the agent's failure; recorded as the baseline winning both orderings.
+            out.append(Comparison(**{**base, "at_least_as_good": False, "orderings": ["A", "B"],
                                      "rationale": "the candidate execution produced no reply"}))
         else:
             refs = [r.text() for r in case.references]
@@ -230,7 +296,7 @@ def compare_run(
                     out.append(Comparison(**{
                         **base, "at_least_as_good": result.at_least_as_good,
                         "orderings": [o.better for o in result.orderings],
-                        "rationale": " | ".join(o.rationale for o in result.orderings)[:600],
+                        "rationale": " | ".join(o.rationale for o in result.orderings)[:1200],
                     }))
                     break
                 except Exception as exc:
@@ -239,10 +305,9 @@ def compare_run(
                         break
                     time.sleep(_judge_backoff_s(attempt))
         c = out[-1]
+        _persist(candidate_run_id, row, c, baseline)
         log(f"  {'pass' if c.passed else ('----' if c.passed is None else 'FAIL'):>4s}  "
             f"{c.case_id} rep {c.repetition}  {c.orderings or c.error or ''}")
-        cache.parent.mkdir(parents=True, exist_ok=True)
-        cache.write_text(json.dumps([asdict(x) for x in out if not x.error], indent=1), encoding="utf-8")
     return out
 
 
@@ -279,3 +344,100 @@ def pass_rates(comparisons: list[Comparison]) -> "DataFrame":
             "pass rate": rate, "threshold": threshold, "verdict": verdict,
         })
     return pd.DataFrame(rows).set_index("case")
+
+
+# --- 4. position bias (Q34) ----------------------------------------------------
+#
+# D23 asks the judge twice with the order swapped. That does not remove
+# position bias; it EXPOSES it, as answers that contradict each other. What
+# a contradictory pair then counts as is a separate rule, and D23's is strict:
+# the candidate passes only if both orderings hold. These functions name each
+# pattern and recompute verdicts under the alternatives, without changing D23.
+
+#: Each answer from the candidate's side: +1 it won, 0 tie, -1 the baseline won.
+#: First ordering: candidate shown as B. Second: candidate shown as A.
+_FIRST = {"B": 1, "tie": 0, "A": -1}
+_SECOND = {"A": 1, "tie": 0, "B": -1}
+
+PATTERNS = {
+    (1, 1): "consistent: candidate better",
+    (0, 0): "consistent: tie",
+    (-1, -1): "consistent: baseline better",
+    (1, 0): "leans candidate (one ordering)",
+    (0, 1): "leans candidate (one ordering)",
+    (-1, 0): "leans baseline (one ordering)",
+    (0, -1): "leans baseline (one ordering)",
+    (-1, 1): "same slot both times: first (A)",
+    (1, -1): "same slot both times: second (B)",
+}
+
+#: Patterns that disagree with themselves: the judge could not rank the two
+#: replies the same way in both orders.
+INCONSISTENT = {
+    "leans candidate (one ordering)", "leans baseline (one ordering)",
+    "same slot both times: first (A)", "same slot both times: second (B)",
+}
+
+#: How a pair of answers becomes an execution verdict.
+#: ``strict``   D23: both orderings must hold (candidate at least as good).
+#: ``slot_draw`` a same-slot pick is a draw, so it holds; leans still count.
+#: ``any_draw`` every inconsistent pair is a draw; only a consistent
+#:             preference for the baseline fails.
+READINGS = ("strict", "slot_draw", "any_draw")
+
+
+def pattern(orderings: list[str]) -> Optional[str]:
+    if len(orderings) != 2 or orderings[0] not in _FIRST or orderings[1] not in _SECOND:
+        return None
+    return PATTERNS[(_FIRST[orderings[0]], _SECOND[orderings[1]])]
+
+
+def holds(orderings: list[str], reading: str = "strict") -> Optional[bool]:
+    """Whether the judge's pair of answers counts as "at least as good"."""
+    p = pattern(orderings)
+    if p is None:
+        return None
+    a, b = _FIRST[orderings[0]], _SECOND[orderings[1]]
+    if reading == "strict":
+        return a >= 0 and b >= 0
+    if reading == "slot_draw":
+        return (a >= 0 and b >= 0) or p.startswith("same slot")
+    if reading == "any_draw":
+        return p != "consistent: baseline better"
+    raise ValueError(f"unknown reading {reading!r}")
+
+
+def passed_under(c: Comparison, reading: str) -> Optional[bool]:
+    """``Comparison.passed`` with the judge's pair read under ``reading``.
+    Under ``strict`` it is ``passed`` exactly. A structural ``detected`` fails
+    under every reading, because it does not come from the judge."""
+    if c.structural == "detected":
+        return False
+    if c.structural != "none" or c.error:
+        return None
+    if not c.orderings:  # recorded without answers, e.g. no reply at all
+        return c.at_least_as_good
+    return holds(c.orderings, reading)
+
+
+def verdicts_under(comparisons: list[Comparison], reading: str) -> "DataFrame":
+    """``pass_rates`` recomputed with every execution read under ``reading``."""
+    from dataclasses import replace
+
+    adjusted = []
+    for c in comparisons:
+        p = passed_under(c, reading)
+        # Re-express the reading's result through the fields pass_rates reads.
+        adjusted.append(replace(c, at_least_as_good=p if p is not None else c.at_least_as_good))
+    return pass_rates(adjusted)
+
+
+def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float, float]:
+    """Share ``k/n`` with a 95 % Wilson interval: (p, low, high)."""
+    if n == 0:
+        return float("nan"), float("nan"), float("nan")
+    p = k / n
+    d = 1 + z * z / n
+    centre = (p + z * z / (2 * n)) / d
+    half = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5) / d
+    return p, max(0.0, centre - half), min(1.0, centre + half)

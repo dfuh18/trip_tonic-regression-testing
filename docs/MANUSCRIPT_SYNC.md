@@ -40,6 +40,10 @@ that holds the full reasoning.
   failure. A timeout on the simulator's own model call is retried, because it is
   a harness failure (D70, L10). → The published pass rate includes some of the
   provider's availability. State this.
+- **Judge verdicts are persisted, both kinds**: point-wise scores in
+  `study_scores` (D71), pair-wise verdicts with both orderings in
+  `study_comparisons` (D87), each keyed by judge model and prompt version and
+  tagged with the baseline they were taken against.
 - **Versioning beyond Table 11** (P6): `case_version` (content hash per case,
   D74), `suite_version` over the fixture as resolved (D62), real `api_version`/
   `app_version`/`api_commit` (D63), a checker version whose verdicts are
@@ -282,5 +286,5 @@ All were author rulings, made before any baseline:
 - **Q29** Request boundary for participant data (segmentation rule C + slash/reference).
 - **Q22** Telemetry bounds — deferred until a baseline exists.
 - **D83 finding** — fix the duplicate-scheduling behaviour before the baseline or keep it as a known target.
-- **Q33** Where pair-wise verdicts are stored (a `study_comparisons` table, as `study_scores` for point-wise).
+
 - **Q34** What a seed verdict means against a best-of baseline: position bias and "slightly better" preferences, measured first as the judge's own noise floor.
