@@ -19,9 +19,10 @@ from src.metamorphic import (
 
 #: The most executions the suite may cost without a fresh decision. D21 set the
 #: budget at 128; D50, D51 and D61 each raised it for a case that was the only
-#: route to a tool or a relation. Stated as a ceiling because the rule is "keep
-#: it at a minimum to cover all tools" — a number to stay under, not to hit.
-D21_EXECUTION_CEILING = 160
+#: route to a tool or a relation, and D81 for the two multi-step seeds (Q31).
+#: Stated as a ceiling because the rule is "keep it at a minimum to cover all
+#: tools" — a number to stay under, not to hit.
+D21_EXECUTION_CEILING = 176
 
 
 def seeds():

@@ -1,0 +1,102 @@
+case_id: scheduling_dinner_from_offer
+base_case_id: null
+provenance: seeded
+run_priority: 2
+function: scheduling
+user_profile: Marta, 34, eats out every night of a trip and likes small local places over anything with
+  a dress code. Types short messages and picks from a list the way people do - by a name or by where it
+  sat.
+goal: 'Get dinner on Saturday around 8 into the plan, chosen from what Tonic offers. She asks for options
+  first, reads them, picks the one that sounds most like a small local tasca, and tells Tonic which one
+  she means and when. She is satisfied as soon as a draft with that dinner exists: she settles it herself
+  on the itinerary, and if Tonic offers anything further she says that is all she needed.'
+opening_turn: /find somewhere for dinner in Alfama on Saturday? nothing fancy, proper Portuguese food
+intent: find
+expected_tool_sequence:
+- search_places
+- propose_plan
+declared_constraints:
+  checks:
+    tool_counts:
+      search_places:
+        min: 1
+        max: 4
+      propose_plan:
+        min: 1
+        max: 2
+      get_weather:
+        min: 0
+        max: 1
+    places_surfaced:
+      min: 1
+    places_named:
+      min: 2
+    places_near:
+      anchor: Tram 28 ride through Alfama
+      within_km: 3
+    slot_days:
+    - '2026-11-07'
+    slot_count:
+      min: 1
+      max: 1
+    draft_slot_starts_between:
+    - '19:30'
+    - '20:30'
+    draft_uses_earlier_place: true
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE: 0
+      ai_suggestions.INSERT:
+        min: 1
+        max: 2
+    tool_errors: corrected
+    turn_errors: none
+    trip_after:
+      blocks: fixture
+      slots: fixture
+  predicates: []
+scoring_criteria:
+- Names at least two dinner places in or near Alfama, not elsewhere in Lisbon.
+- Answers "nothing fancy, proper Portuguese" with something specific about each place, not a generic
+  adjective.
+- Treats Saturday as the day meant rather than asking which day.
+repetitions_n: 8
+metamorphic_relation: null
+fixture_depends_on:
+- Tram 28 ride through Alfama
+- '2026-11-07'
+notes: 'One request carried across two turns that call different tools: a search, then a draft of one
+  of its results. It exists because no other case has more than one turn that acts (Q30), so two things
+  were untested. The agent was never asked to act on something its own earlier reply offered, and the
+  request-segmentation rule for the participant round (Q29) could not be tested against a request that
+  changes shape mid-way. function is scheduling because the outcome is a draft, although the first turn
+  is a venue lookup. run_priority is 2, not 1: this is not minimum functionality of any one function
+  but two of them joined, and a priority-only run keeps meaning "the minimum seeds". The member picks
+  from the offer, so draft_uses_earlier_place is the check the case exists for. It reads the draft slot''s
+  google_place_id from the propose_plan arguments and requires it among the places a reply on an EARLIER
+  turn named (chat_messages.metadata.refs). A draft of a venue the agent found afresh on the drafting
+  turn, or recalled without a search, fails it. What it cannot say is WHICH offered place the member
+  meant: the refs are stored in no reliable order and include places the reply did not mention, so
+  "the second one" cannot be resolved by the checker. The judge scores only the first reply (D34), which
+  is the list of options, so whether the agent picked the place she meant is verified by neither - a
+  delta the record cannot show, stated here rather than left for a clean verdict to imply. The search
+  bound is one to four because the agent may search once per constraint, re-query after a thin result
+  set, or look the chosen place up again before drafting it. places_named asks for two because she asked
+  for options; places_near keeps them in Alfama, 3 km from the tram stop''s coordinates, which takes in
+  Alfama, Graca and the Baixa edge and excludes Belem and the western riverfront. The draft is one slot
+  on the 7th ("Saturday") starting 19:30 to 20:30 ("around 8" is a range, D31). propose_plan and ai_suggestions.INSERT
+  allow two because a revision within the three-turn cap writes a second row. get_weather is permitted
+  at up to one call with tool_errors "corrected": the drafting turn carries no slash command, so the
+  agent holds every tool, and the standing instruction to check conditions during the trip dates applies
+  to drafting. The forecast refuses a date outside its sixteen-day window, and abandoning that probe
+  is the recovery (D33). The first turn is /find, which keeps the reference tools, but a dinner search
+  is answered by searching, so no article or climate lookup is permitted (deny by default, D28). Nothing
+  reaches the live itinerary: the four mutation counts are zero except the draft row, and trip_after
+  says the same from the trip''s side. ai_suggestions.UPDATE is not asserted, because propose_plan backfills
+  plan_thread_id after the insert - an implementation detail. The goal says what she does when Tonic
+  offers more, because the drafting turn restores the whole toolset and an accepted offer would write
+  a second draft. The rubric does not ask for each option to be placed by a street or landmark: the member
+  named Alfama in the opening turn, so where the options are is given by the request, and places_near
+  checks it. On the drafting turn places_near reads only the drafted place, because the application attaches
+  refs by name and a reply can carry same-named places elsewhere in the city.'

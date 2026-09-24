@@ -56,6 +56,21 @@ class Scored:
     rationale: str
     reply_chars: int
     error: Optional[str] = None
+    #: Agent turns in the execution, and how many after the first called a
+    #: tool. The judge scores turn 1 and only turn 1 (D34; D82 for the
+    #: multi-step seeds). A later turn that only said "thanks" loses nothing by
+    #: that; a later turn that ACTED — drafted, moved — is work no score here
+    #: describes, so reports mark exactly those executions.
+    turns: int = 1
+    later_acting_turns: int = 0
+
+    @property
+    def unjudged_work(self) -> bool:
+        return self.later_acting_turns > 0
+
+    @property
+    def judged(self) -> str:
+        return f"turn 1 of {self.turns}; turns 2-{self.turns} not judged"
 
 
 @dataclass
@@ -115,9 +130,23 @@ def first_reply(execution_row: dict) -> tuple[str, str]:
     return first.get("user_turn") or "", reply
 
 
+def _turn_counts(execution_row: dict) -> dict:
+    """``turns`` and ``later_acting_turns`` for the D34 mark."""
+    from src import db
+
+    ids = execution_row.get("suggestion_ids") or []
+    if not ids:
+        return {"turns": 1, "later_acting_turns": 0}
+    rows = (db.admin().table("study_suggestions").select("turn_index, tool_calls")
+            .in_("id", ids).order("turn_index").execute().data)
+    return {"turns": max(1, len(rows)),
+            "later_acting_turns": sum(1 for r in rows[1:] if (r.get("tool_calls") or 0) > 0)}
+
+
 def score_execution(case: Case, execution_row: dict, llm=None) -> Scored:
     request, reply = first_reply(execution_row)
-    base = dict(case_id=execution_row["case_id"], repetition=execution_row["repetition"])
+    base = dict(case_id=execution_row["case_id"], repetition=execution_row["repetition"],
+                **_turn_counts(execution_row))
     if not reply.strip():
         return Scored(**base, score=None, rationale="", reply_chars=0,
                       error="no reply to score (the execution produced none)")
@@ -236,12 +265,19 @@ def score_run(run_id: str, log: Callable[[str], None] = print, persist_scores: b
             persist(run_id, row, scored, settings.JUDGE_MODEL, _judge_prompt_version())
         mark = f"{scored.score}/10" if scored.score is not None else "—"
         log(f"  {mark:>5s}  {scored.case_id}"
+            + (f"   [judged {scored.judged}]" if scored.unjudged_work else "")
             + (f"   [{scored.error}]" if scored.error else ""))
     return out
 
 
 def report(run: ScoreRun) -> str:
     lines = [f"scored {len(run.scored)}/{len(run.results)} executions, mean {run.mean}"]
+    multi = sorted({r.case_id for r in run.results if r.unjudged_work})
+    if multi:
+        lines.append(
+            f"judged turn 1 only (D34): {len(multi)} case(s) acted again on a later turn that the "
+            f"judge did NOT score; their scores describe the opening reply alone - {', '.join(multi)}"
+        )
     if run.superseded:
         lines.append(
             f"({run.superseded} attempt(s) the provider refused, superseded by a re-run and not "
@@ -258,6 +294,6 @@ def report(run: ScoreRun) -> str:
         lines.append("")
         lines.append("lowest scores:")
         for r in low:
-            lines.append(f"  {r.score}/10  {r.case_id}")
+            lines.append(f"  {r.score}/10  {r.case_id}" + (f"  [judged {r.judged}]" if r.unjudged_work else ""))
             lines.append(f"         {r.rationale[:200]}")
     return "\n".join(lines)

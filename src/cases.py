@@ -170,6 +170,12 @@ class SlotMoved(BaseModel):
     #: day with something already on it, where the exact landing time is the
     #: agent's to choose and the requirement is that it chose a free window.
     clear_of_other_slots: Optional[bool] = None
+    #: The stop starts no earlier than the last slot of the latest draft on
+    #: the same day ends — the propose_plan arguments in the trace against the
+    #: move's own mutation projection. For a member who asks, after a draft,
+    #: for a stop to go "at the end of that": the window alone cannot say it,
+    #: because where the draft ends is the agent's choice, made a turn earlier.
+    after_latest_draft: Optional[bool] = None
 
     @model_validator(mode="after")
     def _window_is_a_window(self) -> "SlotMoved":
@@ -489,6 +495,16 @@ class Checks(BaseModel):
     #: different request. The other half of the exception is
     #: ``slot_moved.block``, where the member pointed at a stop to move.
     draft_reuses_blocks: Optional[list[str]] = None
+    #: The latest draft holds a place that a reply on an EARLIER turn named:
+    #: some slot's ``block.google_place_id`` (the propose_plan arguments) is
+    #: among that earlier reply's ``chat_messages.metadata.refs[]
+    #: .googlePlaceId``. For a member who picks one of the options Tonic
+    #: offered — "the second one sounds good, put it in" — where a draft of a
+    #: venue the agent found afresh, or recalled without grounding, answers a
+    #: different request. It asserts that the pick came from the offer, not
+    #: WHICH of the offered places: the refs are not stored in the order the
+    #: reply lists them, so an ordinal cannot be checked (Q30).
+    draft_uses_earlier_place: Optional[bool] = None
 
     # --- what it changed on the live itinerary ---
     #: A named stop ends up in a named window.

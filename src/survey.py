@@ -193,6 +193,7 @@ def turn_frame(run_id: str) -> "DataFrame":
     """One row per agent turn, joined to the case it belongs to."""
     from src import db
     from src.execution import latest_attempts
+    from src.shapes import tools_of
 
     pd = _pd()
     a = db.admin()
@@ -216,6 +217,7 @@ def turn_frame(run_id: str) -> "DataFrame":
             "llm_calls": t.get("llm_calls") or 0,
             "tool_calls": len(trace),
             "tools": ", ".join(sorted({c.get("tool", "?") for c in trace})) or "-",
+            "tool_names": tools_of(trace),
             "tokens_in": t.get("tokens_input") or 0,
             "tokens_out": t.get("tokens_output") or 0,
             "error_code": t.get("error_code"),
@@ -289,3 +291,50 @@ def headline(run_id: str) -> str:
         f"  cost          ${run.get('cost_usd') or 0:.4f}",
     ]
     return "\n".join(lines)
+
+
+def turn_signals(run_id: str, rule=None) -> dict:
+    """``{"<case_id>#<repetition>": [TurnSignals, ...]}`` for one run, turns in
+    order (Q29). Keyed by repetition as well as case, because at n > 1 a key of
+    the case id alone kept only the last repetition of each case.
+
+    Highest attempt only (D53). The reply's place ids come from
+    ``chat_messages.metadata.refs``, the same field the checker reads; the
+    rest from the turn's own row. Also returns, under the key ``None``, the
+    case ids whose execution spanned more than one Tonic run — the bench
+    assumes an execution is one request, and one that is not must be seen.
+    """
+    from src import db
+    from src.execution import _place_ids_of, latest_attempts
+    from src.shapes import shapes7, signals_of
+
+    a = db.admin()
+    executions, _ = latest_attempts(_rows("study_case_executions", "run_id", run_id))
+    ids = [i for row in executions for i in (row.get("suggestion_ids") or [])]
+    if not ids:
+        return {None: []}
+    turns = {
+        t["id"]: t
+        for t in a.table("study_suggestions")
+        .select("id, run_id, turn_index, agent_intent, tool_call_trace, reply_message_id")
+        .in_("id", ids).execute().data
+    }
+    replies = [t["reply_message_id"] for t in turns.values() if t.get("reply_message_id")]
+    refs = {
+        m["id"]: _place_ids_of(m.get("metadata"))
+        for m in (a.table("chat_messages").select("id, metadata").in_("id", replies).execute().data
+                  if replies else [])
+    }
+    out: dict = {None: []}
+    for row in executions:
+        own = sorted((turns[i] for i in row.get("suggestion_ids") or [] if i in turns),
+                     key=lambda t: t.get("turn_index") or 0)
+        key = f"{row['case_id']}#{row.get('repetition') or 1}"
+        if len({t["run_id"] for t in own}) > 1:
+            out[None].append(key)
+        out[key] = [
+            signals_of(t.get("tool_call_trace") or [], refs.get(t.get("reply_message_id"), ()),
+                       t.get("agent_intent"), rule or shapes7)
+            for t in own
+        ]
+    return out

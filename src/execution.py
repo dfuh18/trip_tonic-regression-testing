@@ -50,8 +50,17 @@ class Execution:
     #: Arguments of every ``propose_plan`` call, in order. The last is the plan
     #: the member was left with, which is what the draft checks read.
     drafts: list[dict] = field(default_factory=list)
+    #: The ``turn_index`` each entry of ``drafts`` was proposed on, parallel to
+    #: it. A draft that acts on something an earlier reply offered can only be
+    #: told from one that found its own venue by knowing which turn it is on.
+    draft_turns: list[int] = field(default_factory=list)
     #: Google place ids the replies referenced, across the turns.
     place_ids: set[str] = field(default_factory=set)
+    #: The same ids, per ``turn_index`` of the reply that named them.
+    place_ids_by_turn: dict[int, set[str]] = field(default_factory=dict)
+    #: ``(name, lat, lng, google_place_id)`` per ``turn_index``, for checks that
+    #: must tell the place a turn drafted from others its reply's refs carry.
+    place_refs_by_turn: dict[int, list[tuple[str, float, float, str]]] = field(default_factory=dict)
     #: Google primary types of those places (``restaurant``, ``lodging``, …).
     #: A count cannot tell five restaurants from a restaurant and a hotel.
     place_types: set[str] = field(default_factory=set)
@@ -134,6 +143,7 @@ def load(execution_row: dict, base: Optional[Execution] = None) -> Execution:
 
     trace: list[dict] = []
     drafts: list[dict] = []
+    draft_turns: list[int] = []
     for turn in turns:
         for entry in turn.get("tool_call_trace") or []:
             if entry.get("kind") != "tool":
@@ -142,14 +152,20 @@ def load(execution_row: dict, base: Optional[Execution] = None) -> Execution:
             trace.append(call)
             if call.get("tool") == "propose_plan" and not call.get("result_error"):
                 drafts.append(call.get("args") or {})
+                draft_turns.append(turn.get("turn_index"))
 
     reply_ids = [t["reply_message_id"] for t in turns if t.get("reply_message_id")]
     place_ids: set[str] = set()
+    place_ids_by_turn: dict[int, set[str]] = {}
+    place_refs_by_turn: dict[int, list[tuple[str, float, float, str]]] = {}
+    turn_of_reply = {t["reply_message_id"]: t.get("turn_index") for t in turns if t.get("reply_message_id")}
     place_types: set[str] = set()
     place_locations: list[tuple[str, float, float]] = []
     if reply_ids:
         for row in a.table("chat_messages").select("id, metadata").in_("id", reply_ids).execute().data:
-            place_ids |= _place_ids_of(row.get("metadata"))
+            named = _place_ids_of(row.get("metadata"))
+            place_ids |= named
+            place_ids_by_turn.setdefault(turn_of_reply.get(row["id"]), set()).update(named)
             for ref in _place_refs_of(row.get("metadata")):
                 if ref.get("placeType"):
                     place_types.add(str(ref["placeType"]).lower())
@@ -157,6 +173,10 @@ def load(execution_row: dict, base: Optional[Execution] = None) -> Execution:
                 if loc.get("lat") is not None and loc.get("lng") is not None:
                     place_locations.append(
                         (str(ref.get("name") or "?"), float(loc["lat"]), float(loc["lng"]))
+                    )
+                    place_refs_by_turn.setdefault(turn_of_reply.get(row["id"]), []).append(
+                        (str(ref.get("name") or "?"), float(loc["lat"]), float(loc["lng"]),
+                         str(ref.get("googlePlaceId") or ""))
                     )
 
     build = set(execution_row.get("build_mutation_ids") or [])
@@ -184,7 +204,10 @@ def load(execution_row: dict, base: Optional[Execution] = None) -> Execution:
         trace=trace,
         mutations=mutations,
         drafts=drafts,
+        draft_turns=draft_turns,
         place_ids=place_ids,
+        place_ids_by_turn=place_ids_by_turn,
+        place_refs_by_turn=place_refs_by_turn,
         place_types=place_types,
         place_locations=place_locations,
         blocks=dict(fixture_ids.get("blocks") or {}),

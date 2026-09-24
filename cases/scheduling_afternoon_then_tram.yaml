@@ -1,0 +1,139 @@
+case_id: scheduling_afternoon_then_tram
+base_case_id: null
+provenance: seeded
+run_priority: 2
+function: scheduling
+user_profile: Ines, 29, the organiser. Writes full sentences, names days the way people do, and refers
+  back to what Tonic just proposed rather than repeating it.
+goal: 'Get a draft for Friday afternoon after lunch around Alfama with two or three stops. Once the draft
+  exists, she asks Tonic to move the tram ride, which is on Friday morning, to the end of that afternoon
+  so the day finishes in Alfama. She gives no clock time, because she means wherever the new plan ends.
+  Once the tram has moved she is done: she settles the drafted stops herself, and if Tonic offers anything
+  further she says that is all she needed.'
+opening_turn: /plan can you fill Friday afternoon after lunch? we'd like to stay around Alfama, two or
+  three stops
+intent: plan
+expected_tool_sequence:
+- search_places
+- propose_plan
+- move_slot
+declared_constraints:
+  checks:
+    tool_counts:
+      search_places:
+        min: 1
+        max: 4
+      propose_plan:
+        min: 1
+        max: 2
+      move_slot:
+        min: 1
+        max: 2
+      get_weather:
+        min: 0
+        max: 1
+    places_surfaced:
+      min: 1
+    places_near:
+      anchor: Tram 28 ride through Alfama
+      within_km: 3
+    slot_days:
+    - '2026-11-06'
+    slot_count:
+      min: 2
+      max: 3
+    draft_slot_starts_between:
+    - '14:00'
+    - '18:00'
+    slot_moved:
+      block: Tram 28 ride through Alfama
+      day: '2026-11-06'
+      starts_between:
+      - '15:00'
+      - '19:30'
+      duration_minutes:
+        min: 45
+        max: 90
+      clear_of_other_slots: true
+      after_latest_draft: true
+    edits:
+      move:
+        min: 1
+        max: 2
+      unschedule: 0
+      schedule: 0
+    mutation_counts:
+      trip_blocks.INSERT: 0
+      itinerary_slots.INSERT: 0
+      itinerary_slots.UPDATE:
+        min: 1
+        max: 2
+      ai_suggestions.INSERT:
+        min: 1
+        max: 2
+    mutation_changed_keys:
+      itinerary_slots.UPDATE:
+      - itinerary_day_id
+      - start_time
+      - end_time
+      - end_day_date
+      - time_precision
+    tool_errors: corrected
+    turn_errors: none
+    trip_after:
+      blocks: fixture
+      slots: fixture
+  predicates: []
+scoring_criteria:
+- Summarises the afternoon in a few sentences and makes clear it is Friday after lunch, around Alfama,
+  without reciting every stop back.
+- Starts after the Time Out Market lunch already on Friday rather than over it.
+- Gives a reason each stop belongs in this afternoon rather than listing them flat.
+- 'Sequences the stops so the afternoon is walkable: things near each other are near each other in the
+  plan.'
+repetitions_n: 8
+metamorphic_relation: null
+fixture_depends_on:
+- Tram 28 ride through Alfama
+- Time Out Market lunch
+- '2026-11-06'
+notes: 'One request carried across two turns that call different tools: a draft, then a live edit placed
+  relative to it. It exists because no other case has more than one turn that acts (Q30). The agent was
+  never asked to edit the live itinerary in terms of a draft it had just written, and the request-segmentation
+  rule for the participant round (Q29) could not be tested against a request that changes shape mid-way.
+  run_priority is 2, not 1: this is not minimum functionality of any one function but two of them joined,
+  and a priority-only run keeps meaning "the minimum seeds". The member says "the end of that afternoon"
+  and no time, so where the tram belongs is set by the agent''s own draft of the previous turn. slot_moved.after_latest_draft
+  is the check for that: the tram''s new start, from the move''s mutation projection, must not be earlier
+  than the end of the latest draft''s last slot on Friday, read from the propose_plan arguments, leaving
+  out the tram''s own slot if the agent put it into a re-proposed draft. The window
+  15:00 to 19:30 around it only says "afternoon into early evening". It is deliberately wide, because
+  the draft''s end is the agent''s choice and a narrow window would assert a draft the author imagined.
+  The day is exact: the tram stays on Friday. Length is asserted at 45 to 90 minutes, bracketing the
+  60 the fixture gives the slot: move_slot takes the end time as an optional argument and nothing derives
+  it from the stop''s duration, so an agent that sets the start and leaves the stored end at 11:00 is
+  refused, and one that sets both wrongly turns an hour into an evening. tool_errors is "corrected" and
+  move_slot may run twice for that reason: moving a slot later without its end is refused before anything
+  is written, and retrying with both is correct (D30, D33). itinerary_slots.UPDATE allows two for the
+  same reason, and because moving the time and the end in two calls is two real writes. clear_of_other_slots
+  asserts the move lands in a free window among live slots; the draft is not live and is covered by after_latest_draft
+  instead. The draft is two or three slots, all on the 6th, starting 14:00 to 18:00: after the lunch
+  that ends at 14:00, and still the afternoon she asked for. Its stops are not named (D32); places_near
+  keeps what the replies name within 3 km of the tram stop''s coordinates, which is Alfama and its edges.
+  On a turn that drafted, it reads only the drafted places: the application attaches refs by name, and
+  a reply naming "Santo António" also carried a same-named bakery 6.7 km away in Lumiar.
+  search_places is one to four, because a grounded draft searches once per kind of stop. propose_plan
+  and ai_suggestions.INSERT allow two because a revision within the three-turn cap writes a second row.
+  get_weather is permitted at up to one call, as a probe: both modes here keep the reference tools and
+  the standing instruction to check conditions during the trip dates applies to drafting and to moving
+  an outdoor ride. It is capped at one like every probe in the suite, because a probe that may run twice
+  is a retry and needs a source behind it. The forecast refuses a November date outside its sixteen-day
+  window, and abandoning that probe is the recovery (D33). The first turn is /plan, which cannot move
+  a live slot, so the move is only reachable on the second turn, which carries no slash command and
+  so holds every tool. Nothing else is permitted: no unschedule, no schedule, no second route that reaches
+  the same end state by removing and re-adding the tram, which would write an INSERT the zeros forbid.
+  trip_after says the move moved rather than added, and edits is the agent''s journal beside the database''s
+  UPDATE count. mutation_changed_keys is the "and nothing else" over the slot''s columns. ai_suggestions.UPDATE
+  is not asserted (the thread-id backfill is an implementation detail), and neither is itinerary_days.INSERT,
+  since Friday already has a day row and a count would encode the fixture. The judge scores only the
+  first reply (D34), which is the draft summary, so the move is verified by the checks alone.'

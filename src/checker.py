@@ -105,6 +105,17 @@ def _slot_entries(draft: dict) -> list[dict]:
     return entries
 
 
+def _is_block(slot: dict, title: str, block_id: Optional[str]) -> bool:
+    """A draft slot that is the named stop: by ``reuse_block_id`` (full id or
+    the eight-character prefix the prompt shows) or by the application's
+    title rule."""
+    block = slot.get("block") or {}
+    ref = (block.get("reuse_block_id") or slot.get("reuse_block_id") or "").strip()
+    if ref and block_id and len(ref) >= 8 and block_id.startswith(ref):
+        return True
+    return _titles_match(title, block.get("title", "")) or _titles_match(title, slot.get("title", ""))
+
+
 def _titles_match(a: str, b: str) -> bool:
     """The application's own containment rule (``matchExistingVenue``),
     mirrored: an agent that honours "we already have it" by naming the stop
@@ -214,20 +225,48 @@ def _check_places_near(ex: Execution, near: Any, findings: list[str]) -> None:
         return
     at = anchor["coordinates"]
 
-    if not ex.place_locations:
+    located = _places_to_locate(ex)
+    if not located:
         findings.append(
             f"no place the reply named carries a location, so being within "
             f"{near.within_km} km of {near.anchor!r} cannot be evaluated"
         )
         return
 
-    for name, lat, lng in ex.place_locations:
+    for name, lat, lng in located:
         km = _haversine_km(lat, lng, at["lat"], at["lng"])
         if km > near.within_km:
             findings.append(
                 f"{name!r} is {km:.1f} km from {near.anchor!r}, outside the "
                 f"{near.within_km} km the request implies"
             )
+
+
+def _places_to_locate(ex: Execution) -> list[tuple[str, float, float]]:
+    """The places whose location is the agent's answer.
+
+    On a turn that drafted a plan, that is the places in the draft, matched to
+    the reply's refs by Google id. Not every ref: the application links refs
+    by NAME, so a reply mentioning "Santo António" also carried two unrelated
+    branches called "Pastelaria Santo António", one of them 6.7 km away in
+    Lumiar (probe 287e7780), and the check failed a draft whose stop was in
+    Alfama. On any other turn the reply's refs are the answer, as before.
+    Executions assembled without per-turn refs fall back to every located place.
+    """
+    if not ex.place_refs_by_turn:
+        return list(ex.place_locations)
+    drafted_by_turn: dict[int, set[str]] = {}
+    for draft, turn in zip(ex.drafts, ex.draft_turns):
+        drafted_by_turn[turn] = {
+            (s.get("block") or {}).get("google_place_id") for s in _slot_entries(draft)
+        } - {None, ""}
+    located: list[tuple[str, float, float]] = []
+    for turn, refs in ex.place_refs_by_turn.items():
+        drafted = drafted_by_turn.get(turn)
+        for name, lat, lng, gpid in refs:
+            if drafted is None or gpid in drafted:
+                located.append((name, lat, lng))
+    return located
 
 
 def _count_mutations(execution: Execution, table: str, op: str) -> int:
@@ -360,7 +399,8 @@ def _check_surfaced(ex: Execution, checks: Checks, findings: list[str]) -> None:
 def _check_draft(ex: Execution, checks: Checks, findings: list[str]) -> None:
     wants_draft = any(
         v is not None
-        for v in (checks.slot_days, checks.slot_count, checks.draft_slot_starts_between, checks.draft_reuses_blocks)
+        for v in (checks.slot_days, checks.slot_count, checks.draft_slot_starts_between,
+                  checks.draft_reuses_blocks, checks.draft_uses_earlier_place)
     )
     if not wants_draft:
         return
@@ -404,6 +444,24 @@ def _check_draft(ex: Execution, checks: Checks, findings: list[str]) -> None:
                 findings.append(
                     f"draft does not build on {title!r}, which the member said the trip already has"
                 )
+
+    if checks.draft_uses_earlier_place:
+        _check_draft_uses_earlier_place(ex, slots, findings)
+
+
+def _check_draft_uses_earlier_place(ex: Execution, slots: list[dict], findings: list[str]) -> None:
+    """The latest draft holds a place a reply on an earlier turn offered."""
+    drafted_on = ex.draft_turns[-1] if ex.draft_turns else None
+    offered = set().union(*(ids for turn, ids in ex.place_ids_by_turn.items()
+                            if turn is not None and drafted_on is not None and turn < drafted_on))
+    drafted = {(s.get("block") or {}).get("google_place_id") for s in slots} - {None, ""}
+    if not offered:
+        findings.append("no reply before the draft's turn named a place, so nothing was offered to pick from")
+    elif not drafted & offered:
+        findings.append(
+            f"the draft holds none of the {len(offered)} places offered on an earlier turn "
+            f"(drafted place ids: {sorted(drafted) or 'none'})"
+        )
 
 
 def _check_edits(ex: Execution, checks: Checks, findings: list[str]) -> None:
@@ -458,6 +516,26 @@ def _check_slot_moved(ex: Execution, moved: SlotMoved, findings: list[str]) -> N
 
     if moved.clear_of_other_slots and start and end:
         _check_clear_of_others(ex, moved, day, start, end, findings)
+
+    if moved.after_latest_draft and start:
+        # The moved stop's own slot is left out: an agent that re-proposes the
+        # draft with the stop in it (probe 287e7780) would otherwise be
+        # compared against itself, and "starts before the draft ends" would be
+        # true only because the stop is the draft's last slot.
+        draft = ex.latest_draft
+        ends = [
+            (s.get("end_time") or "")[:5]
+            for s in _slot_entries(draft or {})
+            if s.get("_day") == day and not _is_block(s, moved.block, block_id)
+        ]
+        ends = [e for e in ends if e]
+        if not ends:
+            findings.append(f"no draft slot on {day} to place {moved.block!r} after")
+        elif minutes_of(start) < max(minutes_of(e) for e in ends):
+            findings.append(
+                f"{moved.block!r} starts at {start}, before the draft on {day} ends at "
+                f"{max(ends, key=minutes_of)}"
+            )
 
 
 def _check_clear_of_others(

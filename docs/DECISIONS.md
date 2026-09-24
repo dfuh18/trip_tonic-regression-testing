@@ -31,6 +31,113 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D85 — A score on an execution that acted again after turn 1 says so
+Date: 2026-09-24 · Decided by: agent (asked for by the author: "it should be clearly marked")
+The judge scores turn 1 only (D34), and D82 kept that for the multi-step
+seeds. What was missing was the marking. `Scored` now carries `turns` and
+`later_acting_turns` (turns after the first with at least one tool call), and
+the scoring log and report tag every execution where a later turn acted:
+`[judged turn 1 of 2; turns 2-2 not judged]`, plus a header line naming
+those cases. A later turn that only signs off is not marked, because nothing
+was left unjudged. Checked on the two recorded runs: all six executions of
+the probe are marked, and none of the 29 in 42cab17a. No change to what is
+scored, or to `study_scores`. Surfacing the mark in the database would be an
+event-model change, and is not made here.
+Affects: src/scoring.py · tests/test_scoring_marks.py
+
+### D84 — The two multi-step seeds are approved
+Date: 2026-09-24 · Decided by: author
+The author approved `scheduling_dinner_from_offer` and
+`scheduling_afternoon_then_tram` as they stand after D83. Marks written on
+that instruction, bound to the reviewed text (sha `3fe5226c1d73` and
+`b47d5630ba76`), so both report `current`. Every case in the suite now
+carries an author mark.
+Approving the seeds as written settles what Q31 left open for them: the two
+check keys, the sole-check-key admission route and the ceiling of 176 are
+final rather than provisional; `run_priority: 2` stands; they take **no
+metamorphic follow-ups** for now (as D51 did for the surf seed); and
+"whether the agent picked the place the member meant" stays a stated limit
+(Q32 → A, D82).
+Affects: cases/reviewed.json · Closes: Q31
+
+### D83 — Both multi-step seeds stay; two check faults fixed; the landmark criterion goes
+Date: 2026-09-24 · Decided by: author (escalated by agent after probe 287e7780)
+Options: apply D82 as written and drop the afternoon seed · keep both
+Chosen: **keep both.** The probe met D82's keep rule for the dinner seed:
+reference joined search → draft in 3 of 3 repetitions, and its false merges
+stayed with the three Belém drafts. The afternoon seed turned out to have a
+purpose D82 did not know about. In all three repetitions the agent moved the
+tram correctly (Friday, one hour, after the plan), but unasked it also
+re-proposed the draft with stops already on the live itinerary: the Time Out
+Market lunch in two repetitions, and the tram itself in one. Accepting such a
+slot schedules a second slot of the same saved stop
+(`draft-accept.ts`: a `reuse_block_id` goes straight to `addBlockToDay`), so
+the group would see the lunch twice on Friday. No other case can reach this
+behaviour. The seed's `slot_count` and `draft_slot_starts_between` catch it.
+**Two check faults found by the probe, fixed:**
+- `slot_moved.after_latest_draft` compared the tram against a re-proposed
+  draft that contained the tram, so it failed because the tram was the
+  draft's last slot. The moved stop's own slot is now left out.
+- `places_near` read every ref a reply carried. The application attaches refs
+  by name, so a reply naming "Santo António" (drafted, in Alfama) also
+  carried a same-named bakery 6.7 km away in Lumiar. On a turn that drafted,
+  it now reads only the drafted places; every other turn is unchanged, so no
+  existing case is affected (none asserts places_near with a draft).
+**The dinner seed's criterion "placed by a street or landmark" is dropped.**
+The member named Alfama in the opening turn, so where the options are is
+given by the request, and places_near checks it. It cost the seed 3–4
+points in every repetition: 6, 7, 7 before; 9, 10, 10 in an unpersisted
+re-score after.
+After the fixes the probe's only structural failures are the two
+repetitions that re-drafted live stops.
+Reason: the author's, on the probe's evidence.
+Affects: cases/scheduling_*_{from_offer,then_tram}.yaml · src/checker.py ·
+src/execution.py · Reverses: D82's "drop the afternoon seed"
+
+### D82 — A probe decides whether the multi-step seeds stay; the judge keeps D34
+Date: 2026-09-24 · Decided by: author (escalated by agent as Q31, Q32)
+Options: remove both seeds now · keep both · probe first. For the probe: n 2,
+3 or 8; keep the dinner seed if reference links it in every, most or any
+repetition; the new check keys accepted provisionally or stripped. For the
+judge (Q32): A first reply only · B also the continuation with context ·
+C whole transcript.
+Chosen: probe both seeds at **n = 3** before deciding. The dinner seed
+validates reference (Q29) only if reference joins search → draft into one
+request in **every** repetition, and its false merges stay confined to
+requests that share a place. If it does, keep that seed and drop the afternoon
+seed, whose split is predicted and can be stated in prose. If it does not,
+remove both, remove reference from the rule, and treat follow-ups as
+unidentifiable. Q31 items 1–3 (the two check keys, the sole-check-key admission route,
+the ceiling of 176) are **accepted provisionally** for the probe, so that its
+structural checks can separate "reference failed" from "the agent did not do
+what the case asked". They leave with the seeds if the seeds leave. **Q32: A.**
+The judge scores the first reply (D34) for these seeds too. In the
+participant round P3 scores the opening turn of each request, and B is
+reconsidered with Q29 once the pilot shows how many turns are follow-ups.
+Reason: the author's test for the seeds is whether they make follow-ups
+identifiable in the user study. Otherwise they only add complication. That
+question has an answer only on data containing follow-ups, and the probe is
+the cheapest such data.
+Affects: cases/ (D81's seeds) · Q29 · Q31 · Q32 · notebooks/sim/08_segmentation
+Reverses: none · Closes: Q32 (A); Q31 items 1–3 provisionally
+
+### D81 — Two multi-step seeds (resolves Q30)
+Date: 2026-09-24 · Decided by: author (escalated by agent as Q30)
+Options: one seed · two seeds (search → draft, draft → edit) · none, and
+report the split error as unmeasured
+Chosen: two seeds — `scheduling_dinner_from_offer` (a `/find` whose second
+turn drafts one of the offered places) and `scheduling_afternoon_then_tram`
+(a `/plan` whose second turn moves a live stop to the end of the draft).
+Reason: no case had more than one turn that acts, so the agent was untested on
+acting on its own earlier turn, and Q29's segmentation rule could be tested
+for merged requests only, never for a request that changes shape mid-way.
+What the seeds needed beyond the case files is raised as **Q31** rather than
+recorded here: two new check keys, a third admission route, and the execution
+ceiling. They are implemented so the suite runs, and are the author's to rule
+on at review.
+Affects: cases/ · src/cases.py · src/checker.py · src/execution.py ·
+src/tables.py · tests/test_metamorphic.py · Reverses: none · Closes: Q30
+
 ### D80 — Assert the relation, not the reading
 Date: 2026-09-23 · Decided by: author (commissioned the audit, directed the fixes)
 An independent audit of all 252 tests, prompted by four tests being falsified

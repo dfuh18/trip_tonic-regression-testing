@@ -30,6 +30,220 @@ wait; one blocking a Phase A task cannot.
 
 ## Open
 
+### Q32 — [RESOLVED 2026-09-24, see D82: A] — What the judge scores when a request spans turns
+Raised: 2026-09-24 by author · Blocks: marking D81's seeds, C02 (P3), C05 (freeze) · Phase: B and C
+
+D34 has the judge score the first reply against `case.opening_turn`. §3.4
+says the judge receives "a textual response", and P3 says it is given "the
+user's request and the agent's response only". The unit is one (request,
+reply) pair. For the two multi-step seeds that pair is the turn *before* the
+continuity, so whether the agent did what the member meant on turn two is
+scored by nothing (Q31 item 6).
+
+Scoring turn two is easy in code (`score_pointwise` takes any request and
+reply). Three things make it a design question rather than a code change:
+
+1. **Turn two's request is not fixed.** The simulator writes it, and it
+   differs between repetitions and between the baseline and the regression
+   run. Pair-wise comparison (D23) then compares answers to *different*
+   requests.
+2. **Turn two is unjudgeable without turn one.** "The second one" and "the
+   end of that afternoon" only mean something next to the reply before them.
+   Giving the judge that context goes beyond "request and response only".
+3. **The same problem exists in the participant round, where it matters
+   more.** A participant's follow-up turn is a suggestion that gets thumbs
+   (D08), and P3 scores it blind to context. Scored alone, "yes, add the
+   second one" → "Done, drafted for Saturday at 8" cannot be judged. So
+   P3 needs to know which turn opens a request, which is Q29's segmentation.
+   A segmentation error then becomes a P3 sampling error.
+
+Options:
+- **A — keep D34.** Score only the opening turn, check continuity
+  structurally, state the limit. In P3, score only turns that open a request
+  (by Q29's rule) and exclude follow-ups.
+- **B — score the continuation turn with its context.** A second criteria list
+  per multi-step case, and a second point-wise score for the continuation
+  turn, whose input is the request's earlier turns plus that turn's request
+  and reply. Pair-wise is used on the opening turn only; the continuation is
+  compared point-wise, because its request differs between runs. In P3,
+  follow-up turns are scored the same way, with context from Q29's segment.
+- **C — score the whole transcript** against a conversation-level rubric.
+  This departs furthest from §3.4's "a textual response" and from D23's
+  pair-wise design.
+
+Trade-off: A keeps the manuscript's wording and the judge untouched, but
+leaves continuity to the checks and drops follow-up turns from P3. B covers
+the gap in both rounds, but changes the judge's input (a new prompt version),
+amends P3's "request and response only" to "request, its earlier turns, and
+response", and makes P3 depend on Q29.
+Recommendation: **A for the simulation now, B decided together with Q29.**
+Whether the participant round needs follow-up turns in P3 depends on how
+many turns are follow-ups, which the pilot shows. Record in C05 whichever
+is chosen.
+Status: resolved — D82 (A; B revisited with Q29 after the pilot)
+
+### Q31 — [RESOLVED 2026-09-24, see D84] — What the two multi-step seeds needed beyond their case files
+Raised: 2026-09-24 by agent (from D81) · Blocks: marking the two seeds reviewed · Phase: B
+
+Each item is implemented so that the suite loads and the gates run. Each is on
+the stop-and-ask list, so none is decided until the author rules at review.
+
+1. **Two new check keys** (D37: added when a case needs them, and each reads
+   a field the application already records).
+   - `draft_uses_earlier_place`: the latest draft holds a place a reply on an
+     *earlier* turn named. It compares the propose_plan argument
+     `block.google_place_id` with that reply's
+     `chat_messages.metadata.refs[].googlePlaceId`. It cannot check *which*
+     offered place was meant ("the second one"): the refs are not stored in
+     reply order and include places the reply did not mention.
+   - `slot_moved.after_latest_draft`: the moved stop starts no earlier than
+     the latest draft's last slot on that day ends.
+2. **A third admission route.** D50 admits a case beyond D21's budget only as
+   the sole route to a tool or a relation. Neither seed reaches a new tool,
+   so `tables.unique_contribution` now also counts a check key only that case
+   asserts. That also credits three existing follow-ups with keys they alone
+   assert (`places_excluded_types`, `slot_scheduled`, `slot_unscheduled`). None
+   of those needed it: each was already admitted on a tool or a relation.
+3. **Execution ceiling 160 → 176** (two seeds × 8).
+4. **`run_priority: 2`** for both, so that a priority-only run still means
+   "the minimum-functionality seeds".
+5. **No metamorphic follow-ups yet.** D21 budgets two per seed. D51 set the
+   precedent that a seed may take none when a perturbation buys nothing new.
+   Whether these seeds should take any is open.
+6. **What neither round verifies.** The judge scores the first reply only
+   (D34), which for both seeds is the turn before the continuity. So whether
+   the agent picked the place the member *meant* is checked by nothing.
+
+Recommendation: accept 1 to 4, and take no follow-ups (5) until a probe run
+shows the seeds pass reliably. Record 6 as a stated limit rather than
+widening the judge protocol.
+Status: resolved — D84 (seeds approved as written; no follow-ups for now; item 6 a stated limit)
+
+### Q30 — [RESOLVED 2026-09-24, see D81] — The suite has no multi-step request
+Raised: 2026-09-23 (from Q29) · Blocks: validating any Q29 rule against the split error · Phase: B
+
+Every one of the 29 cases has exactly one turn that calls a tool (42cab17a).
+Nothing in the suite looks like "find seafood" → "add the second one", which
+is one request carried across two acting turns of different shape. Two
+consequences follow:
+- **Q29's split error is unmeasurable.** The fusion bench (`07_shapes` §8)
+  can only produce merges.
+- **The agent is untested on it.** Acting on a place it surfaced a turn
+  earlier is a behaviour of its own (it must resolve "the second one"
+  against its previous reply), and no case exercises it.
+
+Options: add one seed, e.g. a venue search followed by scheduling one of the
+results, with its metamorphic follow-ups derived as usual · add two (the
+second from draft → edit) · leave the suite as is and report the split error
+as unmeasured.
+Trade-off: each seed adds executions to the baseline and review work, and
+changes `suite_version`. Without one, a Q29 rule is validated in one error
+direction only.
+Status: resolved — D81 (two seeds)
+
+### Q29 — The participant round has no request boundary
+Raised: 2026-09-23 by author · Blocks: C02 (coverage per request, D24's `turns`), C05 (freeze) · Phase: C
+
+In the simulation a case is one request, and in 42cab17a one Tonic run. In the
+participant round only turns are separated (one `study_suggestions` row
+each). The one grouping above a turn is the Tonic run, which collects a
+member's turns until 30 minutes of silence, so it can hold several requests.
+D24's signature needs member turns per interaction. Per-turn labels fill
+`advisory` with "thanks" and "yes, do it". And the two rounds count
+different units.
+
+Options: **A** a request is one turn (D07) · **B** a request is one Tonic
+run · **C** split a run wherever the acting shape changes, with no-tool
+turns joining the request before them (`shapes.segment`) · an offline
+segmenter model over `user_turn` (admissible, but adds a model to pin and
+validate). Letting the agent tag a new request is excluded: it changes the
+agent's prompt and output (root rule 4).
+
+Evidence (`notebooks/sim/07_shapes` §8): recorded executions fused into
+synthetic runs, with their true boundaries known. Under shapes7, C splits
+83.5 % of the 812 ordered pairs correctly and finds ~80 % of boundaries in
+random runs of 3/5/8 requests. **Every miss is two same-shape requests
+merging.** Of 8 388 recovered requests, none carries a shape absent from
+its run. Mean distortion of shape shares per 5-request run is 0.086 (total
+variation). The split error (one request whose turns change shape, e.g.
+search → "add the second one") cannot be produced from the recorded cases
+and is unmeasured.
+
+Trade-off: C is deterministic and never mislabels, but it undercounts
+requests, and its split error is unknown until participant data exists. A
+is simplest but pollutes `advisory`. B hides mixed sessions inside `other`.
+Recommendation: **C** for shape distribution and coverage (P1). Keep turns as
+the unit for failure rates (P2), thumbs and `user_action`. Report coverage
+per turn and per segment side by side, and base no claim on a request count.
+
+**Added 2026-09-24 (author): slash and reference as optional boundary
+signals.** `shapes.segment_with` extends C. A turn that acts on an id the
+current request offered joins it (reference). Otherwise a turn with a slash
+command starts a new request. Otherwise the shape rule applies. Both signals
+are evidence when present and say nothing when absent, because the agent
+reaches every path without a command. The rule is causal, so running it
+after every agent response and running it once over the logs give identical
+labels. Dry run on 42cab17a (`notebooks/sim/08_segmentation`): slash raises
+the boundaries found in fused pairs from 83.5 % to 90.9 %, and gives nothing
+once slashes are stripped. Reference finds no correct boundary there
+(nothing continues) and wrongly merges 6 of 812 pairs that share a place
+(the three Belém drafts).
+**To be tested on the first run that includes D81's two seeds**, with
+predictions stated in the notebook before the run. The dinner seed should
+be one request only with reference. The afternoon seed should split under
+every variant: the move acts on the tram, which no earlier turn offered, so
+nothing in the record links the two turns.
+Open alongside: a request's label. `interaction_label` calls a
+search-then-draft request `other`, while the same tools inside one turn are
+`scheduling.draft`. Labelling a request by the union of its turns' tools
+would make the two agree.
+Status: open
+
+### Q28 — The request-shape rule for the participant round's automatic labels
+Raised: 2026-09-23 by author and agent · Blocks: C02 (§4.3 (3), "the shapes where uncovered concentrates"), C05 (freeze) · Phase: C
+
+D09's `request_type` (4 classes) is too coarse to say where uncovered
+participant turns concentrate. D24's signature is too fine to carry a
+per-class failure rate. A **request shape** sits between them. It is derived
+after the fact from `tool_call_trace` in `src/shapes.py`, so it needs no app
+change and no event-model change. `notebooks/sim/07_shapes` computes every
+candidate over run `42cab17a` (full suite, n=1, 2026-09-23).
+
+Options:
+- **d09** — keep the four classes only.
+- **shapes7** — advisory · factual.reference · factual.climate ·
+  factual.forecast · venue.search · scheduling.draft · scheduling.edit, plus
+  `other`. No precedence: a turn doing two things is `other`, except that
+  search then draft counts as the draft.
+- **shapes9** — shapes7 with the live edit split into move / place / remove.
+- **families** — the joined set of D09 families (Q08 option b).
+
+What the run showed:
+1. **All four rules miss the same 6/29: every advisory case.** The agent
+   consults a reference tool before advising (packing → `get_region_climate`,
+   Sintra → `read_wikipedia`), so no trace rule yields `advisory` on the
+   suite. This also affects D09/P2: there is no advisory cell in either round.
+2. Invariance relations keep their label under every rule. Only shapes9
+   exposes the two directional relations that change the needed tool, at one
+   execution per class.
+3. `other` = 0. The suite has no mixed turn, so mixed participant turns are
+   uncovered by construction.
+
+Sub-decision forced by (1), whichever rule is chosen: **(i)** accept that
+`advisory` means "called no tool" and that the suite's advisory cases are
+factual shapes by what the agent did; **(ii)** add a case whose advisory
+answer needs no tool, so the class is reachable. Relabelling from the request
+text is not offered: it would add a model and would label what was asked, not
+what was done (D09).
+
+Trade-off: a finer rule names the uncovered shapes more precisely but thins
+the per-class rates. shapes9's singletons cannot carry a rate even at the
+baseline's n.
+Recommendation: **shapes7 with (i)**, `other` reported as its own row in
+C02, rule frozen at C05. Keep shapes9 computable as a secondary view, the way
+D09 keeps the composite derivable.
+Status: open
+
 ### Q27 — Table 12's label has no round that can produce it
 Raised: 2026-09-23 (from D73) · Blocks: the participant-round analysis, not the baseline
 

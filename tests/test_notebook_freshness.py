@@ -36,7 +36,7 @@ NOTEBOOKS = sorted((Path(CASES_DIR).parent / "notebooks" / "sim").glob("*.ipynb"
 #: numbers are a dated record rather than a claim about the current suite.
 #: `run_survey` prints the run id and date it read; that is what makes it
 #: exempt, not its filename.
-RUN_SCOPED = {"run_survey.ipynb"}
+RUN_SCOPED = {"run_survey.ipynb", "07_shapes.ipynb", "08_segmentation.ipynb"}
 
 
 def _outputs(nb: dict) -> str:

@@ -274,6 +274,25 @@ def perturbation(results: Any) -> "DataFrame":
     return frame if frame.empty else frame.set_index("follow-up")
 
 
+def asserted_check_keys(case) -> set[str]:
+    """Every check key a case sets, nested ones as ``parent.child``.
+
+    Nested, because a sub-field can be the whole point: ``slot_moved`` is
+    asserted by four cases and ``slot_moved.after_latest_draft`` by one.
+    """
+    keys: set[str] = set()
+    checks = case.declared_constraints.checks
+    for name in type(checks).model_fields:
+        value = getattr(checks, name)
+        if value is None or value is False:
+            continue
+        keys.add(name)
+        if hasattr(type(value), "model_fields"):
+            keys |= {f"{name}.{sub}" for sub in type(value).model_fields
+                     if getattr(value, sub) not in (None, False)}
+    return keys
+
+
 def unique_contribution() -> "DataFrame":
     """What would be lost if each case were deleted (D50, D51, D61).
 
@@ -298,6 +317,8 @@ def unique_contribution() -> "DataFrame":
     cases = load_cases()
     required = {c.case_id: tools_required_by(c) for c in cases}
     tool_users = Counter(tool for tools in required.values() for tool in tools)
+    asserted = {c.case_id: asserted_check_keys(c) for c in cases}
+    key_users = Counter(key for keys in asserted.values() for key in keys)
     relation_users = Counter(c.metamorphic_relation for c in cases if c.metamorphic_relation)
 
     #: How many cases beyond this one would still reach the thing. A case is
@@ -328,6 +349,16 @@ def unique_contribution() -> "DataFrame":
         rel = c.metamorphic_relation
         if rel and relation_users[rel] == 1:
             contributions.append(f"relation {rel}")
+        # A check key only this case asserts is a behaviour only this case
+        # verifies — the third kind of sole route, added for the two
+        # multi-turn seeds of Q30, which reach no new tool but are the only
+        # cases that can say whether the agent acted on its own earlier turn.
+        # A sub-field is named only where its parent is shared: where the
+        # parent is already this case's alone, its fields add nothing.
+        sole_keys = {k for k in asserted[c.case_id] if key_users[k] == 1}
+        for key in sorted(sole_keys):
+            if key.split(".")[0] not in sole_keys or "." not in key:
+                contributions.append(f"check {key}")
         sole = [x for x in contributions if "(jointly" not in x]
         rows.append(
             {

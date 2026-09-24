@@ -357,3 +357,143 @@ def test_a_hotel_satisfies_a_request_for_lodging():
     verdict = check(stay, no_stay)
     assert verdict.outcome == "detected"
     assert any("'lodging'" in f for f in verdict.findings)
+
+
+# --- continuity across turns (Q30) -----------------------------------------
+
+
+def _picking_case(**checks):
+    return case(
+        function="scheduling",
+        expected_tool_sequence=["search_places", "propose_plan"],
+        declared_constraints={"checks": checks, "predicates": []},
+    )
+
+
+def _draft(place_id, day="2026-11-07", start="20:00", end="21:30"):
+    return {"days": [{"day_date": day, "slots": [
+        {"start_time": start, "end_time": end, "block": {"title": "Dinner", "google_place_id": place_id}},
+    ]}]}
+
+
+def test_a_draft_of_a_place_offered_earlier_passes():
+    ex = execution(
+        trace=[tool(1, "search_places"), tool(2, "propose_plan", turn=2)],
+        drafts=[_draft("ChIJ-b")], draft_turns=[2],
+        place_ids_by_turn={1: {"ChIJ-a", "ChIJ-b"}, 2: {"ChIJ-b"}},
+    )
+    verdict = check(_picking_case(draft_uses_earlier_place=True), ex)
+    assert verdict.outcome == "none", verdict.findings
+
+
+def test_a_draft_of_a_place_nobody_offered_is_detected():
+    """The agent searched afresh on the drafting turn and drafted what that
+    search found; the reply on the same turn naming it does not count."""
+    ex = execution(
+        trace=[tool(1, "search_places"), tool(2, "search_places", turn=2), tool(3, "propose_plan", turn=2)],
+        drafts=[_draft("ChIJ-z")], draft_turns=[2],
+        place_ids_by_turn={1: {"ChIJ-a", "ChIJ-b"}, 2: {"ChIJ-z"}},
+    )
+    verdict = check(_picking_case(draft_uses_earlier_place=True), ex)
+    assert verdict.outcome == "detected"
+    assert any("offered on an earlier turn" in f for f in verdict.findings)
+
+
+def test_a_draft_on_the_first_turn_had_nothing_to_pick_from():
+    ex = execution(
+        trace=[tool(1, "search_places"), tool(2, "propose_plan")],
+        drafts=[_draft("ChIJ-a")], draft_turns=[1],
+        place_ids_by_turn={1: {"ChIJ-a"}},
+    )
+    verdict = check(_picking_case(draft_uses_earlier_place=True), ex)
+    assert verdict.outcome == "detected"
+    assert any("nothing was offered" in f for f in verdict.findings)
+
+
+def _moving_case():
+    return case(
+        function="scheduling",
+        expected_tool_sequence=["search_places", "propose_plan", "move_slot"],
+        declared_constraints={"checks": {"slot_moved": {
+            "block": "Tram 28 ride through Alfama", "day": "2026-11-06", "after_latest_draft": True,
+        }}, "predicates": []},
+    )
+
+
+def _move(start, end):
+    return {"table_name": "itinerary_slots", "op": "UPDATE", "row_id": "slot-tram",
+            "changed_keys": ["start_time", "end_time"], "origin_kind": "agent_live_edit",
+            "projection": {"trip_block_id": "block-tram", "day_date": "2026-11-06",
+                           "start_time": start, "end_time": end}}
+
+
+def test_a_stop_moved_to_after_the_draft_passes():
+    ex = execution(
+        trace=[tool(1, "search_places"), tool(2, "propose_plan"), tool(3, "move_slot", turn=2)],
+        drafts=[_draft("ChIJ-a", day="2026-11-06", start="14:30", end="17:00")], draft_turns=[1],
+        mutations=[_move("17:00:00", "18:00:00")],
+    )
+    verdict = check(_moving_case(), ex)
+    assert verdict.outcome == "none", verdict.findings
+
+
+def test_a_stop_moved_into_the_draft_is_detected():
+    ex = execution(
+        trace=[tool(1, "search_places"), tool(2, "propose_plan"), tool(3, "move_slot", turn=2)],
+        drafts=[_draft("ChIJ-a", day="2026-11-06", start="14:30", end="17:00")], draft_turns=[1],
+        mutations=[_move("16:00:00", "17:00:00")],
+    )
+    verdict = check(_moving_case(), ex)
+    assert verdict.outcome == "detected"
+    assert any("before the draft" in f and "17:00" in f for f in verdict.findings)
+
+
+# --- the two probe-found check faults (287e7780) ---------------------------
+
+
+def test_the_moved_stop_is_not_compared_against_its_own_slot_in_a_redraft():
+    redraft = {"days": [{"day_date": "2026-11-06", "slots": [
+        {"start_time": "14:30", "end_time": "17:15", "block": {"title": "Castle", "google_place_id": "ChIJ-a"}},
+        {"start_time": "17:30", "end_time": "18:30",
+         "block": {"title": "Tram 28 ride through Alfama", "reuse_block_id": "block-tr"}},
+    ]}]}
+    ex = execution(
+        trace=[tool(1, "search_places"), tool(2, "propose_plan"), tool(3, "move_slot", turn=2),
+               tool(4, "propose_plan", turn=2)],
+        drafts=[redraft], draft_turns=[2],
+        mutations=[_move("17:30:00", "18:30:00")],
+    )
+    verdict = check(_moving_case(), ex)
+    assert verdict.outcome == "none", verdict.findings
+
+
+def _near_case():
+    return case(
+        function="scheduling",
+        expected_tool_sequence=["search_places", "propose_plan"],
+        declared_constraints={"checks": {"places_near": {
+            "anchor": "Tram 28 ride through Alfama", "within_km": 3}}, "predicates": []},
+    )
+
+
+def test_a_drafting_turn_is_located_by_what_it_drafted_not_by_every_ref():
+    """The reply named "Santo António"; the application also attached a
+    same-named bakery 6.7 km away. The draft held the Alfama one."""
+    alfama, lumiar = (38.7114, -9.1330), (38.7740, -9.1601)
+    ex = execution(
+        trace=[tool(1, "search_places"), tool(2, "propose_plan")],
+        drafts=[_draft("ChIJ-alfama", day="2026-11-06")], draft_turns=[1],
+        place_refs_by_turn={1: [("Santo António", *alfama, "ChIJ-alfama"),
+                                ("Pastelaria Santo António", *lumiar, "ChIJ-lumiar")]},
+    )
+    assert check(_near_case(), ex).outcome == "none"
+
+
+def test_a_turn_that_only_searched_is_still_located_by_every_ref():
+    lumiar = (38.7740, -9.1601)
+    ex = execution(
+        trace=[tool(1, "search_places")],
+        place_refs_by_turn={1: [("Far away", *lumiar, "ChIJ-lumiar")]},
+    )
+    verdict = check(_near_case(), ex)
+    assert any("Far away" in f for f in verdict.findings)
