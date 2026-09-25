@@ -72,6 +72,7 @@ EXEMPT: dict[tuple[str, str], str] = {
     ("study_suggestions", "error_code"): "set only when a turn fails; a clean pilot has none",
     ("study_suggestions", "trip_id"): "set null if the trip is deleted — checked as a count, not required",
     ("study_suggestions", "agent_intent"): "set only when a turn starts with a /command",
+    ("study_sessions", "anonymised_at"): "set only eight months after consent (D91)",
 }
 
 #: Present in ``strict`` mode only (the pilot): C04 asks for one post-task

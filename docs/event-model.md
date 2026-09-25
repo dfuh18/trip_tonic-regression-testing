@@ -263,6 +263,17 @@ writing the participant information sheet:
   safeguard if access is actually restricted. State who can read participant
   rows.
 
+**Retention (D91).** Eight months after consent, `study_anonymise_expired()`
+(daily pg_cron job `study-anonymise-expired`) removes every account link and
+every text a participant wrote from their study rows, and stamps
+`study_sessions.anonymised_at`: `user_id` / `actor_user_id`, `user_turn`,
+post-task `free_text`, trip, run and chat-message ids, `study_mutations.row_id`
+and the `*_id` keys of its projection, the draft id in `resulting_state_shape`,
+`client_session_id`, and the **values** of tool arguments (their keys stay).
+Those columns are nullable for that reason. Anything that needs the removed
+values (e.g. a P1 signature over argument text) must be computed before then.
+Deletion on request, without deleting the account: `tools/withdraw_participant.py`.
+
 ## Field → writer
 
 Added by task A01 (2026-09-18) with the migration

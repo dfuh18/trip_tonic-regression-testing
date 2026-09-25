@@ -196,19 +196,24 @@ open:
    (`legal-contact.ts`; also on the privacy page).
 2. **Retention:** eight months from consent; then the link to the account and
    the text of the messages are removed **automatically**, leaving anonymous
-   records of request kinds and outcomes. **Not implemented yet**: no job does
-   this today. It needs a scheduled anonymisation job before the first real
-   consent turns eight months old.
+   records of request kinds and outcomes. Implemented as the daily job
+   `study_anonymise_expired()` (migration `20260925122418`, D91): account ids,
+   `user_turn`, `free_text`, every id leading back into the trip, the browser
+   session id, and tool-argument values are removed; `anonymised_at` is
+   stamped. Tested on the live project inside a rolled-back transaction
+   (`tools/anonymise_rollback_test.sql`).
 3. **Quotation:** no participant text is reproduced; results in aggregate,
    individual interactions only described in general terms.
 4. **Judge:** stated: messages are sent to Vertex AI "after the study to
    produce automated quality ratings", on the EU endpoint.
 5. **Minimum age:** 18, stated as a participation condition and in the
    consent confirmations.
-6. **Deletion without deleting the account:** on request to the researcher.
-   Needs a written procedure: delete the session (cascades to every study
-   table) *and* clear `user_metadata.study`, or the gate sends the person back
-   to consent.
+6. **Deletion without deleting the account:** on request to the researcher,
+   with `python tools/withdraw_participant.py --email <address>` (dry run),
+   then `--apply`. Deletes the pilot/study sessions (cascading to every study
+   table) and clears `user_metadata.study`, so the gate does not send the
+   person back to consent. Account, trips and chat stay. Tested end to end on
+   a throwaway account.
 
 Still open: whether Supabase backups keep deleted rows for some days (the form
 does not mention backups).

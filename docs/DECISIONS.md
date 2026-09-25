@@ -31,6 +31,38 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D91 — Study data is anonymised eight months after consent
+Date: 2026-09-25 · Decided by: author (retention in the consent form; the
+implementation escalated by agent and approved)
+Options: delete everything at eight months · remove account links and text,
+keep anonymous records · keep until the author deletes by hand
+Chosen: the form's wording: eight months from consent, "the link to your
+account and the text of your messages are removed automatically, and only
+anonymous records of the kinds of requests made and their outcomes remain".
+Implemented as `study_anonymise_expired()`, a daily pg_cron job
+(`20260925122418_study_anonymise_after_retention.sql`), for `pilot` and
+`study` sessions only. It nulls every account link (`user_id`,
+`actor_user_id`), everything a participant wrote (`user_turn`, `free_text`),
+every id that leads back into the trip and so to the account (trip, run and
+chat-message ids, `study_mutations.row_id`, `*_id` keys of projections, the
+draft id in the state shape, `client_session_id`), and the **values** of tool
+arguments, keeping their keys; it stamps `study_sessions.anonymised_at`.
+Seven columns become nullable; nothing is renamed or dropped.
+Reason: the form promises it, and a promise with no job behind it is false
+the day it matures. Keys-without-values keeps the shape of each request (what
+kind of lookup it was) while removing what the person asked for.
+**Consequence for the analysis:** anything that needs the removed values
+(argument text in a P1 signature, the verbatim `user_turn`, joins into trips)
+must be computed within eight months of the first consent.
+Deletion on request without deleting the account (the form's other promise):
+`tools/withdraw_participant.py`, tested end to end on a throwaway account.
+Tested: the migration and the job ran on the live project inside a
+transaction that always rolls back (`tools/anonymise_rollback_test.sql`):
+the expired session anonymised, the recent one untouched, a second run a
+no-op; nothing persisted.
+Affects: event-model.md (Retention), C01 (`anonymised_at` exempt), C02/C03 ·
+Reverses: none
+
 ### D90 — A failed turn records the configured model
 Date: 2026-09-25 · Decided by: author (escalated by agent)
 Options: leave failed turns without a model (report only) · fall back to the
