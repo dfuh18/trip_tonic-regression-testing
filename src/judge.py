@@ -37,6 +37,7 @@ before-state every repetition starts from, not what the member did next.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Optional
 
 from src.cases import Case
@@ -92,7 +93,7 @@ def _criteria(case: Case) -> str:
     return "\n".join(f"- {line.strip()}" for line in case.scoring_criteria)
 
 
-def _fixture_summary(case: Optional[Case] = None) -> str:
+def _fixture_summary(case: Optional[Case] = None, today: Optional[date] = None) -> str:
     # Imported here: the judge's scoring logic is unit-tested without a
     # fixture file, and a module-level import would make it a hard dependency.
     from src.fixture import for_case, load_fixture, summary
@@ -101,10 +102,10 @@ def _fixture_summary(case: Optional[Case] = None) -> str:
     # Told November while the trip was built for next week, it would mark a
     # correct reply down for naming the wrong days -- a false regression,
     # which D30 rules is the worse of the two errors.
-    return summary(for_case(case) if case is not None else load_fixture())
+    return summary(for_case(case, today) if case is not None else load_fixture())
 
 
-def _today_block() -> str:
+def _today_block(today: Optional[date] = None) -> str:
     """Today's date, for criteria that contrast "now" with the trip (D79).
 
     The judge was given the trip's dates and never the current one, so it could
@@ -121,9 +122,13 @@ def _today_block() -> str:
     calendar the agent resolved against (D54), and the only instrument scoring
     them could not see the distinction.
     """
-    from datetime import date
+    # The day the agent answered on, not the day the judge runs (D94): a
+    # judge pass the morning after an overnight run would otherwise be told
+    # "tomorrow" for every execution before midnight.
+    if today is None:
+        from src.fixture import utc_today
 
-    today = date.today()
+        today = utc_today()
     return (
         "--- when this was asked ---\n"
         f"Today is {today.strftime('%A %d %B %Y')} ({today.isoformat()}). "
@@ -132,10 +137,10 @@ def _today_block() -> str:
     )
 
 
-def _references(references: list[str], case: Optional[Case] = None) -> str:
+def _references(references: list[str], case: Optional[Case] = None, today: Optional[date] = None) -> str:
     blocks = [
-        _today_block(),
-        f"--- the trip this was asked about ---\n{_fixture_summary(case)}",
+        _today_block(today),
+        f"--- the trip this was asked about ---\n{_fixture_summary(case, today)}",
     ]
     blocks += [f"--- reference {i + 1} ---\n{text.strip()}" for i, text in enumerate(references)]
     return "\n\n".join(blocks)
@@ -153,7 +158,12 @@ def _usage(model: str, version: str, replies: list[LlmReply]) -> Usage:
 
 
 def score_pointwise(
-    case: Case, user_request: str, reply: str, references: Optional[list[str]] = None, llm: Optional[Llm] = None
+    case: Case,
+    user_request: str,
+    reply: str,
+    references: Optional[list[str]] = None,
+    llm: Optional[Llm] = None,
+    today: Optional[date] = None,
 ) -> PointwiseResult:
     llm = llm or judge_llm()
     prompt = load_prompt("judge_pointwise_v1")
@@ -161,7 +171,7 @@ def score_pointwise(
         user_request=user_request.strip(),
         reply=reply.strip() or "(empty reply)",
         criteria=_criteria(case),
-        references=_references(references or [], case),
+        references=_references(references or [], case, today),
     )
     out = llm.generate(rendered, "Score the reply.", json_schema=POINTWISE_SCHEMA, temperature=0.0)
     parsed = out.parsed or {}

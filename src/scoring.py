@@ -143,6 +143,19 @@ def _turn_counts(execution_row: dict) -> dict:
             "later_acting_turns": sum(1 for r in rows[1:] if (r.get("tool_calls") or 0) > 0)}
 
 
+def execution_day(execution_row: dict) -> Optional["date"]:
+    """The UTC day the execution ran on: the day the agent's own "TODAY IS"
+    line named (agent.prompts.ts computes it in UTC), and the day a near-dated
+    case's trip was built relative to. The judge is told this day, not its
+    own (D94)."""
+    from datetime import datetime, timezone
+
+    started = execution_row.get("started_at")
+    if not started:
+        return None
+    return datetime.fromisoformat(str(started).replace("Z", "+00:00")).astimezone(timezone.utc).date()
+
+
 def score_execution(case: Case, execution_row: dict, llm=None) -> Scored:
     request, reply = first_reply(execution_row)
     base = dict(case_id=execution_row["case_id"], repetition=execution_row["repetition"],
@@ -158,7 +171,9 @@ def score_execution(case: Case, execution_row: dict, llm=None) -> Scored:
     # unscored execution is worse than a slow one.
     for attempt in range(1, MAX_JUDGE_ATTEMPTS + 1):
         try:
-            result: PointwiseResult = score_pointwise(case, request, reply, references, llm=llm)
+            result: PointwiseResult = score_pointwise(
+                case, request, reply, references, llm=llm, today=execution_day(execution_row)
+            )
             break
         except Exception as exc:
             if attempt == MAX_JUDGE_ATTEMPTS or not _judge_worth_retrying(exc):

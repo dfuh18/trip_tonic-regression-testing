@@ -31,6 +31,29 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D94 — The judge is told the day the execution ran, in UTC
+Date: 2026-09-25 · Decided by: author ("judge and agent get today as
+context"; raised while scheduling the overnight B10 run)
+Before: the judge's "today" block (D79) used `date.today()` at judging time,
+and a near-dated case's trip in the judge's fixture summary was rebuilt from
+that same day. Judged the morning after an overnight run, every execution
+before midnight was scored against the next day, and the near-dated trip the
+judge saw started a day later than the one the agent planned.
+Chosen: every date the three parties see is the execution's UTC day.
+`scoring.execution_day()` takes it from `study_case_executions.started_at`;
+`score_pointwise(..., today=)` passes it to the today block and to
+`fixture.for_case()`. The harness builds near-dated trips with
+`fixture.utc_today()`, matching the agent, whose "TODAY IS" line is UTC
+(D92). A local date disagreed with UTC between 00:00 and 02:00 CEST, which is
+when an overnight run executes.
+The judge prompt template is unchanged (`judge_pointwise_v1`); only the date
+it is given differs, and only for executions judged on a later day. Rehearsal
+scores judged the same day are unaffected. Pair-wise comparison (B11) still
+uses the judging day and must be revisited before B11: baseline and candidate
+replies are from different days.
+Affects: B09, B10, B11, `src/judge.py`, `src/scoring.py`, `src/fixture.py`,
+`tools/overnight_baseline.py`, `tests/test_judge_date.py` · Amends: D79
+
 ### D93 — Participants see the empty chat's one-tap examples
 Date: 2026-09-25 · Decided by: author (escalated by agent)
 Options: hide the examples for participants · keep them as the app ships ·

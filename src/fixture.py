@@ -35,7 +35,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import json
 import copy
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -82,6 +82,14 @@ def shift_dates(fixture: dict[str, Any], start: date) -> dict[str, Any]:
     return calendar_pin.shift(fixture, start - date.fromisoformat(fixture["trip"]["start_date"]))
 
 
+def utc_today() -> date:
+    """Today in UTC — the calendar the agent answers on (its "TODAY IS" line
+    is computed in UTC), so a near-dated trip is built against the same day
+    the agent and the judge see (D94). A local date disagrees between 00:00
+    and 02:00 CEST, which is exactly when an overnight run is executing."""
+    return datetime.now(timezone.utc).date()
+
+
 def for_case(case: Any, today: date | None = None) -> dict[str, Any]:
     """The fixture a case starts from — dated fixed, or dated near (D54).
 
@@ -101,7 +109,7 @@ def for_case(case: Any, today: date | None = None) -> dict[str, Any]:
     base = load_fixture()
     if getattr(case, "fixture_dates", "fixture") != "near":
         return base
-    return shift_dates(base, (today or date.today()) + timedelta(days=NEAR_TRIP_STARTS_IN_DAYS))
+    return shift_dates(base, (today or utc_today()) + timedelta(days=NEAR_TRIP_STARTS_IN_DAYS))
 
 
 def trip_name(fixture: dict[str, Any], user: SimUser, label: str = "") -> str:
