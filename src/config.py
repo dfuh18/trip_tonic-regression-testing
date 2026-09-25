@@ -46,6 +46,7 @@ OPTIONAL_VARS = (
 #: ``src.auth`` says so at the point of use rather than at import.
 HARNESS_VARS = (
     "API_BASE_URL",
+    "VERTEX_BASE_URL",
     "SIM_USER_PASSWORD",
     "SIM_USER_COUNT",
     "SIM_USER_DOMAIN",
@@ -72,6 +73,11 @@ class Settings(BaseModel):
     MA_MANUSCRIPT_DIR: Optional[str] = None
     #: The Fastify API the simulator drives — the same one members use (D15).
     API_BASE_URL: str = "http://localhost:3001/api"
+    #: Vertex's EU multi-region endpoint — the same default as the API's
+    #: `DEFAULT_VERTEX_BASE_URL` (apps/api/src/lib/env.ts). The simulator and
+    #: the judge must reach the serving pool the agent does, and the judge
+    #: reads participant replies, which stay in the EU.
+    VERTEX_BASE_URL: str = "https://aiplatform.eu.rep.googleapis.com"
     SIM_USER_PASSWORD: Optional[str] = None
     #: How many simulated accounts the harness keeps. One is enough to run
     #: serially; more only matters if runs are ever parallelised.

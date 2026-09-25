@@ -31,6 +31,32 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D89 — Every Vertex call goes to the EU multi-region endpoint
+Date: 2026-09-25 · Decided by: author (escalated by agent)
+Options: keep the global endpoint · EU multi-region
+(`aiplatform.eu.rep.googleapis.com`) · Frankfurt only (`europe-west3`)
+Chosen: **EU multi-region**, for the agent, the simulator and the judge alike.
+It is the code default in both places (`DEFAULT_VERTEX_BASE_URL` in
+`apps/api/src/lib/env.ts`, `VERTEX_BASE_URL` in `src/config.py`), not an env
+var, so no deployment or harness machine can drift back to global. The
+endpoint is **not** added to `study_runs` (author: "config only"); this entry
+and the two defaults are the record.
+Reason: with Supabase in Stockholm and Render in Frankfurt, the global endpoint
+was the one path that could process participant requests outside the EU
+(and the judge re-reads participant replies, P3). Probed 2026-09-25 with the
+express key: `gemini-3.5-flash` answers on global, the EU multi-region and
+europe-west3; europe-west1 and europe-west4 return 404. Multi-region over
+Frankfurt because capacity is pooled across EU regions, and capacity failures
+count as failures (D44, Q24).
+**Timing is the point:** the endpoint is part of what the rounds measure —
+latency, 429s and so retries and lost executions differ by serving pool — so
+the simulation and the participant round must share it. Switched before B10;
+the rehearsal runs to date (incl. 42cab17a) ran on global and are not
+comparable on latency or capacity failures. The pinned model is unchanged.
+Affects: B10, B11, C03, apps/api `lib/env.ts` + `adk-llm.ts`, `src/config.py`,
+`src/llm.py`, the privacy notice, `docs/participant-data-facts.md` ·
+Reverses: none
+
 ### D88 — A fail from position alone is a draw, and passes visibly (resolves Q34)
 Date: 2026-09-24 · Decided by: author (escalated by agent as Q34)
 Options: D23 strict (a contradictory pair fails) · a same-slot pick is a draw ·

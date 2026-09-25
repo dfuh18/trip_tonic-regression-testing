@@ -76,7 +76,7 @@ class Llm(Protocol):
 
 
 class Gemini:
-    """Vertex express mode: API-key auth, no project or location."""
+    """Vertex express mode: API-key auth, EU endpoint, no project or location."""
 
     def __init__(self, model: str):
         from google import genai
@@ -89,7 +89,9 @@ class Gemini:
         self._client = genai.Client(
             vertexai=True,
             api_key=settings.VERTEX_API_KEY,
-            http_options=types.HttpOptions(timeout=REQUEST_TIMEOUT_MS),
+            http_options=types.HttpOptions(
+                timeout=REQUEST_TIMEOUT_MS, base_url=settings.VERTEX_BASE_URL
+            ),
         )
 
     def generate(

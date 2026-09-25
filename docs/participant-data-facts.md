@@ -7,7 +7,8 @@ the form can be written from facts rather than from memory. Where something is
 **not yet decided**, it says so in §9 — those gaps must be closed before the
 form is final.
 
-Written 2026-09-24. If the schema or the flow changes, update this file first.
+Written 2026-09-24; Vertex moved to the EU endpoint 2026-09-25. If the schema,
+the flow or the hosting changes, update this file first.
 
 ---
 
@@ -126,8 +127,9 @@ above.
 |---|---|
 | Database and sign-in (all study tables, trips, chat) | Supabase, AWS **eu-north-1, Stockholm, Sweden** |
 | Web app (frontend) and API | Render, **Frankfurt, Germany** — both services (`render.yaml`, `region: frankfurt`); no other frontend host |
-| Tonic's replies | Google Vertex AI (Gemini), **global endpoint** — the request (message, trip context, recent chat, travel style) **may be processed outside Switzerland/EU, including the USA** (`apps/api/src/routes/ai/lib/adk-llm.ts`, `location: 'global'`) |
-| Place search and details | Google Maps Platform |
+| Tonic's replies | Google Vertex AI (Gemini), **EU multi-region endpoint** (`aiplatform.eu.rep.googleapis.com`) — the request (message, trip context, recent chat, travel style) is **processed within the EU**. Default in `apps/api/src/lib/env.ts` (`DEFAULT_VERTEX_BASE_URL`), not an env var, so a deployment cannot drift back to the global endpoint |
+| Automated judge and simulator (analysis) | Same EU endpoint (`research/regression-testing/src/config.py`) — participant requests and replies re-read by the judge stay in the EU |
+| Place search and details | Google Maps Platform — Google does not guarantee EU-only processing; searches **may be processed in the USA**. The only processing that may leave the EU/CH |
 
 Study data stays in the database. It is never exported into the repository;
 analysis runs in notebooks whose outputs are stripped before commit.
