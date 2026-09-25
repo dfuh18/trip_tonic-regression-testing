@@ -17,7 +17,7 @@ the flow or the hosting changes, update this file first.
 | | |
 |---|---|
 | Controller / researcher | Gian Andri Hofmann, Master's student, University of St.Gallen (HSG) |
-| Contact | **not set** — `CONTACT_EMAIL` in `apps/web/src/lib/legal-contact.ts` |
+| Contact | gian.hofmann@student.unisg.ch (`CONTACT_EMAIL` in `apps/web/src/lib/legal-contact.ts`) |
 | Purpose | Master's thesis: conversational regression testing of an LLM trip-planning agent |
 | Applicable law | Swiss FADP; the GDPR where participants are in the EU/EEA |
 | Payment | none — voluntary, unpaid, convenience sample (§4.2.2) |
@@ -57,11 +57,11 @@ study link and consented (`study_sessions` row with `consent_at`, no
 
 | Data | Values | Table |
 |---|---|---|
-| Consent timestamp and **consent text version** | e.g. `2026-09-18-draft` | `study_sessions` |
+| Consent timestamp and **consent text version** | `2026-09-25` | `study_sessions` |
 | Cohort | `pilot` or `study` (pilot sessions are excluded from the analysis) | `study_sessions.run_type` |
 | Device type | `desktop` / `tablet` / `mobile`, from the browser's user agent — no fingerprinting | `study_sessions`, and on every turn |
 | A random browser-session id | opaque string | `study_sessions.client_session_id` |
-| Decline timestamp (if declined) | — | `study_sessions.declined_at` |
+| Decline timestamp (if declined) — a decline row holds only the account id, cohort and this timestamp | — | `study_sessions.declined_at` |
 | **Age** | 18–120 | `study_survey_demographics` |
 | **Gender** | woman / man / non-binary / prefer not to say | ″ |
 | **Education** | compulsory / vocational / high school / bachelor / master or higher | ″ |
@@ -96,7 +96,7 @@ study link and consented (`study_sessions` row with `consent_at`, no
 
 | Data | Table |
 |---|---|
-| Accept / reject of each suggested place or plan slot, with time | `study_user_actions` |
+| Accept / reject of each suggested place or plan slot, with time. The actor's account id is kept only if the actor is a consented participant; a co-member's reaction is stored with no actor | `study_user_actions` |
 | Thumbs up / down on a Tonic reply (changeable; one per reply) | `study_feedback` |
 | Every change to the trip's plan (stops, itinerary slots, days, drafts, plan-B branches): which table, insert/update/delete, **which fields changed**, whether it came from Tonic or from the participant, and a few structural columns — **never a title or a note** | `study_mutations` |
 
@@ -129,7 +129,12 @@ above.
 | Web app (frontend) and API | Render, **Frankfurt, Germany** — both live services (`trip-tonic-web-5ky6`, `trip-tonic-api-5ky6`, behind `www.` / `api.trip-tonic.com`), region confirmed in the Render dashboard 2026-09-25; no other frontend host. `render.yaml` also says `region: frankfurt`, but its service names are the suspended originals, so the dashboard is the evidence |
 | Tonic's replies | Google Vertex AI (Gemini), **EU multi-region endpoint** (`aiplatform.eu.rep.googleapis.com`) — the request (message, trip context, recent chat, travel style) is **processed within the EU**. Default in `apps/api/src/lib/env.ts` (`DEFAULT_VERTEX_BASE_URL`), not an env var, so a deployment cannot drift back to the global endpoint |
 | Automated judge and simulator (analysis) | Same EU endpoint (`research/regression-testing/src/config.py`) — participant requests and replies re-read by the judge stay in the EU |
-| Place search and details | Google Maps Platform — Google does not guarantee EU-only processing; searches **may be processed in the USA**. The only processing that may leave the EU/CH |
+| Place search and details | Google Maps Platform — search terms only; Google does not guarantee EU-only processing, so they **may be processed in the USA** |
+| Background questions | Wikipedia (Wikimedia Foundation, USA) — search terms and article titles of the `read_wikipedia` tool (`apps/api/src/routes/ai/lib/wikipedia.ts`) |
+| Weather and climate | Open-Meteo — coordinates and dates of `get_weather` / `get_region_climate` (`apps/api/src/routes/ai/lib/weather.ts`) |
+
+These three lookups are the only processing that may leave the EU/CH. None of
+them receives a message, an account id or a name.
 
 Study data stays in the database. It is never exported into the repository;
 analysis runs in notebooks whose outputs are stripped before commit.
@@ -137,10 +142,14 @@ analysis runs in notebooks whose outputs are stripped before commit.
 ## 5. Who can see it
 
 - **The researcher**, through the database's service key and the Supabase
-  dashboard — the only full read access.
+  dashboard, and **one other person who works on the application**, whose
+  administrative access is needed to run it and is not used for the research
+  (as the consent form states).
 - **The participant** can read their own consent, questionnaire and request
   rows (row-level security), and download them via *Export my data* on the
-  profile page (demographics, post-task answers, request copies).
+  profile page (sessions, demographics, post-task answers, request copies,
+  thumbs ratings, and reactions to suggestions; `study_mutations` is not
+  exported — structural projections of trip rows, no text).
 - **Other members of the participant's trip** see the trip chat, including the
   requests to Tonic and its replies — as for any user. A solo trip has no
   other members.

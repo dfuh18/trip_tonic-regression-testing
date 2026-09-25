@@ -45,7 +45,7 @@ No compensation is provided. Participation is voluntary and unpaid.
 
 There are no significant risks to your physical or mental wellbeing.
 
-The study collects personal data, including a copy of what you write to the assistant. Your messages are processed by an external AI provider within the European Union. When the assistant searches for places, the search terms are sent to Google Maps Platform, which may process them outside Switzerland and the European Union, including in the United States. The measures taken to protect your data are set out below.
+The study collects personal data, including a copy of what you write to the assistant. Your messages are processed by an external AI provider within the European Union. To answer some requests the assistant also uses three outside services: it sends place searches to Google Maps Platform, looks up background information on Wikipedia, and fetches weather data from Open-Meteo. These receive search terms, article titles, or coordinates and dates, not your messages, and may process them outside Switzerland and the European Union, including in the United States. The measures taken to protect your data are set out below.
 
 If you plan a trip together with other people in the application, the other members of that trip can see the trip's chat, including your requests to Tonic and its replies. This is how the application works for all users and is not specific to the study. A trip you create alone has no other members.
 
@@ -67,6 +67,7 @@ If you decline consent, nothing beyond the fact that you declined is recorded, y
 - Whether you accepted, rejected or did not react to each of the assistant's suggestions, and any thumbs up or down you gave
 - Changes made to your trip plan, recording which fields changed and whether the change came from you or from the assistant. The titles and notes you write are not recorded
 - The type of device you used, derived from your browser. No device fingerprinting takes place
+- A random identifier for your browser session, which groups your requests. It is not linked to any analytics unless you separately accept optional analytics in the cookie banner
 
 **For administrative purposes:** your account email address, which is required to create an account.
 
@@ -78,13 +79,21 @@ If you decline consent, nothing beyond the fact that you declined is recorded, y
 
 **When is the administrative data deleted?** Your email address is part of your account rather than of the study, and remains for as long as your account exists. Deleting your account removes it, together with all study data.
 
-**Where is the research data stored, and who has access to it?** All data is stored in a database operated by Supabase, hosted on Amazon Web Services in Stockholm, Sweden. The application and its interface are hosted by Render in Frankfurt, Germany. Administrative access to the database is held by the researcher and by one other person who works on the application. The second person's access is required in order to run the application and is not used for the research. You can view and download your own data at any time through *Export my data* on your profile page. If you plan a trip together with other people, the other members of that trip can see the trip's chat, including your requests to the assistant and its replies; this is how the application works for all users. The application itself has no administrative screen through which this content can be viewed.
+**Where is the research data stored, and who has access to it?** All data is stored in a database operated by Supabase, hosted on Amazon Web Services in Stockholm, Sweden. The application and its interface are hosted by Render in Frankfurt, Germany. Administrative access to the database is held by the researcher and by one other person who works on the application. The second person's access is required in order to run the application and is not used for the research. You can download a copy of your data at any time through *Export my data* on your profile page, including your study questionnaires, your requests to the assistant, your ratings and your reactions to its suggestions. If you plan a trip together with other people, the other members of that trip can see the trip's chat, including your requests to the assistant and its replies; this is how the application works for all users. The application itself has no administrative screen through which this content can be viewed.
 
 **How is the research data used?** It is used for the Master's thesis described above and for no other purpose. Results are reported in aggregate: counts, distributions, rates and averages. Individual interactions may be described in general terms where this helps to explain a finding, but no text you have written is reproduced.
 
-**How long is it kept?** Your data is retained for eight months from the date you give consent. After that, the link to your account and the text of your messages are removed automatically, and only anonymous records of the kinds of requests made and their outcomes remain.
+**How long is it kept?** Your data is retained for eight months from the date you give consent. After that, the link to your account and the text of your messages are removed automatically, all times are reduced to the date, and only anonymous records of the kinds of requests made and their outcomes remain.
 
-**Is data passed to third parties?** Your messages, together with your trip context and recent chat history, are sent to Google's Vertex AI service in order to generate the assistant's replies, and after the study to produce automated quality ratings. This processing takes place on Google's European endpoint and remains within the European Union. When the assistant looks up places, the search terms are sent to Google Maps Platform; Google does not guarantee that these are processed within Europe, so they may be processed outside Switzerland and the European Union, including in the United States. This is the only part of the study where data may leave Europe, and it concerns search terms rather than your messages. The database and hosting providers named above process data on behalf of the researcher. No other party receives it.
+**Is data passed to third parties?** Your messages, together with your trip context, recent chat history and the display names of the people in the trip, are sent to Google's Vertex AI service in order to generate the assistant's replies, and after the study to produce automated quality ratings. This processing takes place on Google's European endpoint and remains within the European Union.
+
+To answer some requests, the assistant uses three further services, which receive only what that lookup needs, never your messages or your account:
+
+- **Google Maps Platform** receives the search terms of place searches. Google does not guarantee that these are processed within Europe.
+- **Wikipedia** (operated by the Wikimedia Foundation in the United States) receives the search terms and article titles of background questions, for example about a landmark or a region.
+- **Open-Meteo**, a weather data service, receives the coordinates and dates of weather and climate questions.
+
+These lookups may be processed outside Switzerland and the European Union, including in the United States. They are the only part of the study where data may leave Europe. The database and hosting providers named above process data on behalf of the researcher. No other party receives your data.
 
 ## What are my rights regarding my data?
 

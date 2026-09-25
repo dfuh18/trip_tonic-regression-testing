@@ -31,6 +31,51 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D92 — Pre-merge privacy hardening: the consent form made true
+Date: 2026-09-25 · Decided by: author (after the pre-merge audit; fixes
+approved as a batch, "round the timestamps", "show the options permanently",
+"always communicate errors to the user")
+The audit (8 auditors over the branch diff) found statements in the consent
+form and privacy notice that the code did not keep, and data gaps that would
+have been found only after the round. Chosen, per finding:
+- **Lookups disclosed.** Tonic also sends search terms and article titles to
+  Wikipedia (US) and coordinates and dates to Open-Meteo; the form, the
+  privacy notice and participant-data-facts.md now name both, and say display
+  names reach Vertex. The form was edited in place and keeps version
+  `2026-09-25`: no pilot or study session existed, so no consent was given
+  to the earlier wording.
+- **Anonymisation amends D91.** At eight months every timestamp is also
+  truncated to the day, `place:` ids are stripped from action targets, and the
+  participant's `api_usage_events` rows inside [consent, last turn + 1 h] lose
+  user, trip and session ids — exact times had let anonymised rows be joined
+  back to the account. Order within a day is lost for mutations and actions;
+  `turn_index` keeps the turns' order.
+- **Only consenting actors are recorded.** A co-member's accept or reject on
+  a participant's draft is stored with `actor_user_id` null (the reaction
+  still counts for the turn's D12 label). The withdrawal script also nulls a
+  person's actor links on others' suggestions.
+- **A decline stores only** account id, cohort and time.
+- **Export** now includes the participant's thumbs and reactions (own-row
+  SELECT policies; the export reads with the caller's RLS client).
+- **Study thumbs always visible** for participants, labelled, apart from the
+  group reactions (which keep 👍/👎); every failed direct study action shows an
+  error to the participant.
+- **Logging errors are no longer silent:** a failed lookup or count in the
+  turn logger and StudyActions is logged, and `trip_after` is null rather than
+  a fabricated 0 (rule 3).
+- **Integrity:** `x-study-origin` `suggestion=` must belong to the trip;
+  device and session headers are validated; the mutation trigger can no
+  longer abort a member's write on a malformed header; default table
+  privileges revoked on the study tables.
+- **Admin:** the cost rollup no longer resolves user ids to names (D1); the
+  admin table shows ids.
+- **Prompt:** the "TODAY IS" line is computed in UTC throughout. Identical
+  text on Render (UTC); `prompt_version` changes because the file's hash does.
+  Before B10, so no run is affected.
+Migration `20260925125438_study_privacy_hardening.sql`, tested live inside a
+rolled-back transaction (`tools/anonymise_rollback_test.sql`).
+Affects: D91, D14, A02, A05, A07, A12, C01 · Reverses: none
+
 ### D91 — Study data is anonymised eight months after consent
 Date: 2026-09-25 · Decided by: author (retention in the consent form; the
 implementation escalated by agent and approved)
