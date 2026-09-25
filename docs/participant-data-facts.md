@@ -186,20 +186,29 @@ analysis runs in notebooks whose outputs are stripped before commit.
 - Only after *Accept* on the banner: first-party usage events into the same
   database. Reject costs nothing and does not affect the study.
 
-## 9. Not yet decided — close before the form is final
+## 9. Decisions in the consent form (`participant-information-and-consent_260925.md`)
 
-1. **Contact email** for the form and the privacy page (`legal-contact.ts`).
-2. **Retention period** for study data: how long after the thesis is
-   submitted/graded are the rows kept, and are they then deleted or
-   anonymised? The code deletes nothing on a schedule.
-3. **Quotation:** may verbatim participant requests or free-text answers be
-   quoted in the thesis (anonymised)? The current consent text says
-   "reported only in aggregate", which rules it out.
-4. **Judge on participant replies** (§6, P3, and Q27 option B): the form
-   should say it happens if it will.
-5. **Minimum age** — the questionnaire accepts 18+, so the form should
-   require 18+.
-6. **Supabase backups** — whether the plan's backups keep deleted rows for
-   some days, and whether to mention it.
-7. `CONSENT_VERSION` in `apps/web/src/components/study/consent-text.tsx` —
-   set to the date of the adopted text once the ethics template is filled.
+The form is the text the app renders at `/study/consent`, version
+`2026-09-25` (`CONSENT_VERSION`). It settles what this section used to list as
+open:
+
+1. **Contact:** gian.hofmann@student.unisg.ch, for the duration of the study
+   (`legal-contact.ts`; also on the privacy page).
+2. **Retention:** eight months from consent; then the link to the account and
+   the text of the messages are removed **automatically**, leaving anonymous
+   records of request kinds and outcomes. **Not implemented yet**: no job does
+   this today. It needs a scheduled anonymisation job before the first real
+   consent turns eight months old.
+3. **Quotation:** no participant text is reproduced; results in aggregate,
+   individual interactions only described in general terms.
+4. **Judge:** stated: messages are sent to Vertex AI "after the study to
+   produce automated quality ratings", on the EU endpoint.
+5. **Minimum age:** 18, stated as a participation condition and in the
+   consent confirmations.
+6. **Deletion without deleting the account:** on request to the researcher.
+   Needs a written procedure: delete the session (cascades to every study
+   table) *and* clear `user_metadata.study`, or the gate sends the person back
+   to consent.
+
+Still open: whether Supabase backups keep deleted rows for some days (the form
+does not mention backups).
