@@ -1048,7 +1048,16 @@ Phase: C
 Tier: [FABLE]
 Depends on: A13, B14
 Estimate: 5h
-Status: not started
+Status: built (2026-09-25), first half of done-when met. Logic in `src/pilot.py`,
+24 offline tests in `tests/test_pilot.py`; the notebook is a thin reader with a
+raising verdict cell. Run live on the empty `pilot` round: fails with all 35
+required event-model fields plus the draft `CONSENT_VERSION`. Exercised on the
+379 simulation turns: the hourly `ignored` job is live (342 stamped, none
+older than 25 h left null). It found one logger gap: a turn that fails before the model answers records no
+`model_version` (6 simulation turns; `modelColumns(result.model)` in
+`agent.study-log.ts`). Fixed with the author's approval (D90): the logger falls
+back to the configured model, and the check fails again on a missing model.
+Second half, passing on the pilot walk, waits on C04.
 Spec: `notebooks/study/05_pilot.ipynb`, outputs stripped. Parameterised on
 `run_type` (default `pilot`). Section 1: **the field-population assertion** —
 for every field in `docs/event-model.md` (read the table from the file, do not

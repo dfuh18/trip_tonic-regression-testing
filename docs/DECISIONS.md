@@ -31,6 +31,23 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D90 — A failed turn records the configured model
+Date: 2026-09-25 · Decided by: author (escalated by agent)
+Options: leave failed turns without a model (report only) · fall back to the
+configured model when the response carries none
+Chosen: fall back. `modelColumns` in `agent.study-log.ts` now uses
+`model || env.VERTEX_MODEL || DEFAULT_VERTEX_MODEL`, resolved as `createAdkLlm`
+resolves it, so `model_version` and `model_released_on` are set on every
+completed turn, failed or not.
+Reason: the C01 pilot checks, run over the 379 simulation turns, found 6 turns
+that ended in `llm_error` before the model answered and were logged with no
+model: the logger read the id from the response usage only. Table 11 asks for
+the dated release on every suggestion, and a failed turn is exactly the row P2
+counts. The fallback names the model the request was sent to, which is the
+fact the column records. Logging only; the turn itself is unchanged (rule 4).
+The 6 historical simulation rows stay null; nothing is backfilled.
+Affects: A02, C01 (`check_turns` fails a missing model again) · Reverses: none
+
 ### D89 — Every Vertex call goes to the EU multi-region endpoint
 Date: 2026-09-25 · Decided by: author (escalated by agent)
 Options: keep the global endpoint · EU multi-region

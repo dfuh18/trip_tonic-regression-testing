@@ -126,7 +126,7 @@ above.
 | What | Where |
 |---|---|
 | Database and sign-in (all study tables, trips, chat) | Supabase, AWS **eu-north-1, Stockholm, Sweden** |
-| Web app (frontend) and API | Render, **Frankfurt, Germany** — both services (`render.yaml`, `region: frankfurt`); no other frontend host |
+| Web app (frontend) and API | Render, **Frankfurt, Germany** — both live services (`trip-tonic-web-5ky6`, `trip-tonic-api-5ky6`, behind `www.` / `api.trip-tonic.com`), region confirmed in the Render dashboard 2026-09-25; no other frontend host. `render.yaml` also says `region: frankfurt`, but its service names are the suspended originals, so the dashboard is the evidence |
 | Tonic's replies | Google Vertex AI (Gemini), **EU multi-region endpoint** (`aiplatform.eu.rep.googleapis.com`) — the request (message, trip context, recent chat, travel style) is **processed within the EU**. Default in `apps/api/src/lib/env.ts` (`DEFAULT_VERTEX_BASE_URL`), not an env var, so a deployment cannot drift back to the global endpoint |
 | Automated judge and simulator (analysis) | Same EU endpoint (`research/regression-testing/src/config.py`) — participant requests and replies re-read by the judge stay in the EU |
 | Place search and details | Google Maps Platform — Google does not guarantee EU-only processing; searches **may be processed in the USA**. The only processing that may leave the EU/CH |
