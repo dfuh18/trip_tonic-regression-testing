@@ -24,7 +24,7 @@ the flow or the hosting changes, update this file first.
 
 ## 2. What the participant does, in order
 
-1. Opens the study link (`/study/join?cohort=study`) → signs up or logs in.
+1. Opens the study link (`/study/join?cohort=study`, a public page that remembers the cohort in a week-long cookie) → signs up or logs in, by any route; the first signed-in page load enrols the account (`fetchUser`).
 2. **Consent form** (`/study/consent`). Accept, or decline.
    - Decline: records the decline, removes the study flag from the account,
      signs the person out. Nothing else is recorded.

@@ -31,6 +31,26 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D93 — Participants see the empty chat's one-tap examples
+Date: 2026-09-25 · Decided by: author (escalated by agent)
+Options: hide the examples for participants · keep them as the app ships ·
+show them as text but not tappable
+Chosen: keep them. An empty trip chat offers five one-tap requests
+(`components/chat/chat-empty-state.tsx`: `/find rooftop bars near the old
+town`, `/plan our first day here`, `/reschedule free up Saturday for a day
+trip`, and two `@Tonic` questions on weather and a neighbourhood). The task
+briefing also shows that empty chat, as the real component, so participants
+recognise where to start.
+Reason: the study measures the app as participants get it; hiding product
+guidance for participants would make the participant round a different
+system from the product.
+Consequence for the analysis: some participant requests will be these texts
+verbatim. They are identifiable exactly (the `user_turn` equals an example,
+with or without the command prefix), so the coverage comparison (P1) should
+report them separately or with and without them — and must be computed while
+`user_turn` still exists (before the eight-month anonymisation, D91).
+Affects: C02 (P1 reporting) · Reverses: none
+
 ### D92 — Pre-merge privacy hardening: the consent form made true
 Date: 2026-09-25 · Decided by: author (after the pre-merge audit; fixes
 approved as a batch, "round the timestamps", "show the options permanently",
