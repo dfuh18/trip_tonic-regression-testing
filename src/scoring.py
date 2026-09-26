@@ -206,6 +206,7 @@ def persist(run_id: str, row: dict, scored: "Scored", judge_model: str, prompt_v
     prevent in the first place.
     """
     from src import db
+    from src.comparison import pg_text
 
     try:
         db.admin().table("study_scores").upsert({
@@ -217,9 +218,9 @@ def persist(run_id: str, row: dict, scored: "Scored", judge_model: str, prompt_v
             "judge_model": judge_model,
             "judge_prompt_version": prompt_version,
             "score": scored.score,
-            "rationale": scored.rationale or "",
+            "rationale": pg_text(scored.rationale or ""),
             "reply_chars": scored.reply_chars,
-            "error": scored.error,
+            "error": pg_text(scored.error),
         }, on_conflict="execution_id,judge_model,judge_prompt_version").execute()
     except Exception as exc:  # pragma: no cover - reporting must survive it
         print(f"    WARNING could not persist score for {row['case_id']}: {exc}")

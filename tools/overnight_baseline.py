@@ -6,6 +6,7 @@
     python tools/overnight_baseline.py --resume <run-id> --in 0   # continue a stopped run
     python tools/overnight_baseline.py --regress       # B11: run against the adopted baseline
     python tools/overnight_baseline.py --regress --resume <run-id> --in 0
+    python tools/overnight_baseline.py --compare <run-id>   # only the pair-wise pass, resumable
 
 Leave it running in a terminal (the machine must not sleep, and the local API
 must stay up — `pnpm dev`). Everything is written to
@@ -165,8 +166,17 @@ def main(argv: list[str] | None = None) -> int:
                         help="continue a stopped run instead of opening a new one")
     parser.add_argument("--regress", action="store_true",
                         help="B11: run against the adopted baseline and compare pair-wise")
+    parser.add_argument("--compare", metavar="RUN_ID", default=None,
+                        help="only the pair-wise comparison of a finished run against the adopted "
+                             "baseline; resumes from the verdicts already stored")
     args = parser.parse_args(argv)
     log = Log()
+    if args.compare:
+        from src import comparison as cmp
+
+        log(f"pair-wise comparison only: run {args.compare} against baseline "
+            f"{cmp.baseline_key(cmp.load_baseline())}")
+        return compare(args.compare, cmp.load_baseline(), log)
 
     from src.cases import load_cases
 
@@ -250,10 +260,21 @@ def main(argv: list[str] | None = None) -> int:
         log(f"DONE. Run {run_id}. Next: open notebooks/sim/03_baseline.ipynb with this run id.")
         return 0
 
+    return compare(run_id, baseline, log)
+
+
+def compare(run_id: str, baseline: dict, log: Log) -> int:
+    """The pair-wise pass (B11). Resumable: compare_run reads the verdicts
+    already in study_comparisons and judges only the rest."""
     from src import comparison as cmp
 
     log("comparing pair-wise with the baseline (both orderings per execution, D23)")
-    comparisons = cmp.compare_run(run_id, baseline, log=log)
+    try:
+        comparisons = cmp.compare_run(run_id, baseline, log=log)
+    except Exception as exc:
+        log(f"COMPARISON FAILED: {type(exc).__name__}: {exc}")
+        log(f"Continue with: python tools/overnight_baseline.py --compare {run_id}")
+        return 6
     rates = cmp.pass_rates(comparisons)
     log("\n" + rates.to_string())
     log(f"DONE. Run {run_id}. Next: open notebooks/sim/04_regress.ipynb with this run id.")

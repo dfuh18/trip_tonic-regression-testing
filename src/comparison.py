@@ -187,6 +187,13 @@ def _judge_identity() -> tuple[str, str]:
     return settings.JUDGE_MODEL, load_prompt("judge_pairwise_v2").version
 
 
+def pg_text(value):
+    """Text Postgres can store. A judge reply once carried a NUL (\u0000), which a
+    `text` column refuses outright (22P05) — and the refusal crashed a whole
+    B11 comparison pass at 149 of 176. A NUL is never content, so it is dropped."""
+    return value.replace("\x00", "") if isinstance(value, str) else value
+
+
 def _record(run_id: str, row: dict, c: Comparison, baseline: dict) -> dict:
     model, version = _judge_identity()
     orderings = list(c.orderings) + [None, None]
@@ -198,7 +205,7 @@ def _record(run_id: str, row: dict, c: Comparison, baseline: dict) -> dict:
         "judge_model": model, "judge_prompt_version": version,
         "structural_outcome": c.structural,
         "ordering_candidate_b": orderings[0], "ordering_candidate_a": orderings[1],
-        "at_least_as_good": c.at_least_as_good, "rationale": c.rationale, "error": c.error,
+        "at_least_as_good": c.at_least_as_good, "rationale": pg_text(c.rationale), "error": pg_text(c.error),
     }
 
 
