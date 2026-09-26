@@ -86,6 +86,10 @@ PILOT_ONLY: dict[tuple[str, str], str] = {
 }
 
 AGENT_ORIGINS = {"agent_live_edit", "agent_draft_accepted", "agent_place_added"}
+#: Origins written without a turn id, by design (D98): adding a place Tonic named
+#: happens in the web app, which knows the place and not the turn. The turn is
+#: recorded on the matching `study_user_actions` row (`place:<google id>`).
+ORIGINS_WITHOUT_TURN = {"agent_place_added"}
 
 #: The hourly job stamps rows older than 24 h (D17); an hour's slack for the
 #: schedule plus five minutes for its own run.
@@ -477,7 +481,8 @@ def check_links(data: PilotData) -> list[Check]:
     for m in data.mutations:
         kind, origin = m.get("origin_kind"), m.get("origin_suggestion_id")
         if kind in AGENT_ORIGINS and origin is None:
-            bad.append(f"{kind} without an origin")
+            if kind not in ORIGINS_WITHOUT_TURN:
+                bad.append(f"{kind} without an origin")
         elif kind in AGENT_ORIGINS and session_of.get(origin) != m.get("session_id"):
             bad.append(f"{kind} linked to another session's turn")
         elif kind not in AGENT_ORIGINS and origin is not None:

@@ -264,3 +264,13 @@ def test_failed_turn_without_model_fails_the_pin():
     data.suggestions[2].update(error_code="llm_error", model_version=None, model_released_on=None)
     names = statuses(pilot.check_turns(data, MODEL, T0 + timedelta(hours=1)))
     assert names["model is the pinned dated release"] == "FAIL"
+
+
+def test_a_place_added_without_a_turn_is_by_design_but_other_agent_kinds_are_not():
+    data = complete()
+    place = dict(data.mutations[0], id="mu3", table_name="trip_blocks", origin_kind="agent_place_added",
+                 origin_suggestion_id=None)
+    data.mutations.append(place)
+    assert statuses(pilot.check_links(data))["mutation origins link correctly (D13)"] == "PASS"
+    data.mutations[0]["origin_suggestion_id"] = None  # an accepted draft slot must carry its turn
+    assert statuses(pilot.check_links(data))["mutation origins link correctly (D13)"] == "FAIL"

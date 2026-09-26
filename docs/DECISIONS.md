@@ -31,6 +31,30 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D98 — A place added from Tonic's reply is linked to its turn through study_user_actions, not on the mutation row
+Date: 2026-09-26 · Decided by: author (escalated by agent after the pilot
+notebook flagged "agent_place_added without an origin")
+Options: accept and document · fill the turn in via the API in the same
+request · have the web send the reply's message id and the trigger resolve it
+Chosen: accept and document. The web app knows the place, not the turn, so
+`study_mutations.origin_suggestion_id` stays null for `agent_place_added`
+(A04's spec had the header carry the turn id; the implementation never did for
+this kind). Nothing is lost: the kind is recorded, and the same request writes
+the `study_user_actions` row (`place:<google id>` → the turn the API resolves
+from the reply that named the place), from which the turn's `user_action` is
+set. Checked on the two pilot cases: the join through the trip data (block →
+place → Google id) matches exactly; the fallback by actor and nearest time
+(0.45 s and 0.68 s) matches too, where a 10 s window was ambiguous.
+Why not fill it in: every analysis C02 plans reads the turn label, not the
+mutation's link; the link matters only for follow-through analyses (did an
+adopted place get scheduled, was it removed later), which the join serves.
+The recipe is in event-model.md; like every id-based join it must run before
+the eight-month anonymisation (D91).
+The pilot check (`check_links`) allows a null origin for this one kind; every
+other agent kind must still carry its turn.
+Affects: A04, C01, C02, `src/pilot.py`, `tests/test_pilot.py`, event-model.md ·
+Reverses: none
+
 ### D97 — The pair-wise judge sees each reply's own day (judge-pairwise/2)
 Date: 2026-09-26 · Decided by: author (escalated by agent before B11; "tell
 the judge each reply's own day")

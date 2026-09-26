@@ -214,6 +214,18 @@ in analysis, never written by the app.
 agent_draft_accepted, agent_place_added, user_manual, system}`, captured by
 triggers reading the `x-study-origin` request header.
 
+**`agent_place_added` carries no turn id (D98).** Adding a place Tonic named
+happens in the web app, which knows the place and not the turn, so these rows
+have `origin_suggestion_id` null by design. The kind is recorded, and the turn
+is on the matching `study_user_actions` row (`target = place:<google_place_id>`,
+`suggestion_id`), written by the same request. To join a mutation to its turn:
+**exactly**, through the trip data (`row_id` → `trip_blocks.place_id` →
+`places.google_place_id` → the action's target); **as a fallback** when the
+block is gone, the action by the same `actor_user_id` **nearest in time**
+(same request, well under a second; a fixed window is ambiguous when two places
+are added seconds apart). Both need the ids, so they must run before the
+eight-month anonymisation (D91). Every other agent kind carries its turn id.
+
 ---
 
 ## General level
