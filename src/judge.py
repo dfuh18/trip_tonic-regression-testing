@@ -146,6 +146,26 @@ def _references(references: list[str], case: Optional[Case] = None, today: Optio
     return "\n\n".join(blocks)
 
 
+def _when_block(case: Optional[Case], day: Optional[date]) -> str:
+    """What one reply's day was (D97): the today line, and for a near-dated case
+    the trip as it was built relative to that day."""
+    lines = [_today_block(day).split("\n", 1)[1]]
+    if case is not None and getattr(case, "fixture_dates", "fixture") == "near":
+        lines.append(f"The trip as it stood that day:\n{_fixture_summary(case, day)}")
+    return "\n".join(lines)
+
+
+def _shared_references(references: list[str], case: Optional[Case] = None) -> str:
+    """Reference material both replies are judged against. A fixed-calendar
+    trip is the same for both, so it sits here; a near-dated one moves with the
+    day and sits in each reply's `_when_block` instead."""
+    blocks = []
+    if case is None or getattr(case, "fixture_dates", "fixture") != "near":
+        blocks.append(f"--- the trip this was asked about ---\n{_fixture_summary(case)}")
+    blocks += [f"--- reference {i + 1} ---\n{text.strip()}" for i, text in enumerate(references)]
+    return "\n\n".join(blocks)
+
+
 def _usage(model: str, version: str, replies: list[LlmReply]) -> Usage:
     return Usage(
         model=model,
@@ -188,8 +208,15 @@ def compare_pairwise(
     candidate_reply: str,
     references: Optional[list[str]] = None,
     llm: Optional[Llm] = None,
+    baseline_day: Optional[date] = None,
+    candidate_day: Optional[date] = None,
 ) -> PairwiseResult:
     """Is the candidate at least as good as the baseline?
+
+    Each reply is judged against the day it was given (D97): the baseline was
+    recorded in an earlier run, so a forecast or a near-dated trip legitimately
+    differs between the two, and one shared "today" would mark one of them
+    wrong for being right about its own week.
 
     Asked twice with the replies swapped (D23's position-bias control). In the
     first call the candidate is B, so it holds when the model answers B or
@@ -197,16 +224,22 @@ def compare_pairwise(
     The candidate passes only when both calls say it holds.
     """
     llm = llm or judge_llm()
-    prompt = load_prompt("judge_pairwise_v1")
-    refs = _references(references or [], case)
+    prompt = load_prompt("judge_pairwise_v2")
+    refs = _shared_references(references or [], case)
+    when = {"baseline": _when_block(case, baseline_day), "candidate": _when_block(case, candidate_day)}
     outs: list[LlmReply] = []
     orderings: list[Ordering] = []
     for candidate_as in ("B", "A"):
         a, b = (baseline_reply, candidate_reply) if candidate_as == "B" else (candidate_reply, baseline_reply)
+        when_a, when_b = (
+            (when["baseline"], when["candidate"]) if candidate_as == "B" else (when["candidate"], when["baseline"])
+        )
         rendered = prompt.render(
             user_request=user_request.strip(),
             reply_a=a.strip() or "(empty reply)",
             reply_b=b.strip() or "(empty reply)",
+            when_a=when_a,
+            when_b=when_b,
             criteria=_criteria(case),
             references=refs,
         )

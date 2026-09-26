@@ -43,7 +43,7 @@ def test_prompts_carry_a_version_header():
     """That a version is declared and stripped from what the model sees — not
     which version it is. Pinning the number makes every legitimate bump fail a
     test, which is how a version stops being bumped."""
-    for name in ("simulator_v1", "judge_pointwise_v1", "judge_pairwise_v1"):
+    for name in ("simulator_v1", "judge_pointwise_v1", "judge_pairwise_v1", "judge_pairwise_v2"):
         prompt = load_prompt(name)
         assert re.fullmatch(r"[a-z-]+/\d+", prompt.version), prompt.version
         assert "<!--" not in prompt.template

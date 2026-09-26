@@ -4,6 +4,8 @@
     python tools/overnight_baseline.py --in 5          # start in 5 minutes
     python tools/overnight_baseline.py --dry-run       # preflight and plan only
     python tools/overnight_baseline.py --resume <run-id> --in 0   # continue a stopped run
+    python tools/overnight_baseline.py --regress       # B11: run against the adopted baseline
+    python tools/overnight_baseline.py --regress --resume <run-id> --in 0
 
 Leave it running in a terminal (the machine must not sleep, and the local API
 must stay up — `pnpm dev`). Everything is written to
@@ -27,6 +29,10 @@ Order, and what stops it:
    execution was structurally checked.
 5. **The judge** (`scoring.score_run`) only if 4 held. Each execution is
    judged against the day it ran on, in UTC (D94).
+6. **With `--regress` (B11)**: the run carries `baseline_ref` = the adopted
+   baseline's run, and after the point-wise scores every execution is compared
+   pair-wise with its case's baseline reply (`comparison.compare_run`), each
+   reply judged against its own day (D97); the pass rates are logged.
 
 Dates: the agent's "TODAY IS" line, the near-dated trip the harness builds, and
 the day the judge is told are all the execution's UTC day, so an overnight run
@@ -157,6 +163,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true", help="preflight and plan only")
     parser.add_argument("--resume", metavar="RUN_ID", default=None,
                         help="continue a stopped run instead of opening a new one")
+    parser.add_argument("--regress", action="store_true",
+                        help="B11: run against the adopted baseline and compare pair-wise")
     args = parser.parse_args(argv)
     log = Log()
 
@@ -165,7 +173,19 @@ def main(argv: list[str] | None = None) -> int:
     cases = load_cases()
     executions = sum(c.repetitions_n for c in cases)
     start = datetime.now(timezone.utc) + timedelta(minutes=args.minutes)
-    log(f"overnight baseline: {len(cases)} cases, {executions} executions; log {log.path}")
+    baseline = None
+    if args.regress:
+        from src import comparison as cmp
+
+        baseline = cmp.load_baseline()
+        gaps = cmp.baseline_gaps(baseline)
+        if gaps or len(baseline.get("runs", [])) != 1:
+            log(f"PREFLIGHT FAILED: the adopted baseline is not one complete run: {gaps or baseline.get('runs')}")
+            return 2
+        log(f"regression run (B11) against baseline {cmp.baseline_key(baseline)} "
+            f"(run {baseline['runs'][0][:8]}, adopted by {baseline.get('adopted_by')})")
+    kind = "B11 regression run" if args.regress else "overnight baseline"
+    log(f"{kind}: {len(cases)} cases, {executions} executions; log {log.path}")
 
     problems = preflight(log)
     if problems:
@@ -191,7 +211,10 @@ def main(argv: list[str] | None = None) -> int:
             log(f"resuming run {args.resume}")
         run_id = runner.run(
             resume_run_id=args.resume,
-            notes="B10 baseline — overnight, started by tools/overnight_baseline.py",
+            baseline_ref=baseline["runs"][0] if baseline else None,
+            notes=(f"B11 regression run against baseline {baseline['runs'][0][:8]} — "
+                   "started by tools/overnight_baseline.py --regress")
+            if baseline else "B10 baseline — overnight, started by tools/overnight_baseline.py",
             log=log,
         )
     except Exception as exc:
@@ -223,7 +246,17 @@ def main(argv: list[str] | None = None) -> int:
     log("sanity passed; judging")
     result = scoring.score_run(run_id, log=log)
     log(scoring.report(result))
-    log(f"DONE. Run {run_id}. Next: open notebooks/sim/03_baseline.ipynb with this run id.")
+    if not baseline:
+        log(f"DONE. Run {run_id}. Next: open notebooks/sim/03_baseline.ipynb with this run id.")
+        return 0
+
+    from src import comparison as cmp
+
+    log("comparing pair-wise with the baseline (both orderings per execution, D23)")
+    comparisons = cmp.compare_run(run_id, baseline, log=log)
+    rates = cmp.pass_rates(comparisons)
+    log("\n" + rates.to_string())
+    log(f"DONE. Run {run_id}. Next: open notebooks/sim/04_regress.ipynb with this run id.")
     return 0
 
 

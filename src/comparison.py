@@ -184,7 +184,7 @@ def _judge_identity() -> tuple[str, str]:
     from src.config import settings
     from src.llm import load_prompt
 
-    return settings.JUDGE_MODEL, load_prompt("judge_pairwise_v1").version
+    return settings.JUDGE_MODEL, load_prompt("judge_pairwise_v2").version
 
 
 def _record(run_id: str, row: dict, c: Comparison, baseline: dict) -> dict:
@@ -253,7 +253,7 @@ def compare_run(
     from src.execution import latest_attempts
     from src.judge import compare_pairwise
     from src.llm import judge_llm
-    from src.scoring import MAX_JUDGE_ATTEMPTS, _judge_backoff_s, _judge_worth_retrying, first_reply
+    from src.scoring import MAX_JUDGE_ATTEMPTS, _judge_backoff_s, _judge_worth_retrying, execution_day, first_reply
     from src.survey import _rows
 
     cases = {c.case_id: c for c in load_cases()}
@@ -296,7 +296,11 @@ def compare_run(
             refs = [r.text() for r in case.references]
             for attempt in range(1, MAX_JUDGE_ATTEMPTS + 1):
                 try:
-                    result = compare_pairwise(case, case.opening_turn, reference, candidate, refs, llm=llm)
+                    result = compare_pairwise(
+                        case, case.opening_turn, reference, candidate, refs, llm=llm,
+                        baseline_day=execution_day(by_id[entry["execution_id"]]),
+                        candidate_day=execution_day(row),
+                    )
                     out.append(Comparison(**{
                         **base, "at_least_as_good": result.at_least_as_good,
                         "orderings": [o.better for o in result.orderings],

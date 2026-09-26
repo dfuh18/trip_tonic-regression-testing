@@ -31,6 +31,32 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D97 — The pair-wise judge sees each reply's own day (judge-pairwise/2)
+Date: 2026-09-26 · Decided by: author (escalated by agent before B11; "tell
+the judge each reply's own day")
+Options: give each reply its own day · exclude the two date-relative cases
+from pair-wise · keep one shared "today" (the judging day)
+Chosen: each reply its own day. B11 compares a baseline reply recorded on
+2026-09-25 with a candidate recorded on the B11 day. One shared "today" would
+mark a correct forecast wrong for describing its own week
+(`factual_qa_lisbon_forecast_next_days`), and the near-dated trip
+(`factual_qa_lisbon_trip_forecast`) is built three days after each execution,
+so the two replies are about different trip dates. Both would read as false
+regressions, the error D30 rules the worse one.
+`src/prompts/judge_pairwise_v2.md` (`judge-pairwise/2`) is v1 plus a "When
+each reply was given" section: per reply, the today line (D94) and, for a
+near-dated case, the trip as built that day; a difference that exists only
+because the days differ decides nothing. `compare_pairwise(...,
+baseline_day=, candidate_day=)` places each day with its reply in both
+orderings (tested); `compare_run` passes `execution_day()` of both executions.
+v1 stays in the repo for stored comparisons (study_comparisons rows carry the
+judge prompt version).
+`tools/overnight_baseline.py --regress` runs B11: `baseline_ref` = the adopted
+baseline's run, then the checker, the sanity check, point-wise scores, and the
+pair-wise comparison with pass rates.
+Affects: B09, B11, `src/judge.py`, `src/comparison.py`, `tests/test_judge_date.py` ·
+Amends: D23 (the judge protocol's pair-wise prompt), D94
+
 ### D96 — The B10 baseline is run 1a872c09's proposal, adopted unchanged
 Date: 2026-09-26 · Decided by: author ("adopt the proposal as baseline")
 Options: adopt the 03_baseline proposal as it stands · swap in other
