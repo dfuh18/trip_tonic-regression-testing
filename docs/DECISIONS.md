@@ -31,6 +31,27 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D96 — The B10 baseline is run 1a872c09's proposal, adopted unchanged
+Date: 2026-09-26 · Decided by: author ("adopt the proposal as baseline")
+Options: adopt the 03_baseline proposal as it stands · swap in other
+executions for individual cases
+Chosen: adopt unchanged. `cases/baseline.json` holds, for all 31 cases, the
+execution `comparison.propose_baseline` picks from run `1a872c09`: structurally
+clean first, then the highest judge score, then the earliest repetition (D86).
+One run, no gaps, baseline key `0575abe1f224`; written with
+`comparison.write_baseline(..., by="author")` and identical to
+`runs/baseline_proposal_1a872c09.json`.
+What the author reviewed before adopting (03_baseline): every proposed reply in
+full, the judge's rationale for the 7 shown below 10, and two worked failures:
+`get_climate_normals` timing out under the API's 8 s Open-Meteo budget (the
+agent's Wikipedia fallback is reasonable, and the suite rightly flags the
+changed route), and the tram case moving the tram into its own pending draft.
+Neither changes the baseline: each baseline entry is a clean execution.
+Consequence: B10 is done; B11 (the regression run) compares against this file.
+Before B11, pair-wise comparison must be given each execution's own day (D94).
+Affects: B10, B11, C05, `cases/baseline.json`, `notebooks/sim/03_baseline.ipynb` ·
+Reverses: none
+
 ### D95 — A lapsed harness session is the harness's failure, never the agent's; B10 run 1a872c09 is resumed
 Date: 2026-09-26 · Decided by: author ("the failed execution should not get
 punished as agent failure and retried"; "we can resume it after we fix the

@@ -1,0 +1,165 @@
+{
+  "_note": "B10 baseline, adopted by the author on instruction: the proposal of 03_baseline for run 1a872c09 unchanged (best structurally clean execution per case, then the highest judge score, then the earliest repetition; D86).",
+  "adopted_by": "author",
+  "on": "2026-09-26",
+  "runs": [
+    "1a872c09-7070-4789-a806-904969f9185d"
+  ],
+  "cases": {
+    "advisory_packing_list": {
+      "execution_id": "03209e05-b425-443c-b1d6-8232d03cfd4e",
+      "suggestion_id": "9f96c391-5b9a-4711-b677-7ac4627b15b8",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "advisory_packing_list__inv1_paraphrase": {
+      "execution_id": "4b0f9e18-e234-46ae-8018-26b9ad42e78e",
+      "suggestion_id": "36aacba0-8b66-409e-b3ea-9a0d1bba6a49",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "advisory_packing_list__inv3_irrelevant_detail": {
+      "execution_id": "80e2e29d-ab50-481a-acef-9311526a31fa",
+      "suggestion_id": "f3b53332-cc19-4dfc-aab6-68c5310e347d",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "advisory_sintra_full_or_half_day": {
+      "execution_id": "0258bd7b-9c71-44c2-a651-90227f4e108a",
+      "suggestion_id": "29533d04-9b92-488a-b77e-9f47c8fdca3f",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "advisory_sintra_full_or_half_day__inv1_paraphrase": {
+      "execution_id": "c6ed2911-0e71-4737-b02a-99fb440733d2",
+      "suggestion_id": "143fdd10-0875-467b-805b-1d4b91183889",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "advisory_sintra_full_or_half_day__inv4_german": {
+      "execution_id": "3f50c137-22fd-4c87-82f5-b1b2626ef5d3",
+      "suggestion_id": "6cf09aa8-7d96-42b4-a8a0-5ca70f489179",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "factual_qa_alfama_history": {
+      "execution_id": "67fc289f-9253-46b3-b4cc-e9dba18bcad7",
+      "suggestion_id": "50472dbc-535b-4f14-a755-cc921e9af212",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "factual_qa_alfama_history__dir1_the_earthquake": {
+      "execution_id": "15fe927f-f6a2-48c8-ad92-12446af397a7",
+      "suggestion_id": "2cdcd231-3980-4fd3-9dec-1a8a32474acd",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "factual_qa_alfama_history__inv1_paraphrase": {
+      "execution_id": "791633b6-27a8-41e7-806f-1098c65c5947",
+      "suggestion_id": "fad9eb7f-b967-4768-bd0d-31b8228da90f",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "factual_qa_lisbon_forecast_next_days": {
+      "execution_id": "d27a3b22-dcc2-418e-b9b9-2459a0aa819d",
+      "suggestion_id": "e7f2f0aa-be17-45b0-afa4-70047210f5b6",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "factual_qa_lisbon_november_weather": {
+      "execution_id": "c63f3a9d-cd73-442e-b3ea-1b4d2bb44959",
+      "suggestion_id": "7f4181e3-b55b-44a5-b8bb-f7c2043a582f",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "factual_qa_lisbon_november_weather__dir1_july_instead": {
+      "execution_id": "43bf34eb-4591-4155-978a-19535173abbf",
+      "suggestion_id": "258006e3-27a2-458c-be2b-e6f9c264ed78",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "factual_qa_lisbon_november_weather__inv1_paraphrase": {
+      "execution_id": "c3dd9692-fcd3-4f90-9b4d-c843172fdfc7",
+      "suggestion_id": "8d9de7ba-b80e-4236-8cc6-881146059b67",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "factual_qa_lisbon_surf_conditions": {
+      "execution_id": "658950f4-c749-4673-98f1-a691d0324eea",
+      "suggestion_id": "5521f534-913d-48da-9032-623fb6e6a484",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "factual_qa_lisbon_trip_forecast": {
+      "execution_id": "c0b75795-018f-4e23-a328-f5b939449b7e",
+      "suggestion_id": "601d5fc3-db85-442d-a751-37510f33800d",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "scheduling_afternoon_then_tram": {
+      "execution_id": "7785148c-2f68-439c-bf27-e5f521f01c9a",
+      "suggestion_id": "ee85a281-d830-40ff-908f-4b3a049795ad",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "scheduling_belem_morning": {
+      "execution_id": "3e3b15a3-5880-4825-a965-8d5cf8aae829",
+      "suggestion_id": "6864d65a-3e2c-4991-b184-67c2c97c8a8d",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "scheduling_belem_morning__dir2_on_the_9th": {
+      "execution_id": "8a272b71-27d6-4a7e-bade-af342b3d4e7c",
+      "suggestion_id": "f44b03b2-e27b-420d-bb36-b0d0cef9f2b6",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "scheduling_belem_morning__dir3_a_full_day": {
+      "execution_id": "a5503aca-0e46-4b02-90a6-f97b85305205",
+      "suggestion_id": "5d7a9e35-66ed-43e9-af88-4dbce4c3e64a",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "scheduling_dinner_from_offer": {
+      "execution_id": "d2a466f7-4a13-4aca-b604-8e772987b361",
+      "suggestion_id": "3f6ef41c-98aa-4eef-9dab-6befb680695c",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "scheduling_move_tram": {
+      "execution_id": "acc7e334-7cbd-4dcf-86fd-fc39dbe6aefc",
+      "suggestion_id": "e3682d72-0064-4c58-a683-6857e466273c",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "scheduling_move_tram__dir1_put_the_monastery_on": {
+      "execution_id": "dc19e2b6-b69a-416e-a174-6e32b3f0e325",
+      "suggestion_id": "84e82a11-4a4d-4af0-9d7d-2fff5010450d",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "scheduling_move_tram__dir2_sunday_afternoon": {
+      "execution_id": "6cbfeb69-ae2e-4fb4-b39a-73027d299695",
+      "suggestion_id": "2ca1751d-fbde-4c05-ba3f-24d78dbc3f37",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "scheduling_move_tram__dir4_off_the_itinerary": {
+      "execution_id": "8fef4e9e-b74c-443d-a105-8cd730e25a32",
+      "suggestion_id": "b25dd75a-9e30-4b09-be92-0bcf1bec6ed6",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "venue_lookup_seafood_lisbon": {
+      "execution_id": "9cd6232c-2830-43b1-867d-90d2655fa4d1",
+      "suggestion_id": "c9297d6a-9fec-451f-9232-bdc9fb0dbadc",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "venue_lookup_seafood_lisbon__dir1_and_a_hotel": {
+      "execution_id": "1e7efb68-6b74-45a2-964a-79756cbe6f05",
+      "suggestion_id": "9416261d-33ea-43e5-98ec-18d084a325a7",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "venue_lookup_seafood_lisbon__dir4_not_a_meal": {
+      "execution_id": "e08302f4-e32d-44cc-9307-aeb2f804f5ae",
+      "suggestion_id": "e017308d-4ba3-472e-9ac0-654659d45f05",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "venue_lookup_seafood_lisbon__inv2_typos": {
+      "execution_id": "d0ad9c0d-ff99-462a-9c8c-ccb3fcdee1db",
+      "suggestion_id": "99d9d2af-1e8f-4b6f-9c6c-11195c662f3e",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "venue_lookup_sintra_lunch": {
+      "execution_id": "d8dea976-8e27-4ef3-aa6d-2885a9974507",
+      "suggestion_id": "df0519b4-6472-448a-af1f-bc863a196f72",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "venue_lookup_sintra_lunch__dir1_coffee_not_lunch": {
+      "execution_id": "f94c5757-101e-4b66-bcca-f018df429bfc",
+      "suggestion_id": "bf667d03-f27d-4fad-8cf4-dcb0b04d928a",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    },
+    "venue_lookup_sintra_lunch__dir2_lisbon_day": {
+      "execution_id": "28c03042-9931-4e25-ba1d-0ac89a3811a4",
+      "suggestion_id": "dd1b54ea-3645-4f4c-bff2-e85cc0dbad16",
+      "run_id": "1a872c09-7070-4789-a806-904969f9185d"
+    }
+  }
+}

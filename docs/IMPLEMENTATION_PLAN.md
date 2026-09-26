@@ -46,7 +46,7 @@ that cannot be skipped or reordered.
 | Phase | Tasks | Done | Blocked |
 |---|---|---|---|
 | A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 13 | 0 |
-| B — pipeline stages 1 to 3.2 | 17 (14 `[FABLE]`, 3 `[STANDARD]`) | 13 | 0 |
+| B — pipeline stages 1 to 3.2 | 17 (14 `[FABLE]`, 3 `[STANDARD]`) | 14 | 0 |
 | C — analysis and pilot | 6 (6 `[FABLE]`, 0 `[STANDARD]`) | 0 | 1 |
 
 Estimate total: about 152 h (A 51.5 h · B 73.5 h · C 27 h). Vertex compute for
@@ -846,7 +846,16 @@ Phase: B
 Tier: [FABLE]
 Depends on: B05, B07, B08, B09
 Estimate: 6h (plus compute)
-Status: not started
+Status: done (2026-09-26). Run `1a872c09` (overnight via
+`tools/overnight_baseline.py`; resumed once after the harness session lapsed at
+the one-hour mark, D95): 31 cases, 176 executions, 0 failed, 165 structurally
+clean, 176 scored (mean 9.26), every version field set, $4.52. The author
+adopted the 03_baseline proposal unchanged into `cases/baseline.json` (D96;
+baseline key `0575abe1f224`); every 03_baseline criterion holds. Findings
+carried into the notebook: `get_climate_normals` times out under the API's 8 s
+Open-Meteo budget (2 of 8 surf repetitions), and the tram case re-drafts
+already-scheduled stops (6 of 8) or moves the tram into its own pending draft
+(1 of 8)
 Spec: Execute the full suite once (`run_priority` order, seeds at n = 8,
 expanded at n = 4 — D21). `notebooks/sim/03_baseline.ipynb`: per case, the
 structural outcomes across repetitions, the point-wise scores, cost and latency;
