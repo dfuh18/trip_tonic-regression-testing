@@ -3,6 +3,7 @@
     python tools/overnight_baseline.py                 # preflight now, start in 60 min
     python tools/overnight_baseline.py --in 5          # start in 5 minutes
     python tools/overnight_baseline.py --dry-run       # preflight and plan only
+    python tools/overnight_baseline.py --resume <run-id> --in 0   # continue a stopped run
 
 Leave it running in a terminal (the machine must not sleep, and the local API
 must stay up — `pnpm dev`). Everything is written to
@@ -19,7 +20,8 @@ Order, and what stops it:
 2. **Wait**, then the same preflight again.
 3. **The run.** `runner.run()` over the whole suite at each case's own n
    (8 per seed, 4 per expansion, D21), notes marking it as B10.
-4. **Sanity check.** Completeness only, never quality — a failing case is a
+4. **Structural checker** (`checker.check_run`, persisted), then the
+   **sanity check.** Completeness only, never quality — a failing case is a
    result, not a reason to skip the judge: the run row is closed and carries
    every version field; every (case, repetition) has an execution; every
    execution was structurally checked.
@@ -153,6 +155,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--in", dest="minutes", type=float, default=60.0, help="minutes until the run starts")
     parser.add_argument("--dry-run", action="store_true", help="preflight and plan only")
+    parser.add_argument("--resume", metavar="RUN_ID", default=None,
+                        help="continue a stopped run instead of opening a new one")
     args = parser.parse_args(argv)
     log = Log()
 
@@ -183,20 +187,35 @@ def main(argv: list[str] | None = None) -> int:
     from src import runner
 
     try:
+        if args.resume:
+            log(f"resuming run {args.resume}")
         run_id = runner.run(
+            resume_run_id=args.resume,
             notes="B10 baseline — overnight, started by tools/overnight_baseline.py",
             log=log,
         )
     except Exception as exc:
         log(f"RUN FAILED: {type(exc).__name__}: {exc}")
+        log("Continue with: python tools/overnight_baseline.py --resume <run id from the log above> --in 0")
         return 3
     log(f"run {run_id} finished")
+
+    # The runner records executions; structural verdicts are a separate pass
+    # over the record (B08), and the sanity check below requires them.
+    from src.checker import check_run
+
+    try:
+        verdicts = check_run(run_id, persist=True)
+        log(f"structural checker: {len(verdicts)} execution(s) checked")
+    except Exception as exc:
+        log(f"CHECKER FAILED: {type(exc).__name__}: {exc}")
+        return 5
 
     problems = sanity(run_id, log)
     if problems:
         for p in problems:
             log(f"SANITY FAILED: {p}")
-        log(f"judge NOT started. Resume the run with runner.run(resume_run_id='{run_id}') and re-run the check.")
+        log(f"judge NOT started. Continue with: python tools/overnight_baseline.py --resume {run_id} --in 0")
         return 4
 
     from src import scoring

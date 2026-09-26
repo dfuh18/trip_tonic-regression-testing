@@ -31,6 +31,36 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D95 — A lapsed harness session is the harness's failure, never the agent's; B10 run 1a872c09 is resumed
+Date: 2026-09-26 · Decided by: author ("the failed execution should not get
+punished as agent failure and retried"; "we can resume it after we fix the
+session recovery mechanism")
+What happened: the first overnight B10 run (`1a872c09`, started 22:27 UTC)
+stopped with a 401 at 23:27, exactly one hour in. The runner signed the
+simulated member in once and reused the JWT; Supabase access tokens live an
+hour. The 401 came while building the next repetition's trip, before any row
+existed, so no execution was recorded for it and the run row stayed open.
+96 of 176 repetitions were done, none affected (no execution carries a 401).
+Chosen:
+- `auth.Session` renews the JWT whenever less than 15 minutes remain (expiry
+  from its `exp`); `RunHandle.token` reads it at the start of each execution.
+- A 401 is class `auth` in `failure_class` (matched as a status, not as
+  digits inside an id): never `agent`. On the agent's turn or the simulator's,
+  it is retried after a forced sign-in, like a platform refusal, and the
+  attempt it cost stays in the record as superseded (D53). Before a row
+  exists (the trip build), the repetition is simply repeated after a fresh
+  sign-in, up to twice; nothing is recorded.
+- The run is continued with `tools/overnight_baseline.py --resume`, not
+  restarted: the fix changes only how the harness authenticates — not the
+  agent, the simulator, the cases or the checks — and the API code is the same
+  in both halves. The run row keeps the `git_sha`/`api_commit` of its first
+  half (`b954dbe`); 03_baseline should say it was resumed and at which commit.
+- The launcher also runs the structural checker (`check_run`) before its
+  sanity check — the runner never did, and the check would have blocked the
+  judge.
+Affects: B07, B10, `src/auth.py`, `src/runner.py`, `tools/overnight_baseline.py`,
+`tests/test_session_renewal.py` · Reverses: none
+
 ### D94 — The judge is told the day the execution ran, in UTC
 Date: 2026-09-25 · Decided by: author ("judge and agent get today as
 context"; raised while scheduling the overnight B10 run)

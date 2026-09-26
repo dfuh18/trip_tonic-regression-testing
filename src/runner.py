@@ -92,6 +92,19 @@ PROVIDER_REFUSAL_STATUSES = ("429", "503", "504")
 #: limited is caused by.
 OUR_OWN_LIMIT_STATUSES = ("429",)
 
+#: The API refused the harness's credentials. A statement about the harness's
+#: session, never about the agent: the turn was not judged on its merits. It is
+#: retried after a fresh sign-in, like a platform refusal, and an attempt it
+#: cost stays in the record as superseded (D95).
+HARNESS_AUTH_STATUSES = ("401",)
+
+
+def _is_auth_refusal(error: str) -> bool:
+    """A 401 as a status, not as digits inside an id or a latency."""
+    import re
+
+    return any(re.search(rf"(?<![0-9a-fA-F-]){code}(?![0-9a-fA-F-])", error) for code in HARNESS_AUTH_STATUSES)
+
 
 def failure_class(error: Optional[str]) -> Optional[str]:
     """Who failed: ``platform``, ``ours``, ``harness``, ``agent`` — or None.
@@ -117,9 +130,13 @@ def failure_class(error: Optional[str]) -> Optional[str]:
         return None
     if error.startswith("simulator:"):
         # Everything here is the harness's call, not the agent's turn.
+        if _is_auth_refusal(error):
+            return "auth"
         if any(s in error for s in PROVIDER_REFUSAL_STATUSES):
             return "platform"
         return "harness"
+    if _is_auth_refusal(error):
+        return "auth"
     if any(s in error for s in OUR_OWN_LIMIT_STATUSES):
         return "ours"
     if any(s in error for s in PLATFORM_REFUSAL_STATUSES):
@@ -136,7 +153,13 @@ class RunHandle:
 
     run_id: str
     user: SimUser
-    token: str
+    #: Renews itself before the hour-long JWT runs out (auth.Session); read
+    #: `token` at the start of each execution, never cache it across one.
+    session: "auth.Session"
+
+    @property
+    def token(self) -> str:
+        return self.session.token
 
 
 def _now() -> str:
@@ -505,7 +528,8 @@ def run(
     if priority_only:
         cases = [c for c in cases if c.run_priority == 1]
     user = auth.ensure_sim_users(1)[0]
-    token = auth.sign_in(user)
+    session = auth.Session(user)
+    token = session.token
     # The gate before there is a run: a start the harness cannot vouch for
     # produces no run row at all (D03). The trip it builds is handed to the
     # first execution rather than thrown away, so the gate is a real
@@ -522,7 +546,7 @@ def run(
     # only field that can carry it, and a probe run mistaken for the reference
     # run later is not a mistake anything else would catch.
     run_id = resume_run_id or open_run(user, token, cases, baseline_ref, notes, concurrency)
-    handle = RunHandle(run_id=run_id, user=user, token=token)
+    handle = RunHandle(run_id=run_id, user=user, session=session)
     simulator = simulator or Simulator()
     done = executions_done(run_id) if resume_run_id else set()
     log(f"run {run_id[:8]}: {len(cases)} case(s), {len(done)} execution(s) already recorded")
@@ -555,6 +579,27 @@ def run(
     # the rows already there.
     used = attempts_used(run_id) if resume_run_id else {}
 
+    def execute(*args, **kwargs) -> dict:
+        """`execute_case`, surviving a 401 that arrives before there is a row.
+
+        Building the trip is the harness talking to the API as the simulated
+        member; a 401 there says the session lapsed, not that the agent did
+        anything. Sign in again and repeat the repetition — nothing was
+        recorded, so nothing is superseded (D95). Tonight's first B10 attempt
+        died here, an hour in.
+        """
+        for auth_attempt in range(1, 4):
+            try:
+                return execute_case(*args, **kwargs)
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code != 401 or auth_attempt == 3:
+                    raise
+                warn = f"    WARNING 401 from the API before the execution existed — signing in again (retry {auth_attempt} of 2)"
+                log(warn)
+                reset.harness_log(f"RUN {run_id[:8]} {warn.strip()}")
+                handle.session.invalidate()
+        raise AssertionError("unreachable")
+
     def settle(row: dict, case: Case, repetition: int) -> None:
         """Apply the failure policy to a completed execution.
 
@@ -582,7 +627,7 @@ def run(
                 "finished_at": _now(),
             }).eq("id", run_id).execute()
             raise RunAborted(msg)
-        if final == "platform":
+        if final in ("platform", "auth"):
             lost = (f"    WARNING {case.case_id} rep {repetition} LOST to the platform after "
                     f"{MAX_ATTEMPTS_PER_REPETITION} attempts ({row['error']})")
             log(lost)
@@ -610,8 +655,11 @@ def run(
         """
         nonlocal platform_retries
         for attempt in range(from_attempt + 1, MAX_ATTEMPTS_PER_REPETITION + 1):
-            if failure_class(row.get("error")) != "platform":
+            blame = failure_class(row.get("error"))
+            if blame not in ("platform", "auth"):
                 break
+            if blame == "auth":
+                handle.session.invalidate()
             warn = (f"    WARNING platform refused {case.case_id} rep {repetition} "
                     f"({row['error']}) — retrying, attempt {attempt} of "
                     f"{MAX_ATTEMPTS_PER_REPETITION}")
@@ -619,7 +667,7 @@ def run(
             reset.harness_log(f"RUN {run_id[:8]} {warn.strip()}")
             platform_retries += 1
             progress["attempt"] = attempt
-            row = execute_case(handle, case, repetition, simulator, log, attempt=attempt)
+            row = execute(handle, case, repetition, simulator, log, attempt=attempt)
         settle(row, case, repetition)
         return row
 
@@ -638,7 +686,7 @@ def run(
                 # wants that calendar may inherit it (D54); a near-dated case
                 # builds its own and the gate's trip goes to the next taker.
                 inherit = opening if (case.fixture_dates == "fixture" and first == 1) else None
-                row = execute_case(handle, case, repetition, simulator, log,
+                row = execute(handle, case, repetition, simulator, log,
                                    provisioned=inherit, attempt=first)
                 if inherit is not None:
                     opening = None  # the gate's trip belongs to one execution only
@@ -663,8 +711,10 @@ def run(
                 # writes a row per attempt and the key is unique.
                 sim_attempt = progress["attempt"]
                 recovered = False
-                while (failure_class(f"simulator: {exc}") == "platform"
+                while (failure_class(f"simulator: {exc}") in ("platform", "auth")
                        and sim_attempt < MAX_ATTEMPTS_PER_REPETITION):
+                    if failure_class(f"simulator: {exc}") == "auth":
+                        handle.session.invalidate()
                     record_simulator_failure(run_id, handle, case, repetition, sim_attempt, exc)
                     sim_attempt += 1
                     warn = (f"    WARNING simulator refused by the platform on {case.case_id} rep "
@@ -675,7 +725,7 @@ def run(
                     platform_retries += 1
                     progress["attempt"] = sim_attempt
                     try:
-                        row = execute_case(handle, case, repetition, simulator, log,
+                        row = execute(handle, case, repetition, simulator, log,
                                            attempt=sim_attempt)
                         recovered = True
                         simulator_failures = 0

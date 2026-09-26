@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -132,6 +133,55 @@ def sign_in(user: SimUser) -> str:
     if not response.session:
         raise RuntimeError(f"sign-in failed for {user.label}")
     return response.session.access_token
+
+
+def _jwt_expiry(token: str) -> float | None:
+    """The `exp` claim of a JWT, read without verifying it (the API verifies)."""
+    import base64
+    import json
+
+    try:
+        payload = token.split(".")[1]
+        payload += "=" * (-len(payload) % 4)
+        return float(json.loads(base64.urlsafe_b64decode(payload))["exp"])
+    except Exception:
+        return None
+
+
+class Session:
+    """A simulated member's JWT that renews itself before it expires.
+
+    Supabase access tokens live an hour. The runner used to sign in once and
+    reuse the token, so every run longer than an hour died with a 401 on the
+    first request after it — the first overnight B10 attempt stopped at exactly
+    60 minutes. `token` re-signs in (the same password grant a browser uses)
+    whenever less than ``margin`` remains, so each execution starts with at
+    least that much validity; one execution takes minutes.
+    """
+
+    def __init__(self, user: SimUser, margin_s: int = 15 * 60, clock=time.time) -> None:
+        self.user = user
+        self.margin_s = margin_s
+        self._clock = clock
+        self._token: str | None = None
+        self._expires_at = 0.0
+        self.renewals = 0
+
+    def _sign_in(self) -> tuple[str, float]:
+        token = sign_in(self.user)
+        return token, _jwt_expiry(token) or (self._clock() + 3600)
+
+    def invalidate(self) -> None:
+        """Force the next read to sign in again — after the API said 401."""
+        self._token = None
+
+    @property
+    def token(self) -> str:
+        if self._token is None or self._expires_at - self._clock() < self.margin_s:
+            if self._token is not None:
+                self.renewals += 1
+            self._token, self._expires_at = self._sign_in()
+        return self._token
 
 
 def main(argv: list[str] | None = None) -> int:
