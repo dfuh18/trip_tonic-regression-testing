@@ -46,7 +46,7 @@ that cannot be skipped or reordered.
 | Phase | Tasks | Done | Blocked |
 |---|---|---|---|
 | A — application instrumentation | 13 (9 `[FABLE]`, 4 `[STANDARD]`) | 13 | 0 |
-| B — pipeline stages 1 to 3.2 | 17 (14 `[FABLE]`, 3 `[STANDARD]`) | 14 | 0 |
+| B — pipeline stages 1 to 3.2 | 17 (14 `[FABLE]`, 3 `[STANDARD]`) | 15 | 0 |
 | C — analysis and pilot | 6 (6 `[FABLE]`, 0 `[STANDARD]`) | 0 | 1 |
 
 Estimate total: about 152 h (A 51.5 h · B 73.5 h · C 27 h). Vertex compute for
@@ -878,7 +878,18 @@ Phase: B
 Tier: [FABLE]
 Depends on: B10
 Estimate: 6h (plus compute)
-Status: not started
+Status: done (2026-09-26). Run `e097f78e` (`tools/overnight_baseline.py --regress`)
+against the adopted baseline: 176 executions, 0 failed, 168 structurally clean,
+176 compared pair-wise under `judge-pairwise/2` (D97; the pass resumed once after
+a NUL in a judge rationale, fixed by `pg_text`). No configuration change: every
+version field matches except `api_commit`, whose application code is identical
+(proven from git in the notebook). Under D88 22 of 31 cases pass, 9 fail (D23
+strict: 14/17); 27 position draws (16 %). The one stable agent failure is
+`scheduling_afternoon_then_tram` (structural, 8/8); the other eight fail on the
+judge against a best-of-eight baseline (entries 9.65 point-wise vs 9.48 for this
+run): with no change present, they measure the pass rule's false-alarm rate. That
+bears on the manuscript's variance claim (§3.1) and on the thresholds, which are
+the author's call; an IMPLEMENTATION_LOG entry is owed by the Fable tier
 Spec: Execute the suite a second time with no configuration change, `baseline_ref`
 set. `notebooks/sim/04_regress.ipynb`: pair-wise verdicts against the baseline
 per repetition, structural outcomes, the pass rate per case, pass/fail per D23 (seed cases pass only at 8/8,
