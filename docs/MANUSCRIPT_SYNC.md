@@ -28,6 +28,7 @@ that holds the full reasoning.
 | 10 | P3: "point-wise judging criteria are applied according to the assigned **request type**" | *(09-28)* **Not built; blocked.** The judge's rubrics are per test case, it is shown the fixture trip, and its scores are stored against simulated executions only. Scoring participant replies needs per-type rubrics, a decision on trip context, and a new table (an event-model change). | Q35 (open) | §4.2.3 P3 |
 | 11 | P2: failures are "errors that arise while the agent computes a suggestion", ranked **by request type** | *(09-28)* The simulation produced **0 execution failures in 426 turns**. What it did produce are tool errors the agent absorbed: 16 of 649 tool calls (2.5 %) came back an error in turns that still answered. **P2 now counts those, per tool call, and compares them per tool** (each tool's errored share of its calls, both rounds side by side, the ordering read off the table); request type and shape are secondary views. Turns without any response are still reported, separately. P2's wording needs both changes: the unit (tool, not request type) and the failure (absorbed, not fatal). | D103 (closes Q36), D104 | §4.2.3 P2, §4.3 (2) |
 | 12 | §4.2.3 intro: the propositions "are tested statistically where the data permits" | *(09-28)* **No proposition is tested.** They are assessed descriptively, each against a criterion fixed before the participant data (Q37). Proposed wording: *"The propositions are assessed descriptively rather than tested statistically. The participant sample is a convenience sample with no defined population to generalise to, and the observations are nested within participants. Each proposition is stated with the criterion by which it is judged, fixed before the participant data is collected."* | D104, Q37 (open) | §4.2.3 intro, §4.3 (7) |
+| 13 | Table 11 lists the logged data points by level (run, test case, suggestion, state mutation, general) | *(09-28)* **The abstraction holds; four rows are wrong and several levels are missing.** Wrong: "confirmation of state reset" (nothing is reset; a fresh fixture per repetition, D38); the tool call trace at run level (it is per turn, per call); the structural check outcome at suggestion level (it is per execution, and simulation only, D73); the error code "where a check or API call fails" (only a turn that failed without a response; absorbed tool errors are in the trace, and they are P2's measure, D103). Missing: the session level with `run_type`, both surveys, the execution level, the evaluation results, the slash command, and the mutation detail. Proposed revision in D below. | D27, D38, D41, D73, D103 | Table 11, §3.3, §4.2.2 |
 
 ### B. Should add: facts the text does not have yet
 
@@ -151,6 +152,39 @@ that holds the full reasoning.
   to the app").
 - **§2.6.1 / §3.1 "structural verification is the cheap half"**: holds per
   assertion. The cost is in *establishing* that an assertion is true (L05, L07, L09).
+
+### D. Table 11: proposed revision *(09-28)*
+
+Checked against manuscript revision `260928` and the event model
+(`docs/event-model.md`). Same level of abstraction as the current table, with
+the round that produces each row. The "Derivation" column (after Ma et al. /
+extension) stays as it is; every new row is an extension. Cost, latency,
+tokens and the trace remain "after Ma et al.".
+
+| Level | Recorded fields | Round |
+|---|---|---|
+| Run | run id; agent model (dated release); prompt, tool and suite versions; simulator and judge model and prompt versions; app and API version with the commit; baseline reference; cost, latency, tokens | simulation |
+| Test case | case id, base case, run priority, provenance; declared checks and expected tool sequence; scoring criteria | simulation |
+| Execution | repetition and attempt; fixture ids and the build's own writes (a fresh trip per repetition, D38); structural outcome and findings; cost, latency, tokens | simulation |
+| Session | session id, user id; **run type** (pilot, study, simulation); consent version and time, or a decline; device type | both |
+| Surveys | demographics (age, gender, education, LLM use); post-task (two UMUX-LITE items, recommend, real trip, submitted or dismissed) | participants |
+| Suggestion (turn) | suggestion id, conversation (run) id, turn index; user turn, verbatim; slash command; request type; tool call trace (per call: tool, arguments, duration, error, found); resulting state shape; error code (the turn failed without a response); retry count; model version; tokens, latency; timestamp, device | both |
+| Feedback | user action (derived from the per-target actions); thumbs on the reply | participants |
+| Evaluation | point-wise judge score and rationale; pair-wise verdict in both orderings, against the baseline key | simulation |
+| State mutation | origin kind and origin suggestion; table, operation, changed keys; actor, session | both |
+
+What changed against the current table, row by row:
+- **Removed:** "confirmation of state reset" (D38 replaced reset with a fresh
+  trip per repetition); the "General" level (its fields move to Session and
+  Suggestion, where they are stored).
+- **Moved:** the tool call trace from Run to Suggestion; the structural check
+  outcome from Suggestion to Execution, marked simulation only (D73).
+- **Reworded:** the error code covers only a turn that failed outright; the
+  errors the agent absorbed are in the trace (P2, D103). User action notes that
+  `user_initiated` is derived in analysis, never written.
+- **Added:** Session (with run type), Surveys, Execution, Feedback and
+  Evaluation as levels; the slash command, per-turn model version and tokens,
+  and the mutation detail.
 
 ---
 
