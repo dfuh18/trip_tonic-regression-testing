@@ -85,6 +85,9 @@ class Example:
     subtitle: str
     warning: str = ""
     sections: list[Section] = field(default_factory=list)
+    #: A simulated execution a structural check failed: its appendix version
+    #: keeps the case's checks, since the check that fired is the point.
+    failed: bool = False
 
 
 # --- gathering -------------------------------------------------------------------
@@ -188,8 +191,13 @@ def simulated(client: Any, run_id: str, case_id: str, repetition: int) -> Exampl
     actions = _many(client, "study_user_actions", "suggestion_id", ids)
     mutations = _many(client, "study_mutations", "origin_suggestion_id", ids)
     case_file = CASES_DIR / f"{case_id}.yaml"
+    fixture_text = _fixture_text(case_id, ex)
 
     judge = [
+        Section("What the checker found", "table",
+                [{"finding": f, "check that raised it": finding_check(f)} for f in ex.get("structural_findings") or []],
+                level="Judge and checker", role="findings",
+                note="`structural_findings`, one row per failed check, with the case's check it comes from."),
         Section("Point-wise score", "table", _many(client, "study_scores", "execution_id", [ex["id"]]),
                 level="Judge and checker", role="score",
                 note="`study_scores`: the first reply scored 1–10 against the case's criteria (D34)."),
@@ -209,9 +217,13 @@ def simulated(client: Any, run_id: str, case_id: str, repetition: int) -> Exampl
     return Example(
         title=f"A simulated execution: {case_id}, repetition {repetition}",
         subtitle=f"Run {run_id[:8]} · started {_day(ex.get('started_at'))}",
+        failed=ex.get("structural_outcome") == "detected",
         sections=[
             Section("The run", "record", run, level="Run level", role="run",
                     note="`study_runs`: one row per suite run."),
+            Section("The fixture trip", "text", fixture_text, level="Test case level", role="fixture",
+                    note="The trip every repetition starts from, rebuilt fresh for each one (D38): the same "
+                         "summary the judge is given (`src/fixture.py`)."),
             Section("The test case as defined", "text",
                     case_file.read_text(encoding="utf-8") if case_file.exists() else "(case file not found)",
                     level="Test case level", role="case",
@@ -227,6 +239,46 @@ def simulated(client: Any, run_id: str, case_id: str, repetition: int) -> Exampl
             *judge,
             *_derived(turns, None, {}, "execution"),
         ])
+
+
+#: Which declared check a checker finding comes from, by the sentence it writes
+#: (``src/checker.py``). Display only: a finding no pattern knows shows "—"
+#: rather than a guess. First match wins, so the specific patterns come first.
+FINDING_CHECKS: tuple[tuple[str, str], ...] = (
+    (r"before the draft on .* ends", "slot_moved.after_latest_draft"),
+    (r"no draft slot on .* to place", "slot_moved.after_latest_draft"),
+    (r"overlaps|clear of", "slot_moved.clear_of_other_slots"),
+    (r"was never moved|ended up on|' starts at .*, outside", "slot_moved"),
+    (r"^draft slots outside", "draft_slot_starts_between"),
+    (r"^draft slots: expected", "slot_count"),
+    (r"^draft is on", "slot_days"),
+    (r"offered to pick from|earlier reply|earlier turn", "draft_uses_earlier_place"),
+    (r"no plan was proposed", "a draft (propose_plan)"),
+    (r"km from .*, outside|places_near", "places_near"),
+    (r"returned an error|failed and nothing recovered it", "tool_errors"),
+    (r"which this case does not permit", "permitted tools (deny by default, D28)"),
+    (r"did not complete", "turn_errors"),
+    (r"was never scheduled|was scheduled on", "slot_scheduled"),
+    (r"nothing was unscheduled", "slot_unscheduled"),
+    (r"trip_after|post-turn trip state", "trip_after"),
+    (r"^(itinerary_slots|trip_blocks|ai_suggestions|itinerary_days)\.", "mutation_counts"),
+    (r"^edits\.|^(move|schedule|unschedule) edits", "edits"),
+    (r"^[a-z_]+ calls: expected|^tool ", "tool_counts"),
+)
+
+
+def finding_check(finding: str) -> str:
+    return next((key for pattern, key in FINDING_CHECKS if re.search(pattern, finding)), "—")
+
+
+def _fixture_text(case_id: str, ex: Row) -> str:
+    """The fixture as the execution's case saw it, dated as on the day it ran (D54)."""
+    from src import fixture
+    from src.cases import load_cases
+    from src.scoring import execution_day
+
+    case = {c.case_id: c for c in load_cases()}.get(case_id)
+    return fixture.summary(fixture.for_case(case, execution_day(ex))) if case else "(case not in the suite)"
 
 
 def _baseline_reply(client: Any, comparisons: Sequence[Row]) -> str:
@@ -281,14 +333,26 @@ def pilot_session(client: Any, name: str, sim_run_ids: Sequence[str], run_type: 
 
 #: How to read each part, shown in a box above it in the appendix version.
 GUIDE: dict[str, str] = {
+    "fixture": "The trip the simulated member is planning, before anything happens. Every repetition gets a "
+               "fresh copy built from the same fixture file, so each one starts from exactly this state (D38). "
+               "It is what the agent can read and change, and what the case's expectations are written "
+               "against.",
     "run": "One row per suite run. The version fields pin what was tested: the agent model as a dated release "
            "(never an alias), the agent's prompt and tools, the suite, and the simulator and judge. Two runs are "
            "comparable only when these match; `baseline_ref` names the run this one is compared against.",
     "case": "The test case the execution ran from: who the simulated member is, what they want, their first "
-            "message, and the criteria the judge scores the first reply against. The structural checks the case "
-            "also declares are left out here.",
-    "execution": "One repetition of the case. `structural_outcome` is the checker's verdict over the whole "
-                 "execution (`none` = no check failed); `structural_findings` lists what failed, if anything.",
+            "message, and the criteria the judge scores the first reply against. A simulator plays the member "
+            "from the profile and goal; only the opening message is fixed.",
+    "case_checks": "The test case the execution ran from: who the simulated member is, what they want, their "
+                   "first message, the structural checks, and the criteria the judge scores the first reply "
+                   "against. A simulator plays the member from the profile and goal; only the opening message is "
+                   "fixed. Each check is a claim about the outcome over the whole execution (D27): tool counts, "
+                   "which days and times a draft may use, what may be written to the trip. A check left null is "
+                   "not asserted.",
+    "execution": "The checker's verdict over the whole execution. `structural_outcome` is `none` when every check "
+                 "held and `detected` when one failed; the findings below say which, in plain words, each beside "
+                 "the check in the test case that raised it. A detected finding fails the execution whatever "
+                 "the judge says (D23).",
     "session": "One row per session. `run_type` separates pilot, study and simulated sessions, which share the "
                "same tables; `consent_version` records which consent text was agreed to. Every row below joins "
                "to this session.",
@@ -331,7 +395,7 @@ KEEP: dict[str, tuple[str, ...]] = {
     "run": ("model_version", "model_released_on", "prompt_version", "tool_version", "suite_version",
             "baseline_ref", "simulator_model", "judge_model", "judge_prompt_version"),
     "execution": ("case_id", "provenance", "repetition", "repetitions_n", "structural_outcome",
-                  "structural_findings", "latency_ms", "cost_usd", "error"),
+                  "latency_ms", "cost_usd", "error"),
     "session": ("run_type", "consent_version", "consent_at", "device_type"),
     "demographics": ("age", "gender", "education_level", "llm_familiarity"),
     "turn_row": ("turn_index", "agent_intent", "request_type", "latency_ms", "llm_calls", "tool_calls",
@@ -381,18 +445,48 @@ def _counts(rows: Sequence[Row], key, name: str) -> list[Row]:
             for k, n in sorted(Counter(key(r) for r in rows).items(), key=lambda kv: -kv[1])]
 
 
+#: The appendix order for a simulated execution: the setup, then what happened,
+#: then the verdict, then where it came from. Roles not listed keep their place
+#: at the end; ``verdicts`` repeats the execution's findings and is dropped.
+STORY: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("1 · The setup", ("fixture", "case")),
+    ("2 · What happened", ("chat", "turn_row", "trace", "actions", "thumbs", "mutations")),
+    ("3 · The verdict", ("execution", "findings", "score", "comparison", "baseline_reply")),
+    ("4 · What the analysis derives", ("derived_turn", "derived_request")),
+    ("5 · Provenance", ("run", "session")),
+)
+
+
+def _story_order(sections: Sequence[Section]) -> list[Section]:
+    placed = []
+    for level, roles in STORY:
+        for role in roles:
+            for s in sections:
+                if s.role == role:
+                    placed.append(Section(s.title, s.kind, s.body, s.note, level, s.role, s.turn))
+    rest = [s for s in sections if s.role not in {r for _, roles in STORY for r in roles} | {"verdicts"}]
+    return placed + rest
+
+
 def compact(example: Example, focus_turn: Optional[int] = None, chars: int = 500) -> Example:
     """The appendix version: the same record, shortened, with a reading guide.
 
     All turns stay in the conversation (replies clipped to ``chars``); only
     ``focus_turn`` keeps its suggestion row and trace (default: the turn that
     called the most tools). Mutations and member actions become counts. Every
-    shortened record says how many columns it left out."""
+    shortened record says how many columns it left out. A simulated execution
+    is reordered as a story (``STORY``); a failing one keeps its case's checks."""
     turns_with_trace = [s for s in example.sections if s.role == "trace"]
     if focus_turn is None and turns_with_trace:
-        focus_turn = max(turns_with_trace, key=lambda s: sum(1 for r in s.body if r["kind"] == "tool")).turn
+        acting = [s for s in turns_with_trace if any(r["kind"] == "tool" for r in s.body)] or turns_with_trace
+        # A failing execution shows the last turn that acted: that is where the
+        # outcome the checks judge was made. Otherwise the turn that called most.
+        focus_turn = (max(acting, key=lambda s: s.turn or 0) if example.failed
+                      else max(acting, key=lambda s: sum(1 for r in s.body if r["kind"] == "tool"))).turn
+    sections = _story_order(example.sections) if any(s.role == "fixture" for s in example.sections) \
+        else example.sections
     out, guided = [], set()
-    for s in example.sections:
+    for s in sections:
         role = s.role
         if role in ("turn_row", "trace") and s.turn != focus_turn:
             continue
@@ -425,14 +519,20 @@ def compact(example: Example, focus_turn: Optional[int] = None, chars: int = 500
                            "origin_kind|table|operation")
             note = "Counted per origin, table and operation; one row per write in the full record."
         elif role == "case":
+            checks = case_checks(body) if example.failed else []
             body = _case_summary(body)
         elif role == "derived_request":
             body = [{**r, "signature (D24)": _signature_text(r["signature (D24)"])} for r in body]
-        if role in GUIDE and role not in guided:
-            out.append(Section("How to read this", "guide", GUIDE[role], level=s.level, role="guide"))
+        guide = "case_checks" if role == "case" and example.failed else role
+        if guide in GUIDE and role not in guided:
+            out.append(Section("How to read this", "guide", GUIDE[guide], level=s.level, role="guide"))
             guided.add(role)
         out.append(Section(s.title.replace(f"Turn {focus_turn} — ", f"Turn {focus_turn} (in detail) — "),
                            s.kind, body, note, s.level, role, s.turn))
+        if role == "case" and example.failed and checks:
+            out.append(Section("The checks the case declares", "table", checks, level=s.level, role="checks",
+                               note="`declared_constraints.checks`, asserted checks only; each is judged over "
+                                    "the whole execution (D27). Bounds are inclusive."))
     return Example(example.title + " — appendix version",
                    example.subtitle + (f" · turn {focus_turn} shown in detail" if focus_turn else ""),
                    example.warning, out)
@@ -454,14 +554,65 @@ def _signature_text(sig: Any) -> str:
 
 
 def _case_summary(text: str) -> str:
+    """The case file cut to what a reader needs; the checks go in a table of their own."""
     import yaml
 
     try:
         case = yaml.safe_load(text) or {}
     except yaml.YAMLError:
         return text
-    keep = ("case_id", "provenance", "function", "user_profile", "goal", "opening_turn", "scoring_criteria")
+    keep = ["case_id", "provenance", "function", "user_profile", "goal", "opening_turn", "scoring_criteria"]
     return yaml.safe_dump({k: case[k] for k in keep if k in case}, sort_keys=False, allow_unicode=True, width=100)
+
+
+def _bound(value: Any) -> str:
+    """A count bound as a reader writes it: ``1–4``, ``≥ 1``, ``≤ 2``, ``0``."""
+    if isinstance(value, dict) and set(value) <= {"min", "max"}:
+        lo, hi = value.get("min"), value.get("max")
+        if lo is not None and hi is not None:
+            return str(lo) if lo == hi else f"{lo}–{hi}"
+        return f"≥ {lo}" if lo is not None else f"≤ {hi}"
+    return _expect(value)
+
+
+def _expect(value: Any) -> str:
+    """Any check value in one line."""
+    if isinstance(value, dict):
+        if set(value) <= {"min", "max"}:
+            return _bound(value)
+        # A plain key reads as words; a table.OP key keeps its spelling.
+        word = lambda k: k if "." in k else k.replace("_", " ")
+        return "; ".join(f"{word(k)} {_expect(v)}" if not isinstance(v, bool)
+                         else (word(k) if v else f"not {word(k)}")
+                         for k, v in value.items() if v is not None)
+    if isinstance(value, list):
+        return "–".join(map(str, value)) if len(value) == 2 and all(":" in str(v) for v in value) \
+            else ", ".join(map(str, value))
+    if value is True:
+        return "yes"
+    return str(value)
+
+
+def case_checks(text: str) -> list[Row]:
+    """The case's asserted checks as rows: check | what it expects. Null checks
+    are not asserted and are left out; count checks list one bound per key."""
+    import yaml
+
+    try:
+        case = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+    checks = ((case.get("declared_constraints") or {}).get("checks") or {})
+    rows = []
+    for key, value in checks.items():
+        if value is None:
+            continue
+        if key in ("tool_counts", "mutation_counts", "edits") and isinstance(value, dict):
+            text_ = ", ".join(f"{k} {_bound(v)}" for k, v in value.items())
+        else:
+            text_ = _expect(value)
+        rows.append({"check": key, "what it expects": text_})
+    return rows
 
 
 def _day(ts: Any) -> str:
