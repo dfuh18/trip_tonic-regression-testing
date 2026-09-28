@@ -7,9 +7,10 @@ signature (D24: exact tool sequence plus buckets) is too fine to carry a
 per-class failure rate. A shape is meant to be the level in between: a class
 per thing the agent *did*, read off ``tool_call_trace``.
 
-No rule is chosen here. Q28 is the author's; this module computes every
-candidate over the same traces so the choice is taken on data rather than on
-the case titles. Each rule is a pure function of the tool names a turn called:
+The author chose ``shapes7`` (D99), with ``advisory`` meaning a turn that
+called no acting tool (D105). The other candidates stay computable as
+secondary views, the way D09 keeps the composite derivable. Each rule is a
+pure function of the tool names a turn called:
 
 * ``d09``        — D09's precedence, re-derived here so the four rules are
   computed by the same code path over the same input (the app's own label is
@@ -144,6 +145,11 @@ RULES: dict[str, Callable[[Iterable[str]], str]] = {
 
 def interaction_label(turn_labels: Sequence[str]) -> str:
     """One label for a multi-turn interaction, from its turns' labels.
+
+    Not the rule in force: D106 labels a request by shapes7 over the union of
+    its turns' tools (``analysis.interaction_shape``). Kept because
+    ``sim/07_shapes`` and ``study/05b_pilot_shapes`` use it, as the record of
+    how D99 was decided.
 
     A closing "no thanks" turn calls nothing and would read as ``advisory``;
     it says nothing about what the interaction was, so ``advisory`` turns only

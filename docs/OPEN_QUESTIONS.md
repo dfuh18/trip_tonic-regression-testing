@@ -344,11 +344,10 @@ Open alongside: a request's label. `interaction_label` calls a
 search-then-draft request `other`, while the same tools inside one turn are
 `scheduling.draft`. Labelling a request by the union of its turns' tools
 would make the two agree.
-Status: resolved — D100 (C + slash, no reference). The request label
-(`interaction_label` vs union of tools) remains open; the two agree on every
-pilot request under D100's variant.
+Status: resolved — D100 (C + slash, no reference) and D106 (a request's label
+is shapes7 over the union of its turns' tools).
 
-### Q28 — [RULED 2026-09-28, see D99; advisory sub-decision open] — The request-shape rule for the participant round's automatic labels
+### Q28 — [RESOLVED 2026-09-28, see D99 and D105] — The request-shape rule for the participant round's automatic labels
 Raised: 2026-09-23 by author and agent · Blocks: C02 (§4.3 (3), "the shapes where uncovered concentrates"), C05 (freeze) · Phase: C
 
 D09's `request_type` (4 classes) is too coarse to say where uncovered
@@ -391,9 +390,8 @@ baseline's n.
 Recommendation: **shapes7 with (i)**, `other` reported as its own row in
 C02, rule frozen at C05. Keep shapes9 computable as a secondary view, the way
 D09 keeps the composite derivable.
-Status: rule resolved — D99 (shapes7, unchanged). Still open: the advisory
-sub-decision (i) vs (ii). On the pilot, the one `advisory` turn called no
-tool, which is (i)'s meaning.
+Status: resolved — D99 (shapes7, unchanged) and D105 (sub-decision (i):
+`advisory` means a turn that called no acting tool).
 
 ### Q27 — [RESOLVED 2026-09-28, see D102] — Table 12's label has no round that can produce it
 Raised: 2026-09-23 (from D73) · Blocks: the participant-round analysis, not the baseline

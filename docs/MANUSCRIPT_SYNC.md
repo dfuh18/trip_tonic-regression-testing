@@ -145,7 +145,9 @@ that holds the full reasoning.
   tool trace ever labels a turn `advisory` (Q28). The advisory baseline is
   **scored, not checked**, which makes it a weaker instrument (L06).
   *(09-28)* In the pilot, the one `advisory` turn is one that called no tool.
-  Whether `advisory` is *defined* that way is still open (Q28 sub-decision).
+  Ruled (D105): `advisory` *is* defined that way, a turn that called no acting
+  tool, so the suite's advisory cases count as factual shapes by what the agent
+  did. Say so where the advisory class is reported.
 - **§3.3 "execution follows the same paths as ordinary use"** is still true, but
   the system under test **changed during the build**, before any baseline. These
   were author rulings on findings, not instrumentation (see §3.4 draft, "changes
@@ -421,10 +423,6 @@ All were author rulings, made before any baseline:
   trip context, storage).
 - **P2's wording** (D103): the claim is now made per tool, over tool errors the
   agent absorbed, not per request type over fatal errors.
-- **Q28** Whether "advisory" means "called no tool". The rule itself is
-  ruled: shapes7 (D99).
-- **Q29** The request label (`interaction_label` vs the union of tools). The
-  boundary is ruled: C + slash, no reference (D100).
 - **Q22** Telemetry bounds — deferred until a baseline exists.
 - ~~**D83 finding**~~ — settled by events: not fixed before the baseline, so it
   is a known behaviour the suite detects (see 3.4.6).

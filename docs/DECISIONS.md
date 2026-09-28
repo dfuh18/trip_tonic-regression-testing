@@ -31,6 +31,50 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D106 — A request's shape is shapes7 over the union of its turns' tools (closes Q29)
+Date: 2026-09-28 · Decided by: author (escalated by agent as the remainder of Q29)
+Options: `interaction_label` (label each turn, then combine: one acting label
+wins, two different ones are `other`) · the union (pool every tool the request's
+turns called and apply shapes7 once)
+Chosen: **the union.** A unit of several turns (a participant request under
+D100, or a multi-turn simulated execution) gets its shape by applying shapes7
+(D99) to all the tools its turns called, exactly as a single turn does.
+Reason: the same work gets the same label whether the member asked in one
+message or two. Under `interaction_label`, search then draft across two turns
+was `other` while the same tools in one turn are `scheduling.draft`. Under D100
+the two rules agree on every participant request, because a request never
+holds two turns with different acting shapes; they differ only on multi-turn
+simulated executions (the dinner case: `scheduling.draft` by union, `other` by
+turn labels). It is also what `analysis.interaction_shape` already computes,
+so no code changes.
+`shapes.interaction_label` stays in `src/shapes.py`: `sim/07_shapes` and
+`study/05b_pilot_shapes` use it, and they are the record of how D99 was
+decided. It is not part of the frozen rule.
+Affects: C02, C05, `src/shapes.py` (docstring), MANUSCRIPT_SYNC ·
+Reverses: none · Closes: Q29
+
+### D105 — `advisory` means a turn that called no acting tool (closes Q28)
+Date: 2026-09-28 · Decided by: author (escalated by agent as Q28's sub-decision)
+Options: (i) `advisory` means "called no acting tool" and the suite's advisory
+cases are counted by what the agent did · (ii) add a case whose advisory answer
+needs no tool, so the class is reachable in the suite
+Chosen: **(i).** A turn, or a request, is `advisory` when it called no tool
+other than the three that read the trip (`get_trip_details`,
+`list_trip_blocks`, `get_itinerary`). This is what shapes7 (D99) and D09's
+fall-through already compute, so no code changes.
+Reason: labels describe what the agent did, not what was asked (D09); (ii)
+would change the suite and require re-running the baseline and the regression
+run.
+Consequence, stated rather than hidden: the suite's six advisory cases are not
+`advisory` by this rule, because the agent looks something up before advising
+(packing → climate, Sintra → Wikipedia); they land in the factual shapes. An
+`advisory` participant turn therefore has no advisory counterpart in the
+simulated runs by construction, and the advisory baseline is scored by the
+judge, not checked (L06). On the pilot, the one `advisory` turn was such a
+no-tool turn.
+Affects: C02, C05, `src/shapes.py` (docstring only), MANUSCRIPT_SYNC ·
+Reverses: none · Closes: Q28
+
 ### D104 — The propositions are assessed descriptively: no tests, no intervals
 Date: 2026-09-28 · Decided by: author (escalated by agent)
 Options: keep D101's tests (Kendall τ-b, one-sided Mann–Whitney U with the
