@@ -103,15 +103,17 @@ def strip(ax, values: Sequence[float], title: str, xlabel: str, color: str = SER
     _grid(ax)
 
 
-def ci_plot(ax, rounds: Mapping[str, Sequence], title: str, xlabel: str,
-            colors: Optional[Mapping[str, str]] = None, order: Optional[Sequence[str]] = None,
-            x_max: float = 1.0, missing: str = "not observed") -> None:
-    """A rate per class for each round: dot = rate, line = 95 % Wilson interval,
-    k/n beside it. ``rounds`` maps a round name to a list of ``analysis.Rate``;
-    ``colors`` maps the same names to a hue (default ``ROUND_COLOR``);
-    ``order`` lists the classes top to bottom (default alphabetical), and a
-    class it does not name is appended. A class a round never met is labelled
-    so. ``x_max`` caps the axis when every rate is small."""
+def rate_plot(ax, rounds: Mapping[str, Sequence], title: str, xlabel: str,
+              colors: Optional[Mapping[str, str]] = None, order: Optional[Sequence[str]] = None,
+              x_max: Optional[float] = None, missing: str = "not observed") -> None:
+    """A rate per class for each round: a dot at the rate, k/n beside it. No
+    interval (D104): the counts are shown so a reader sees how little a rate
+    over few calls says. ``rounds`` maps a round name to a list of
+    ``analysis.Rate``; ``colors`` maps the same names to a hue (default
+    ``ROUND_COLOR``); ``order`` lists the classes top to bottom (default
+    alphabetical), and a class it does not name is appended. A class a round
+    never met is labelled so. ``x_max`` defaults to a little above the largest
+    rate."""
     colors = colors or ROUND_COLOR
     seen = {r.group for rates in rounds.values() for r in rates}
     groups = (list(order) + sorted(seen - set(order))) if order else sorted(seen)
@@ -131,14 +133,16 @@ def ci_plot(ax, rounds: Mapping[str, Sequence], title: str, xlabel: str,
                             va="center", fontsize=7, color=MUTED, fontstyle="italic")
                 continue
             r = by[g]
-            ax.plot([r.ci_low, r.ci_high], [yv, yv], color=colors[rnd], linewidth=2, solid_capstyle="round")
             ax.plot(r.rate, yv, "o", markersize=8, color=colors[rnd], markeredgecolor="white",
                     markeredgewidth=2, label=rnd if first else None)
             first = False
-            ax.annotate(f"{r.failures}/{r.n}", (r.ci_high, yv), xytext=(6, 0), textcoords="offset points",
+            ax.annotate(f"{r.failures}/{r.n}", (r.rate, yv), xytext=(8, 0), textcoords="offset points",
                         va="center", fontsize=8, color=MUTED)
     ax.set_yticks(range(len(groups)), groups)
     ax.set_ylim(-0.5, len(groups) - 0.5)
+    if x_max is None:
+        top = max((r.rate for rates in rounds.values() for r in rates if r.rate == r.rate), default=0)
+        x_max = min(1.0, max(0.1, top * 1.25 + 0.05))
     ax.set_xlim(0, x_max)
     ax.xaxis.set_major_formatter(lambda v, _: f"{v:.0%}")
     ax.set_xlabel(xlabel)

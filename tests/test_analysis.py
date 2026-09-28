@@ -68,31 +68,18 @@ def test_turn_coverage_compares_single_turns():
 # --- P2 ------------------------------------------------------------------------
 
 
-def test_failure_rates_per_class_with_wilson_intervals():
+def test_failure_rates_per_class_are_plain_ratios():
     turns = [turn("a", request_type="scheduling", error="agent_timeout"),
              turn("b", request_type="scheduling"),
              turn("c", request_type="venue_lookup")]
     rates = {r.group: r for r in analysis.failure_rates(turns)}
-    assert (rates["scheduling"].n, rates["scheduling"].failures, rates["scheduling"].rate) == (2, 1, 0.5)
-    assert rates["scheduling"].ci_low < 0.5 < rates["scheduling"].ci_high
+    assert rates["scheduling"] == analysis.Rate("scheduling", 2, 1, 0.5)
     assert rates["venue_lookup"].failures == 0
 
 
-def test_rank_agreement_is_descriptive_and_says_when_it_is_undefined():
-    r = analysis.Rate
-    sim = [r("a", 10, 1, 0.1, 0, 0), r("b", 10, 3, 0.3, 0, 0), r("c", 10, 5, 0.5, 0, 0)]
-    same = analysis.rank_agreement(sim, sim)
-    assert same["tau_b"] == pytest.approx(1.0) and "p" not in same
-    flat = [r("a", 10, 0, 0.0, 0, 0), r("b", 10, 0, 0.0, 0, 0), r("c", 10, 0, 0.0, 0, 0)]
-    none = analysis.rank_agreement(sim, flat)
-    assert none["tau_b"] is None and "undefined" in none["note"]
-
-
-def test_rank_agreement_uses_only_classes_both_rounds_saw():
-    r = analysis.Rate
-    sim = [r("a", 10, 1, 0.1, 0, 0), r("b", 10, 3, 0.3, 0, 0), r("c", 10, 5, 0.5, 0, 0)]
-    part = [r("a", 5, 0, 0.0, 0, 0), r("b", 5, 1, 0.2, 0, 0)]
-    assert analysis.rank_agreement(sim, part)["classes"] == ["a", "b"]
+def test_a_share_of_nothing_is_nan_not_zero():
+    assert math.isnan(analysis.share(0, 0)) and analysis.share(1, 4) == 0.25
+    assert math.isnan(analysis.coverage_summary([])["share covered"])
 
 
 def test_tool_errors_count_recoveries():
@@ -164,17 +151,32 @@ def test_feedback_signals_are_never_pooled():
     assert groups["accept/reject"] == {"positive": [8.0], "negative": [3.0]}
 
 
-def test_rank_biserial_bounds():
-    assert analysis.rank_biserial([9, 10], [1, 2]) == 1
-    assert analysis.rank_biserial([1, 2], [9, 10]) == -1
-    assert analysis.rank_biserial([5, 5], [5, 5]) == 0
+def test_p3_is_a_side_by_side_score_distribution_not_a_test():
+    rows = analysis.feedback_scores({"thumbs": {"positive": [9.0, 10.0, 8.0], "negative": []}})
+    assert rows[0] == {"signal": "thumbs", "group": "positive", "n": 3, "median": 9.0, "mean": 9.0,
+                       "min": 8.0, "max": 10.0}
+    assert rows[1]["n"] == 0 and rows[1]["median"] is None
+    assert not {"p", "U", "r_rb"} & set(rows[0])
 
 
-def test_mann_whitney_refuses_tiny_groups_and_tests_otherwise():
-    assert analysis.mann_whitney([9], [1, 2])["test"] is None
-    res = analysis.mann_whitney([8, 9, 9, 10, 10], [2, 3, 4, 5, 6], resamples=500)
-    assert res["p"] < 0.05 and res["r_rb"] == 1
-    assert res["r_ci_low"] <= res["r_rb"] <= res["r_ci_high"]
+# --- per participant -----------------------------------------------------------------
+
+
+def test_participant_overview_is_pseudonymous_and_counts_per_person():
+    sessions = [{"id": "s1", "consent_at": "t"}, {"id": "s2", "consent_at": "t"}, {"id": "d1", "consent_at": None}]
+    names = {"s1": "S1", "s2": "S2", "d1": "D1"}
+    r1 = [dict(turn("a", "search_places", errored_tools={"search_places"}), session_id="s1", user_action="accepted")]
+    r2 = [dict(turn("b", "propose_plan"), session_id="s1")]
+    r3 = [dict(turn("c", "get_weather", error="timeout"), session_id="s2")]
+    feedback = [{"session_id": "s1", "value": "up"}, {"session_id": "s1", "value": "down"}]
+    post = [{"session_id": "s2", "submitted_at": "t", "umux_lite_capability": 7, "umux_lite_ease": 7}]
+    rows = analysis.participant_overview(sessions, names, [r1, r2, r3], [True, False, False], feedback, post)
+    assert [r["participant"] for r in rows] == ["S1", "S2"]  # declined sessions are left out
+    s1, s2 = rows
+    assert (s1["requests"], s1["requests covered"], s1["requests uncovered"]) == (2, 1, 1)
+    assert (s1["errored tool calls"], s1["accepted / rejected turns"], s1["thumbs up / down"]) == (1, "1 / 0", "1 / 1")
+    assert (s2["failed turns"], s2["tool calls"], s2["SUS-equivalent"]) == (1, 0, 87.9)
+    assert all("id" not in k for r in rows for k in r)
 
 
 # --- UMUX-LITE -----------------------------------------------------------------

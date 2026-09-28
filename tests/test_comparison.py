@@ -65,7 +65,7 @@ def test_a_refusal_is_recorded_without_orderings(monkeypatch):
 
 # --- position bias (Q34) ---------------------------------------------------
 
-from src.comparison import holds, passed_under, pattern, wilson  # noqa: E402
+from src.comparison import holds, passed_under, pattern  # noqa: E402
 
 
 def test_patterns_are_read_from_the_candidates_side():
@@ -90,11 +90,6 @@ def test_strict_is_d23_and_the_draw_readings_only_ever_loosen_it():
 def test_structural_detected_fails_under_every_reading():
     c = C(SEED, 1, structural="detected")
     assert all(passed_under(c, r) is False for r in ("strict", "slot_draw", "any_draw"))
-
-
-def test_wilson_interval_brackets_the_share():
-    p, lo, hi = wilson(3, 31)
-    assert lo < p < hi and 0 <= lo and hi <= 1
 
 
 # --- D88: a position-only fail passes, and says so ------------------------------

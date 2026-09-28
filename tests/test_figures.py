@@ -32,6 +32,19 @@ def test_labels_map_codes_to_display_text_in_the_given_order():
     assert shown["matura or high school"] == 1
 
 
+def test_rate_plot_draws_rates_without_intervals():
+    from src.analysis import Rate
+
+    fig, ax = plt.subplots()
+    figures.rate_plot(ax, {"simulation": [Rate("get_weather", 43, 11, 11 / 43)],
+                           "participant": []}, "t", "x")
+    lines = [line for line in ax.get_lines() if len(line.get_xdata()) > 1]
+    labels = [t.get_text() for t in ax.texts]
+    plt.close(fig)
+    assert lines == []  # no interval line
+    assert "11/43" in labels and "participant: not observed" in labels
+
+
 def test_an_empty_count_says_so():
     shown, title = bars({})
     assert shown == {} and "n = 0" in title

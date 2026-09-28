@@ -31,6 +31,44 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D104 — The propositions are assessed descriptively: no tests, no intervals
+Date: 2026-09-28 · Decided by: author (escalated by agent)
+Options: keep D101's tests (Kendall τ-b, one-sided Mann–Whitney U with the
+rank-biserial r and a bootstrap interval, Wilson intervals) · descriptive
+with Wilson intervals on P1 only · descriptive only
+Chosen: **descriptive only**, everywhere the study reports a number:
+- **P1:** covered and uncovered requests as counts and a share. The unit of
+  the assessment is the request; per turn and per participant are shown
+  alongside. Uncovered requests are described by shape and by which signature
+  parts differ.
+- **P2:** per tool, errored calls over calls, both rounds side by side (D103).
+  The ordering is read off the table, with the counts shown beside every rate.
+- **P3:** the judge-score distributions (n, median, mean, min, max) for
+  positively and negatively received replies, thumbs and accept/reject apart.
+- **Usability:** item distributions and the UMUX-LITE → SUS conversion.
+- **A shallow per-participant overview** (06/09 §6). It is a consistency check
+  and assesses nothing.
+No interval of any kind: Wilson intervals are removed from `src/analysis.py`,
+`src/comparison.py` and the notebooks, including `sim/04_regress`,
+`sim/04b_regress_summary` and `sim/run_survey`, and the percentile bootstrap
+from `04b`.
+Reason: the participant sample is a convenience sample with no defined
+population to generalise to, and turns are nested within participants.
+Mann–Whitney's independence assumption fails for several replies from one
+person, and a rank correlation over about ten tools mostly tied at zero says
+nothing a table does not show better. Inferential statistics would imply a
+generalisation the design cannot support.
+What descriptive does not excuse: **each proposition is judged against a
+criterion fixed before the participant data is collected**. The criteria are
+the author's and are open as Q37; the notebooks print the observed value
+beside the criterion, or "not yet fixed".
+Consequence for §4.2.3: the sentence committing the propositions to
+statistical tests is replaced (proposed wording in MANUSCRIPT_SYNC).
+Affects: C02, C05, `src/analysis.py` (ANALYSIS_VERSION 2), `src/comparison.py`,
+`src/figures.py` (`rate_plot`), `notebooks/study/06`/`09`,
+`notebooks/sim/04_regress`/`04b`/`run_survey`, MANUSCRIPT_SYNC ·
+Reverses: D101 (the statistics), D103's τ-b
+
 ### D103 — P2 counts the failures the system recovered from, compared per tool (resolves Q36)
 Date: 2026-09-28 · Decided by: author (escalated by agent as Q36)
 Options: A keep the execution-failure definition and report the participant

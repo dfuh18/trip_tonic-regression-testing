@@ -457,14 +457,3 @@ def passed_under(c: Comparison, reading: str) -> Optional[bool]:
 def verdicts_under(comparisons: list[Comparison], reading: str) -> "DataFrame":
     """``pass_rates`` with every execution read under ``reading``."""
     return pass_rates(comparisons, reading)
-
-
-def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float, float]:
-    """Share ``k/n`` with a 95 % Wilson interval: (p, low, high)."""
-    if n == 0:
-        return float("nan"), float("nan"), float("nan")
-    p = k / n
-    d = 1 + z * z / n
-    centre = (p + z * z / (2 * n)) / d
-    half = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5) / d
-    return p, max(0.0, centre - half), min(1.0, centre + half)

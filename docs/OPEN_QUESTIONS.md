@@ -30,6 +30,33 @@ wait; one blocking a Phase A task cannot.
 
 ## Open
 
+### Q37 — The criterion each proposition is judged against
+Raised: 2026-09-28 by agent (from D104) · Blocks: C05 (the freeze), the study round · Phase: C
+
+After D104 no proposition is tested, so each needs a criterion stated before
+the participant data: the observed value it must reach to count as supported.
+Without one, the numbers are reported and their meaning decided afterwards.
+The notebooks carry a `CRITERIA` parameter and print the observed value beside
+it.
+
+Proposals, for the author to fix or replace:
+- **P1:** *supported if more than half of participant requests are covered*
+  (unit: the request, D100). Per turn and per participant are reported but not
+  assessed. Note that the pilot dry run gives 7 of 16 (44 %), which would not
+  support it.
+- **P2:** *supported if the tools with the highest recovered-error rate in the
+  simulated runs are also the tools with the highest rate in the participant
+  round, among the tools participants called at least k times.* Needs k, how
+  many "highest" means (top 3?), and a stated outcome for when participants
+  never call those tools (as in the pilot): **not assessable** rather than
+  "not supported".
+- **P3:** *supported if the median judge score of positively received replies
+  is higher than that of negatively received ones, for thumbs and for
+  accept/reject separately.* Needs a rule for a signal with too few replies in
+  a group (e.g. not assessable below 3), and it depends on Q35. Alternative:
+  demote P3 to an exploratory comparison, which the manuscript then has to say.
+Status: open
+
 ### Q36 — [RESOLVED 2026-09-28, see D103] — The simulated round has no execution failures, so P2 has nothing to rank
 Raised: 2026-09-28 by agent (from the first run of `study/06_analysis`) · Blocks: P2's claim, C05 (the P2 expectation) · Phase: C
 

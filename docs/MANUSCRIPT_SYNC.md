@@ -26,7 +26,8 @@ that holds the full reasoning.
 | 8 | Test case = "expected tool calls **and their order**" | A case lists the tools it **permits**, and every other tool is forbidden. It asserts the **outcome**: a time is a window plus a length, a place is a kind (never a specific venue), a retry is reported and not failed. The three read tools are always allowed. | D28, D30, D31, D32 | §3.4 Test cases, P5 |
 | 9 | P1: an interaction is covered "when a **test case** with the same signature exists in the suite" | *(09-28)* A case has no signature until it runs: the signature is read off a recorded trace. A participant **request** (a Tonic run split by shape change and slash command, D100) is covered when a **recorded simulated execution** (runs `1a872c09` + `e097f78e`) has the same D24 signature. Its request type is D09 over all of the request's tools. Coverage is also reported per turn, and no claim rests on a request count. | D24, D100, D101 | §4.2.3 P1, §4.3 (3) |
 | 10 | P3: "point-wise judging criteria are applied according to the assigned **request type**" | *(09-28)* **Not built; blocked.** The judge's rubrics are per test case, it is shown the fixture trip, and its scores are stored against simulated executions only. Scoring participant replies needs per-type rubrics, a decision on trip context, and a new table (an event-model change). | Q35 (open) | §4.2.3 P3 |
-| 11 | P2: failures are "errors that arise while the agent computes a suggestion", ranked **by request type** | *(09-28)* The simulation produced **0 execution failures in 426 turns**. What it did produce are tool errors the agent absorbed: 16 of 649 tool calls (2.5 %) came back an error in turns that still answered. **P2 now counts those, per tool call, and compares them per tool** (each tool's errored share of its calls, both rounds, Wilson intervals); request type and shape are secondary views. Kendall's τ-b over the tools both rounds called, descriptive. Turns without any response are still reported, separately. P2's wording needs both changes: the unit (tool, not request type) and the failure (absorbed, not fatal). | D101, D103 (closes Q36) | §4.2.3 P2, §4.3 (2) |
+| 11 | P2: failures are "errors that arise while the agent computes a suggestion", ranked **by request type** | *(09-28)* The simulation produced **0 execution failures in 426 turns**. What it did produce are tool errors the agent absorbed: 16 of 649 tool calls (2.5 %) came back an error in turns that still answered. **P2 now counts those, per tool call, and compares them per tool** (each tool's errored share of its calls, both rounds side by side, the ordering read off the table); request type and shape are secondary views. Turns without any response are still reported, separately. P2's wording needs both changes: the unit (tool, not request type) and the failure (absorbed, not fatal). | D103 (closes Q36), D104 | §4.2.3 P2, §4.3 (2) |
+| 12 | §4.2.3 intro: the propositions "are tested statistically where the data permits" | *(09-28)* **No proposition is tested.** They are assessed descriptively, each against a criterion fixed before the participant data (Q37). Proposed wording: *"The propositions are assessed descriptively rather than tested statistically. The participant sample is a convenience sample with no defined population to generalise to, and the observations are nested within participants. Each proposition is stated with the criterion by which it is judged, fixed before the participant data is collected."* | D104, Q37 (open) | §4.2.3 intro, §4.3 (7) |
 
 ### B. Should add: facts the text does not have yet
 
@@ -109,11 +110,13 @@ that holds the full reasoning.
   **not** a boundary signal, although the probe showed it joins search → "add
   the second one" correctly: such a request counts as two. State this as the
   segmentation's known split error.
-- *(09-28)* **Statistics** (D101), since §4.3 names none: failure and coverage
-  rates with 95 % **Wilson** intervals; P2's rank agreement as **Kendall's
-  τ-b**, descriptive; P3 as a one-sided **Mann–Whitney U** (positive > negative,
-  α = .05) with the **rank-biserial r** and a percentile-bootstrap interval,
-  thumbs and accept/reject never pooled.
+- *(09-28)* **Descriptive only** (D104, reversing D101): counts, shares and
+  distributions, with no test and no interval. P1 as covered/uncovered counts
+  (per request, per turn, per participant); P2 as a per-tool table for both
+  rounds; P3 as judge-score distributions side by side; usability as item
+  distributions. Every rate is shown with the counts behind it. §4.3 (7)
+  ("any inferential statistic reported with assumptions checked") then has
+  nothing to apply to; say so rather than leaving the item standing.
 - *(09-28)* **Usability scoring**: the **UMUX-LITE → SUS conversion**. UMUX-LITE
   (0–100) is converted to an estimated SUS score, SUS-equivalent ≈ 0.65 ×
   UMUX-LITE + 22.9 (a published linear fit between the two questionnaires),
@@ -128,12 +131,10 @@ that holds the full reasoning.
 - *(09-28)* **Why a request is uncovered** is reported per request (the parts in
   which the closest recorded signature differs), separating near misses (one
   bucket off) from shapes the suite never produces.
-  **[cite: sources needed]** for the statistics and the usability conversion.
-  Candidates, to verify before citing: Wilson (1927) for the score interval;
-  Kendall (1938/1945) for τ-b; Mann & Whitney (1947); Kerby (2014) for the
-  rank-biserial as an effect size; Lewis, Utesch & Maher (2013) for UMUX-LITE
-  and the UMUX-LITE → SUS conversion; Sauro & Lewis (2016), *Quantifying the User
-  Experience*, for the curved grading scale.
+  **[cite: sources needed]** for the usability conversion only (no statistics
+  are left to cite after D104). To verify before citing: Lewis, Utesch & Maher
+  (2013) for UMUX-LITE and the UMUX-LITE → SUS conversion; Sauro & Lewis (2016),
+  *Quantifying the User Experience*, for the curved grading scale.
 
 ### C. Must reword: a claim that changed meaning
 
@@ -372,7 +373,9 @@ All were author rulings, made before any baseline:
 ## Open before the manuscript can be final
 
 - **Citation** for LLM-judge position bias and the order-swap control (see Part 1 B, "Position bias").
-- **Citations** for the statistics and the UMUX-LITE conversion (see Part 1 B, "Statistics").
+- **Citations** for the UMUX-LITE conversion (see Part 1 B).
+- **Q37** The criterion each proposition is judged against, fixed before the
+  study round; and the §4.2.3 sentence on statistical testing replaced (row 12).
 - **Judge-only failures in the regression run** (B11): 8 of 31 cases pass their
   structural checks and fail because the judge finds the replies not at least
   as good as the best-of baseline, with no configuration change. Keep the rule

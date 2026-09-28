@@ -1,54 +1,60 @@
-"""The participant-round analysis (C02, §4.3): the propositions, tested.
+"""The participant-round analysis (C02, §4.3): the propositions, described.
 
-Used by ``notebooks/study/06_analysis``. Like ``src.pilot``, every function
-past the loaders takes plain rows or plain values, so the statistics are
-testable offline (``tests/test_analysis.py``) and the notebook stays a reader.
+Used by ``notebooks/study/06_analysis`` and ``09_study_propositions``. Like
+``src.pilot``, every function past the loaders takes plain rows or plain
+values, so the numbers are testable offline (``tests/test_analysis.py``) and
+the notebook stays a reader.
 
-What each proposition is computed from, and the rulings that fix it:
+**Descriptive only (D104).** Counts, proportions and distributions; no test,
+no interval. The sample is a convenience sample with no defined population,
+and turns are nested within participants. Each proposition is judged against
+a criterion fixed before the data (Q37), not against a p-value.
+
+What each proposition is computed from:
 
 * **P1 — coverage.** A participant *interaction* is one request: a Tonic run
   split by ``shapes.segment_with`` with the slash signal and without reference
   (D100), over ``shapes7`` labels (D99). Its signature is D24's
   (``src.signature``) over the request's turns taken together. It is covered
-  when a simulated execution has the same signature. Coverage is also reported
-  per turn, side by side, and no claim rests on a request count (D100).
-* **P2 — execution-failure rank agreement.** An execution failure is an agent
-  turn whose ``error_code`` is set: the same definition in both rounds, read
-  from the same column. Simulated turns are read under D53: the latest attempt
-  of each execution only; superseded attempts are the platform's failure rate
-  and are counted separately. Per-class rates carry 95 % Wilson intervals. The
-  rank agreement is Kendall's τ over the request types both rounds observed,
-  reported **descriptively**, with no p-value (D101): at four classes no rank
-  test can reach significance.
-* **P3 — judge vs feedback.** One-sided Mann–Whitney U (positive > negative)
-  and the rank-biserial correlation with a percentile-bootstrap interval,
-  computed separately for thumbs and for accept/reject, never pooled (D101).
-* **Table 12** is reported as two axes side by side (D102, resolving Q27 as A).
-
+  when a simulated execution has the same signature. Reported per request, per
+  turn, and per participant.
+* **P2 — failures the system recovered from (D103).** Tool calls that came back
+  an error in a turn that still answered, per tool, side by side for both
+  rounds; empty lookups as a secondary row. Simulated turns are read under D53
+  (latest attempt only). Turns that failed without a response are counted
+  separately.
+* **P3 — judge vs feedback.** Judge-score distributions for positively and
+  negatively received replies, thumbs and accept/reject kept apart.
+* **Table 12** is reported as two axes side by side (D102).
 * **UMUX-LITE** goes through the UMUX-LITE → SUS conversion of Lewis, Utesch
   & Maher (2013), an estimate of the SUS score, and is graded on the
   Sauro–Lewis curved grading scale (Sauro & Lewis, 2016).
 
-The definitions of an execution failure and of a P1 interaction are recorded
-with D101.
+The definitions of a P1 interaction and of P2's failure are recorded with
+D101 and D103.
 
 Nothing here prints, and nothing returns a participant's words or an id.
 """
 
 from __future__ import annotations
 
-import random
+import statistics
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping, Optional, Sequence
 
 from src import shapes
-from src.comparison import wilson
 from src.signature import SIGNATURE_RULE_VERSION, signature
 
 Row = dict[str, Any]
 
-ANALYSIS_VERSION = "1"
+#: 2: descriptive only (D104) — intervals, τ and the Mann–Whitney test removed.
+ANALYSIS_VERSION = "2"
+
+
+def share(k: int, n: int) -> float:
+    """``k / n``, or NaN when there is nothing to divide by."""
+    return k / n if n else float("nan")
 
 #: D100: the slash command starts a request; reference is not used.
 SEGMENT_USE_INTENT = True
@@ -224,8 +230,7 @@ def uncovered_diagnosis(
 
 def coverage_summary(rows: Sequence[CoverageRow]) -> dict[str, Any]:
     n, k = len(rows), sum(r.covered for r in rows)
-    p, lo, hi = wilson(k, n) if n else (float("nan"),) * 3
-    return {"n": n, "covered": k, "share": p, "ci_low": lo, "ci_high": hi,
+    return {"n": n, "covered": k, "uncovered": n - k, "share covered": share(k, n),
             "signature_rule": SIGNATURE_RULE_VERSION}
 
 
@@ -239,61 +244,37 @@ def uncovered_by(rows: Sequence[CoverageRow], key: str = "shape") -> Counter:
 
 @dataclass(frozen=True)
 class Rate:
+    """``failures`` of ``n`` in one class, and their ratio. No interval (D104)."""
+
     group: str
     n: int
     failures: int
     rate: float
-    ci_low: float
-    ci_high: float
+
+
+def _rates(n: Counter, k: Counter) -> list[Rate]:
+    return [Rate(group, n[group], k[group], share(k[group], n[group])) for group in sorted(n)]
 
 
 def failure_rates(turns: Iterable[Row], key: str = "request_type") -> list[Rate]:
-    """Execution-failure rate per class, with 95 % Wilson intervals."""
+    """Turns that failed without a response, per class."""
     n: Counter = Counter()
     k: Counter = Counter()
     for t in turns:
         group = (turn_shape(t) if key == "shape" else t.get(key)) or "(none)"
         n[group] += 1
         k[group] += failed(t)
-    out = []
-    for group in sorted(n):
-        p, lo, hi = wilson(k[group], n[group])
-        out.append(Rate(group, n[group], k[group], p, lo, hi))
-    return out
+    return _rates(n, k)
 
 
 def overall_rate(turns: Sequence[Row]) -> Rate:
     turns = list(turns)
     k = sum(failed(t) for t in turns)
-    p, lo, hi = wilson(k, len(turns)) if turns else (float("nan"),) * 3
-    return Rate("all", len(turns), k, p, lo, hi)
+    return Rate("all", len(turns), k, share(k, len(turns)))
 
 
 def failure_types(turns: Iterable[Row]) -> Counter:
     return Counter(t["error_code"] for t in turns if t.get("error_code"))
-
-
-def rank_agreement(simulated: Sequence[Rate], participant: Sequence[Rate]) -> dict[str, Any]:
-    """Kendall's τ-b between the two rounds' failure rates, over the classes
-    both rounds observed. Descriptive (D101): no p-value is returned.
-
-    τ is undefined when either round's rates are all equal (a round with no
-    failures at all is the common case), and says so rather than returning 0.
-    """
-    from scipy.stats import kendalltau
-
-    sim = {r.group: r.rate for r in simulated if r.n}
-    part = {r.group: r.rate for r in participant if r.n}
-    classes = sorted(set(sim) & set(part))
-    a, b = [sim[c] for c in classes], [part[c] for c in classes]
-    out: dict[str, Any] = {"classes": classes, "n_classes": len(classes), "tau_b": None, "note": ""}
-    if len(classes) < 2:
-        out["note"] = "fewer than two classes observed in both rounds"
-    elif len(set(a)) < 2 or len(set(b)) < 2:
-        out["note"] = "undefined: one round has the same rate in every class"
-    else:
-        out["tau_b"] = float(kendalltau(a, b).statistic)
-    return out
 
 
 def tool_errors(turns: Iterable[Row]) -> list[dict[str, Any]]:
@@ -338,11 +319,7 @@ def recovered_error_rates(turns: Iterable[Row], key: str = "tool") -> list[Rate]
             group = (turn_shape(t) if key == "shape" else t.get(key)) or "(none)"
             n[group] += 1
             k[group] += any(e.get("result_error") for e in entries)
-    out = []
-    for group in sorted(n):
-        p, lo, hi = wilson(k[group], n[group])
-        out.append(Rate(group, n[group], k[group], p, lo, hi))
-    return out
+    return _rates(n, k)
 
 
 def empty_lookup_rates(turns: Iterable[Row]) -> list[Rate]:
@@ -362,11 +339,7 @@ def empty_lookup_rates(turns: Iterable[Row]) -> list[Rate]:
                 continue
             n[e["tool"]] += 1
             k[e["tool"]] += e["result_found"] is False
-    out = []
-    for group in sorted(n):
-        p, lo, hi = wilson(k[group], n[group])
-        out.append(Rate(group, n[group], k[group], p, lo, hi))
-    return out
+    return _rates(n, k)
 
 
 #: What kind of error a tool returned, read off its message by pattern, first
@@ -412,10 +385,10 @@ def error_summary(turns: Sequence[Row]) -> dict[str, Any]:
         "turns": len(turns),
         "failed without a response": len(turns) - len(done),
         "turns with a recovered tool error": k_turns,
-        "share of turns": wilson(k_turns, len(done)) if done else (float("nan"),) * 3,
+        "share of answered turns": share(k_turns, len(done)),
         "tool calls": len(calls),
         "errored tool calls": k_calls,
-        "share of calls": wilson(k_calls, len(calls)) if calls else (float("nan"),) * 3,
+        "share of calls": share(k_calls, len(calls)),
     }
 
 
@@ -455,40 +428,66 @@ def feedback_groups(
     return {"thumbs": thumbs, "accept/reject": action}
 
 
-def rank_biserial(pos: Sequence[float], neg: Sequence[float]) -> float:
-    """r = P(pos > neg) − P(pos < neg), ties counting half: 2U/(n₁n₂) − 1."""
-    greater = sum((p > q) + 0.5 * (p == q) for p in pos for q in neg)
-    return 2 * greater / (len(pos) * len(neg)) - 1
+def score_summary(values: Sequence[float]) -> dict[str, Any]:
+    """A judge-score distribution in five numbers: n, median, mean, min, max (D104)."""
+    if not values:
+        return {"n": 0, "median": None, "mean": None, "min": None, "max": None}
+    return {"n": len(values), "median": statistics.median(values), "mean": round(statistics.fmean(values), 2),
+            "min": min(values), "max": max(values)}
 
 
-def mann_whitney(
-    pos: Sequence[float], neg: Sequence[float], *, resamples: int = 5000, seed: int = 20260928
-) -> dict[str, Any]:
-    """One-sided Mann–Whitney U (positive > negative), with the rank-biserial r
-    and its 95 % percentile-bootstrap interval. Returns ``test: None`` with a
-    reason when a group has fewer than two scores."""
-    from scipy.stats import mannwhitneyu
+def feedback_scores(groups: Mapping[str, Mapping[str, Sequence[float]]]) -> list[dict[str, Any]]:
+    """One row per signal and group, for the P3 table: the two signals side by
+    side, never pooled."""
+    return [{"signal": signal, "group": group, **score_summary(values)}
+            for signal, by_group in groups.items() for group, values in by_group.items()]
 
-    out: dict[str, Any] = {"n_positive": len(pos), "n_negative": len(neg), "test": None,
-                           "median_positive": _median(pos), "median_negative": _median(neg)}
-    if len(pos) < 2 or len(neg) < 2:
-        out["note"] = "too few scores in a group to test"
-        return out
-    res = mannwhitneyu(pos, neg, alternative="greater", method="auto")
-    rng = random.Random(seed)
-    boot = sorted(
-        rank_biserial([rng.choice(pos) for _ in pos], [rng.choice(neg) for _ in neg]) for _ in range(resamples)
-    )
-    out.update(test="Mann–Whitney U, one-sided (positive > negative)", U=float(res.statistic),
-               p=float(res.pvalue), r_rb=rank_biserial(pos, neg),
-               r_ci_low=boot[int(0.025 * resamples)], r_ci_high=boot[int(0.975 * resamples) - 1])
+
+# --- a shallow per-participant overview ----------------------------------------------
+
+
+def participant_overview(
+    sessions: Sequence[Row],
+    names: Mapping[str, str],
+    requests: Sequence[Sequence[Row]],
+    covered: Sequence[bool],
+    feedback: Sequence[Row],
+    post_task: Sequence[Row],
+) -> list[dict[str, Any]]:
+    """One row per consented session, pseudonymous: how much they did, how much
+    of it the suite covers, what went wrong, and how they reacted.
+
+    ``requests`` and ``covered`` are aligned (the request list P1 uses). A
+    check on whether the pooled numbers are carried by one person, not a
+    result of its own (D104)."""
+    by_session: dict[str, list[tuple[Sequence[Row], bool]]] = defaultdict(list)
+    for req, cov in zip(requests, covered):
+        by_session[req[0].get("session_id")].append((req, cov))
+    thumbs: dict[str, Counter] = defaultdict(Counter)
+    for f in feedback:
+        thumbs[f.get("session_id")][f.get("value")] += 1
+    sus = {p["session_id"]: row["sus_equivalent"] for p in post_task for row in usability([p])}
+    out = []
+    for s in sorted((s for s in sessions if s.get("consent_at")), key=lambda s: names.get(s["id"], "")):
+        mine = by_session.get(s["id"], [])
+        turns = [t for req, _ in mine for t in req]
+        calls = [e for t in turns if not failed(t) for e in _tool_entries(t)]
+        out.append({
+            "participant": names.get(s["id"], "?"),
+            "turns": len(turns),
+            "requests": len(mine),
+            "requests covered": sum(cov for _, cov in mine),
+            "requests uncovered": sum(not cov for _, cov in mine),
+            "shapes": ", ".join(sorted({interaction_shape(req) for req, _ in mine})) or "-",
+            "failed turns": sum(failed(t) for t in turns),
+            "tool calls": len(calls),
+            "errored tool calls": sum(1 for e in calls if e.get("result_error")),
+            "accepted / rejected turns": f"{sum(t.get('user_action') == 'accepted' for t in turns)} / "
+                                         f"{sum(t.get('user_action') == 'rejected' for t in turns)}",
+            "thumbs up / down": f"{thumbs[s['id']]['up']} / {thumbs[s['id']]['down']}",
+            "SUS-equivalent": round(sus[s["id"]], 1) if s["id"] in sus else None,
+        })
     return out
-
-
-def _median(values: Sequence[float]) -> Optional[float]:
-    import statistics
-
-    return statistics.median(values) if values else None
 
 
 # --- UMUX-LITE ---------------------------------------------------------------
