@@ -26,7 +26,7 @@ that holds the full reasoning.
 | 8 | Test case = "expected tool calls **and their order**" | A case lists the tools it **permits**, and every other tool is forbidden. It asserts the **outcome**: a time is a window plus a length, a place is a kind (never a specific venue), a retry is reported and not failed. The three read tools are always allowed. | D28, D30, D31, D32 | §3.4 Test cases, P5 |
 | 9 | P1: an interaction is covered "when a **test case** with the same signature exists in the suite" | *(09-28)* A case has no signature until it runs: the signature is read off a recorded trace. A participant **request** (a Tonic run split by shape change and slash command, D100) is covered when a **recorded simulated execution** (runs `1a872c09` + `e097f78e`) has the same D24 signature. Its request type is D09 over all of the request's tools. Coverage is also reported per turn, and no claim rests on a request count. | D24, D100, D101 | §4.2.3 P1, §4.3 (3) |
 | 10 | P3: "point-wise judging criteria are applied according to the assigned **request type**" | *(09-28)* **Not built; blocked.** The judge's rubrics are per test case, it is shown the fixture trip, and its scores are stored against simulated executions only. Scoring participant replies needs per-type rubrics, a decision on trip context, and a new table (an event-model change). | Q35 (open) | §4.2.3 P3 |
-| 11 | P2: "the rank correspondence between the two environments is the primary claim" | *(09-28)* With four request types no rank test can reach significance, so Kendall's τ-b is reported **descriptively, without a p-value**; the rates carry Wilson intervals. And the simulation produced **0 execution failures in 352 executions (426 turns)**, so its ranking is flat and τ is undefined whatever participants do. | D101, Q36 (open) | §4.2.3 P2 |
+| 11 | P2: failures are "errors that arise while the agent computes a suggestion", ranked **by request type** | *(09-28)* The simulation produced **0 execution failures in 426 turns**. What it did produce are tool errors the agent absorbed: 16 of 649 tool calls (2.5 %) came back an error in turns that still answered. **P2 now counts those, per tool call, and compares them per tool** (each tool's errored share of its calls, both rounds, Wilson intervals); request type and shape are secondary views. Kendall's τ-b over the tools both rounds called, descriptive. Turns without any response are still reported, separately. P2's wording needs both changes: the unit (tool, not request type) and the failure (absorbed, not fatal). | D101, D103 (closes Q36) | §4.2.3 P2, §4.3 (2) |
 
 ### B. Should add: facts the text does not have yet
 
@@ -119,10 +119,12 @@ that holds the full reasoning.
   UMUX-LITE + 22.9 (a published linear fit between the two questionnaires),
   and graded on the Sauro–Lewis curved grading scale. Report it as an
   estimate, not a measured SUS.
-- *(09-28)* **Recovered tool errors** as a secondary reading beside P2 (Q36
-  option C, not ruled): tool calls that errored in a turn that still completed.
-  Simulation: `get_weather` 11/43, `get_climate_normals` 2/19, `move_slot`
-  3/43. This is where the simulation's failures actually are.
+- *(09-28)* **P2's failures are the ones the agent absorbed** (D103): tool
+  calls that errored in a turn that still answered. Simulation: `get_weather`
+  11/43 (10 beyond the 16-day forecast horizon, 1 timeout),
+  `get_climate_normals` 2/19 (timeouts), `move_slot` 3/43 (2 invalid
+  arguments, 1 rejected value); every other tool 0. The kind of error is read
+  off the message by pattern; the message is never shown.
 - *(09-28)* **Why a request is uncovered** is reported per request (the parts in
   which the closest recorded signature differs), separating near misses (one
   bucket off) from shapes the suite never produces.
@@ -380,8 +382,8 @@ All were author rulings, made before any baseline:
   derived label (Positive / Neutral / Lacks quality / Failure) must go.
 - **Q35** How the judge scores participant replies (rubric per request type,
   trip context, storage).
-- **Q36** The simulation shows no execution failures, so P2's ranking has
-  nothing to rank against.
+- **P2's wording** (D103): the claim is now made per tool, over tool errors the
+  agent absorbed, not per request type over fatal errors.
 - **Q28** Whether "advisory" means "called no tool". The rule itself is
   ruled: shapes7 (D99).
 - **Q29** The request label (`interaction_label` vs the union of tools). The

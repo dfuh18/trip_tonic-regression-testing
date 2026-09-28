@@ -1102,8 +1102,8 @@ Status: built (2026-09-28), not done. Logic in `src/analysis.py`, 13 offline
 tests in `tests/test_analysis.py`; runs end to end on `run_type = 'pilot'`
 against runs 1a872c09 + e097f78e, with five figures written to the ignored
 `notebooks/study/figures/`. Statistics per D101, Table 12 per D102,
-segmentation per D100. Open: P3 has no participant judge scores (Q35); P2's
-simulated side has no failures (Q36); §4.3 itself is still scaffolding (Q02).
+segmentation per D100, P2 per tool over absorbed tool errors (D103). Open: P3
+has no participant judge scores (Q35); §4.3 itself is still scaffolding (Q02).
 (Previously: blocked — Q02. Q19 and Q03 were ruled on (D24, D17/D18/D13) and no longer block it
 (survey scales).)
 Spec: `notebooks/study/06_analysis.ipynb`, outputs stripped, parameterised on

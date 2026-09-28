@@ -31,6 +31,35 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D103 — P2 counts the failures the system recovered from, compared per tool (resolves Q36)
+Date: 2026-09-28 · Decided by: author (escalated by agent as Q36)
+Options: A keep the execution-failure definition and report the participant
+rate against zero · B count every attempt, superseded ones included · C count
+tool errors the agent recovered from
+Chosen: **C, as P2's measure, compared per tool.** A failure is a tool call
+that came back an error in a turn that still produced a response. It is
+counted per tool call, and the primary comparison is **per tool**: each tool's
+errored share of its calls, in both rounds, with 95 % Wilson intervals, and
+Kendall's τ-b over the tools both rounds called (descriptive, D101). Request
+type (D09) and shape (shapes7, D99) are secondary views, per turn: the share
+of turns with at least one such error. Turns that failed without any response
+(`error_code` set) are still counted, separately; there are 0 of them in 426
+simulated turns. The kind of each error is read off its message by pattern
+(`analysis.ERROR_KINDS`: beyond forecast horizon, timeout, invalid arguments,
+rejected value, upstream unavailable, other). The message itself is never
+shown, because it can echo what a participant typed.
+Reason: the simulation's failures are all of this kind: 16 of 649 tool calls
+(2.5 %) in 14 of 426 turns, all in turns that still answered. With A there
+would be nothing to rank. The tool is the unit at which the failure happens,
+so it is the level where the two rounds can be compared without a
+classification rule in between. Request type and shape come after it.
+Consequence for §4.2.3: P2 speaks of request types and of execution failures
+"while the agent computes a suggestion". Both need rewording: the claim is
+made per tool, over errors the agent absorbed.
+Affects: C02, C05, `src/analysis.py`, `notebooks/study/06`/`09` §2,
+MANUSCRIPT_SYNC · Amends: D101 (P2's classes: tools, not request types) ·
+Closes: Q36
+
 ### D102 — Table 12 is reported as two axes side by side (resolves Q27, option A)
 Date: 2026-09-28 · Decided by: author (escalated by agent as Q27)
 Options: A two axes separately · B judge verdict × `user_action` · C a

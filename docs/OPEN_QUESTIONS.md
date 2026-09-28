@@ -30,7 +30,7 @@ wait; one blocking a Phase A task cannot.
 
 ## Open
 
-### Q36 — The simulated round has no execution failures, so P2 has nothing to rank
+### Q36 — [RESOLVED 2026-09-28, see D103] — The simulated round has no execution failures, so P2 has nothing to rank
 Raised: 2026-09-28 by agent (from the first run of `study/06_analysis`) · Blocks: P2's claim, C05 (the P2 expectation) · Phase: C
 
 Under D101's definition (a turn with `error_code` set, latest attempts only,
@@ -57,7 +57,8 @@ Added 2026-09-28: C is computed in `06_analysis` §6 as a descriptive
 secondary reading (`analysis.recovered_error_rates`, per tool and per request
 type, Wilson intervals, τ-b without p), pending this ruling. On the pilot, none
 of the three tools that errored in simulation was called.
-Status: open
+Status: resolved — D103 (C as P2's measure, compared per tool; request type and
+shape secondary)
 
 ### Q35 — How the judge scores participant replies (P3)
 Raised: 2026-09-28 by agent (building C02) · Blocks: P3, C05 (the judge protocol version) · Phase: C

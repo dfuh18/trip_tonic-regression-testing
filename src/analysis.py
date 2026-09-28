@@ -317,13 +317,13 @@ def tool_errors(turns: Iterable[Row]) -> list[dict[str, Any]]:
 
 
 def recovered_error_rates(turns: Iterable[Row], key: str = "tool") -> list[Rate]:
-    """Recovered tool errors: tool calls that came back an error inside a turn
-    that still completed (no ``error_code``). Q36 option C, a secondary
-    reading beside P2, not an execution failure by §4.2.3's definition.
+    """P2's failure measure (D103): tool calls that came back an error inside a
+    turn that still produced a response (no ``error_code``).
 
-    ``key="tool"``: per tool, n = that tool's calls in completed turns.
-    ``key="request_type"``: per request type, n = completed turns of that type,
-    counted when at least one of their tool calls errored."""
+    ``key="tool"`` (primary): per tool, n = that tool's calls in completed
+    turns, k = those that errored. Every tool called is listed, errored or not.
+    ``key="request_type"`` or ``"shape"`` (secondary): per class, n = completed
+    turns, k = those with at least one errored call."""
     n: Counter = Counter()
     k: Counter = Counter()
     for t in turns:
@@ -335,7 +335,7 @@ def recovered_error_rates(turns: Iterable[Row], key: str = "tool") -> list[Rate]
                 n[e["tool"]] += 1
                 k[e["tool"]] += bool(e.get("result_error"))
         else:
-            group = t.get(key) or "(none)"
+            group = (turn_shape(t) if key == "shape" else t.get(key)) or "(none)"
             n[group] += 1
             k[group] += any(e.get("result_error") for e in entries)
     out = []
@@ -343,6 +343,80 @@ def recovered_error_rates(turns: Iterable[Row], key: str = "tool") -> list[Rate]
         p, lo, hi = wilson(k[group], n[group])
         out.append(Rate(group, n[group], k[group], p, lo, hi))
     return out
+
+
+def empty_lookup_rates(turns: Iterable[Row]) -> list[Rate]:
+    """P2's secondary row (D103): lookups that worked and found nothing.
+
+    Only tools that report a ``found`` flag count (``result_found`` is not
+    null); a call that errored is P2's failure, not a miss, and is left out.
+    Per tool: n = its error-free calls in turns that still answered, k = those
+    with ``result_found = false``."""
+    n: Counter = Counter()
+    k: Counter = Counter()
+    for t in turns:
+        if failed(t):
+            continue
+        for e in _tool_entries(t):
+            if e.get("result_found") is None or e.get("result_error"):
+                continue
+            n[e["tool"]] += 1
+            k[e["tool"]] += e["result_found"] is False
+    out = []
+    for group in sorted(n):
+        p, lo, hi = wilson(k[group], n[group])
+        out.append(Rate(group, n[group], k[group], p, lo, hi))
+    return out
+
+
+#: What kind of error a tool returned, read off its message by pattern, first
+#: match wins. The message itself is never shown: it can echo what a
+#: participant typed. A message no pattern knows is ``other``, reported.
+ERROR_KINDS: tuple[tuple[str, str], ...] = (
+    ("beyond forecast horizon", r"forecast horizon"),
+    ("timeout", r"time(d)?[ -]?out|aborted"),
+    ("invalid arguments", r"invalid_type|expected .*received|Error in tool"),
+    ("rejected value", r"must be|not allowed|invalid|out of range|not found"),
+    ("upstream unavailable", r"unavailable|503|502|rate limit|quota"),
+)
+
+
+def error_kind(message: Any) -> str:
+    import re
+
+    text = str(message or "")
+    return next((kind for kind, pattern in ERROR_KINDS if re.search(pattern, text, re.IGNORECASE)), "other")
+
+
+def error_kinds(turns: Iterable[Row]) -> Counter:
+    """(tool, kind) → errored calls, over turns that still produced a response."""
+    out: Counter = Counter()
+    for t in turns:
+        if failed(t):
+            continue
+        for e in _tool_entries(t):
+            if e.get("result_error"):
+                out[(e["tool"], error_kind(e["result_error"]))] += 1
+    return out
+
+
+def error_summary(turns: Sequence[Row]) -> dict[str, Any]:
+    """The P2 headline for one round: turns, turns that failed outright, turns
+    that recovered from at least one tool error, and tool calls."""
+    turns = list(turns)
+    done = [t for t in turns if not failed(t)]
+    calls = [e for t in done for e in _tool_entries(t)]
+    k_turns = sum(1 for t in done if any(e.get("result_error") for e in _tool_entries(t)))
+    k_calls = sum(1 for e in calls if e.get("result_error"))
+    return {
+        "turns": len(turns),
+        "failed without a response": len(turns) - len(done),
+        "turns with a recovered tool error": k_turns,
+        "share of turns": wilson(k_turns, len(done)) if done else (float("nan"),) * 3,
+        "tool calls": len(calls),
+        "errored tool calls": k_calls,
+        "share of calls": wilson(k_calls, len(calls)) if calls else (float("nan"),) * 3,
+    }
 
 
 # --- Table 12 as two axes (D102) ----------------------------------------------

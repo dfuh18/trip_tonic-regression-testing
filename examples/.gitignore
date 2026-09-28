@@ -1,0 +1,4 @@
+# Rendered examples (tools/render_example.py) hold study rows, and a pilot
+# session holds a real person's words. Never committed; printed on purpose.
+*
+!.gitignore

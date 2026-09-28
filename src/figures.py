@@ -104,13 +104,18 @@ def strip(ax, values: Sequence[float], title: str, xlabel: str, color: str = SER
 
 
 def ci_plot(ax, rounds: Mapping[str, Sequence], title: str, xlabel: str,
-            colors: Optional[Mapping[str, str]] = None) -> None:
+            colors: Optional[Mapping[str, str]] = None, order: Optional[Sequence[str]] = None,
+            x_max: float = 1.0, missing: str = "not observed") -> None:
     """A rate per class for each round: dot = rate, line = 95 % Wilson interval,
     k/n beside it. ``rounds`` maps a round name to a list of ``analysis.Rate``;
-    ``colors`` maps the same names to a hue (default ``ROUND_COLOR``). A class a
-    round never met is labelled so."""
+    ``colors`` maps the same names to a hue (default ``ROUND_COLOR``);
+    ``order`` lists the classes top to bottom (default alphabetical), and a
+    class it does not name is appended. A class a round never met is labelled
+    so. ``x_max`` caps the axis when every rate is small."""
     colors = colors or ROUND_COLOR
-    groups = sorted({r.group for rates in rounds.values() for r in rates})
+    seen = {r.group for rates in rounds.values() for r in rates}
+    groups = (list(order) + sorted(seen - set(order))) if order else sorted(seen)
+    groups = [g for g in groups if g in seen][::-1]  # the first class is drawn on top
     ax.set_title(title)
     if not groups:
         empty(ax)
@@ -122,8 +127,8 @@ def ci_plot(ax, rounds: Mapping[str, Sequence], title: str, xlabel: str,
         for j, g in enumerate(groups):
             yv = j + offsets[rnd]
             if g not in by:
-                ax.annotate(f"{rnd}: not observed", (0, yv), xytext=(4, 0), textcoords="offset points",
-                            va="center", fontsize=8, color=MUTED, fontstyle="italic")
+                ax.annotate(f"{rnd}: {missing}", (0, yv), xytext=(4, 0), textcoords="offset points",
+                            va="center", fontsize=7, color=MUTED, fontstyle="italic")
                 continue
             r = by[g]
             ax.plot([r.ci_low, r.ci_high], [yv, yv], color=colors[rnd], linewidth=2, solid_capstyle="round")
@@ -134,12 +139,14 @@ def ci_plot(ax, rounds: Mapping[str, Sequence], title: str, xlabel: str,
                         va="center", fontsize=8, color=MUTED)
     ax.set_yticks(range(len(groups)), groups)
     ax.set_ylim(-0.5, len(groups) - 0.5)
-    ax.set_xlim(0, 1)
+    ax.set_xlim(0, x_max)
     ax.xaxis.set_major_formatter(lambda v, _: f"{v:.0%}")
     ax.set_xlabel(xlabel)
     _grid(ax)
     if any(h for h in ax.get_legend_handles_labels()[1]):
-        ax.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.22), ncol=len(rounds))
+        # Inside the axes where the marks leave room: an anchor below the axes
+        # drifts away from the plot as the figure gets taller.
+        ax.legend(frameon=True, facecolor="white", edgecolor="none", framealpha=0.9, loc="best")
 
 
 #: Cell states for ``execution_grid``: face colour and edge colour.

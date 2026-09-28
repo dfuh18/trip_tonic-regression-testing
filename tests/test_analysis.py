@@ -114,6 +114,44 @@ def test_recovered_errors_count_only_completed_turns():
     assert (by_type["factual_qa"].n, by_type["factual_qa"].failures) == (2, 1)
 
 
+def test_error_kinds_are_read_off_the_message_without_showing_it():
+    assert analysis.error_kind("Weather forecast unavailable: 2026-11-06 is beyond the 16-day forecast horizon") \
+        == "beyond forecast horizon"
+    assert analysis.error_kind("Climate data unavailable: The operation was aborted due to timeout") == "timeout"
+    assert analysis.error_kind("Error in tool 'move_slot': [{\"code\": \"invalid_type\"}]") == "invalid arguments"
+    assert analysis.error_kind("End time must be after start time for a single-day slot") == "rejected value"
+    assert analysis.error_kind("something new") == "other"
+
+
+def test_error_summary_separates_failed_turns_from_recovered_ones():
+    turns = [turn("a", "get_weather", "get_climate_normals", errored_tools={"get_weather"}),
+             turn("b", "search_places"),
+             turn("c", "get_weather", errored_tools={"get_weather"}, error="agent_timeout")]
+    s = analysis.error_summary(turns)
+    assert (s["turns"], s["failed without a response"], s["turns with a recovered tool error"]) == (3, 1, 1)
+    assert (s["tool calls"], s["errored tool calls"]) == (3, 1)
+    kinds = analysis.error_kinds([dict(turns[0], tool_call_trace=[
+        {"kind": "tool", "seq": 0, "tool": "get_weather", "result_error": "beyond the 16-day forecast horizon"}])])
+    assert kinds == {("get_weather", "beyond forecast horizon"): 1}
+
+
+def test_empty_lookups_count_misses_not_errors_and_only_tools_with_a_found_flag():
+    t = turn("a", "read_wikipedia", "read_wikipedia", "read_wikipedia", "search_places")
+    t["tool_call_trace"][0]["result_found"] = False
+    t["tool_call_trace"][1]["result_found"] = True
+    t["tool_call_trace"][2].update(result_found=False, result_error="timeout")  # an error, not a miss
+    t["tool_call_trace"][3]["result_found"] = None                              # no found flag
+    rates = {r.group: r for r in analysis.empty_lookup_rates([t])}
+    assert list(rates) == ["read_wikipedia"]
+    assert (rates["read_wikipedia"].n, rates["read_wikipedia"].failures) == (2, 1)
+
+
+def test_recovered_errors_by_shape():
+    turns = [turn("a", "get_weather", errored_tools={"get_weather"}), turn("b", "search_places")]
+    by_shape = {r.group: r for r in analysis.recovered_error_rates(turns, key="shape")}
+    assert by_shape["factual.forecast"].failures == 1 and by_shape["venue.search"].failures == 0
+
+
 # --- P3 ------------------------------------------------------------------------
 
 
