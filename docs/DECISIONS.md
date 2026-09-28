@@ -31,6 +31,120 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D102 — Table 12 is reported as two axes side by side (resolves Q27, option A)
+Date: 2026-09-28 · Decided by: author (escalated by agent as Q27)
+Options: A two axes separately · B judge verdict × `user_action` · C a
+simulated `user_action` proxy
+Chosen: **A.** No cross-tabulation. The participant round reports
+`user_action` and thumbs; the simulated round reports the structural outcome
+per execution. `06_analysis` §1 prints them side by side and says so first if
+`ignored` dominates (§4.3 (1)).
+Reason: after D73 no round produces both inputs, and A changes no label's
+meaning. The cost is the cross-tabulation Table 12 describes; the manuscript
+must drop or rewrite Table 12's derived label.
+Affects: C02, `src/analysis.py`, event-model.md (the Table 12 note),
+MANUSCRIPT_SYNC · Reverses: none · Closes: Q27
+
+### D101 — The statistics for P2 and P3
+Date: 2026-09-28 · Decided by: author (escalated by agent while building C02;
+§4.3 names no test)
+Options, P2: Kendall τ over request types, descriptive · Spearman ρ over the
+shapes7 classes with an exact p · Spearman ρ over request types with an exact
+p. P3: one-sided Mann–Whitney U with the rank-biserial r · Welch t with
+Cohen's d · descriptive only.
+Chosen:
+- **P2:** Kendall's τ-b between the two rounds' per-`request_type` failure
+  rates, over the classes both rounds observed, reported **as an effect size
+  with no p-value**. Per-class and overall rates carry 95 % Wilson intervals.
+  At four classes no rank test can reach p < .05, however strong the agreement.
+- **P3:** one-sided Mann–Whitney U (positive > negative) at α = .05, with the
+  rank-biserial r and a 95 % percentile-bootstrap interval (5 000 resamples,
+  fixed seed). Thumbs and accept/reject are tested separately and never
+  pooled. `ignored` belongs to neither group. A group with fewer than two
+  scores is reported, not tested.
+- **The judge on participant replies** is to run from a guarded cell that is
+  off by default (it costs Vertex calls). Its design is **not** settled by this
+  entry; see Q35. P2's first run shows the simulated side has no failures to
+  rank; see Q36.
+Reason: judge scores are ordinal on 1–10, so a rank test needs no normality
+assumption. At P2's number of classes, a p-value would say nothing about the
+agreement.
+Definitions fixed alongside, as implementation of rulings already made:
+- **An execution failure** is an agent turn with `error_code` set, read from
+  the same `study_suggestions` column in both rounds. Simulated turns are read
+  under D53: latest attempts only.
+- **A P1 interaction** is a D100 request. Its signature is D24's over the
+  request's turns joined in order, typed by D09 over all of the request's
+  tools. It is matched against the simulated executions of the compared runs.
+Affects: C02, `src/analysis.py`, `tests/test_analysis.py`,
+`notebooks/study/06_analysis` · Reverses: none
+
+### D100 — A participant run is split into requests by shape and slash command (resolves Q29)
+Date: 2026-09-28 · Decided by: author (escalated by agent as Q29)
+Options: A a request is one turn · B a request is one Tonic run · C split where
+the acting shape changes (`shapes.segment`) · C + slash · C + reference ·
+C + slash + reference (`shapes.segment_with`) · an offline segmenter model
+Chosen: **C + slash**: `segment_with(..., use_intent=True,
+use_reference=False)` over `shapes7` labels (D99). A turn with a slash
+command starts a new request; otherwise a new request starts where the
+acting shape changes, and a turn that called nothing joins the request before
+it. Reference is not used.
+Reason: on the fused-run bench (`sim/08_segmentation`) the slash signal
+raised the boundaries found from 83.5 % to 90.9 % and costs nothing when
+absent. On the pilot (`study/05b_pilot_shapes` §5, 19 turns in 5 Tonic runs)
+C + slash gives 16 requests and 3 follow-up turns. The slash signal changed
+nothing there, because every slash turn also changed shape. The pilot is
+technical test data and too small to validate the rule.
+**What leaving out reference costs, stated because D82/D83 pointed the other
+way:** probe `287e7780` met D82's keep rule for reference, which joined the
+dinner seed's search → draft into one request in 3 of 3 repetitions. Without
+reference, a request that changes shape mid-way ("find seafood" → "add the
+second one") is counted as two requests. That is the split error, accepted
+by this ruling. What reference costs: 6 of 812 false merges on the bench,
+confined to requests that share a place. On the pilot it merged two more
+requests (16 → 14). D83's reasons for keeping both multi-step seeds in the
+suite are unaffected.
+Per Q29's recommendation, segments are used for shape distribution and
+coverage (P1). Turns stay the unit for failure rates (P2), thumbs and
+`user_action`. Coverage is reported per turn and per segment side by side,
+and no claim rests on a request count.
+Not ruled here: a request's label (`interaction_label` vs the union of its
+turns' tools). The two agree on every pilot request under this variant, so
+the question stays open alongside Q29. D82's follow-up question (option B for
+P3) is also not reopened by this entry; the pilot gives 3 follow-up turns of 19.
+Affects: C02, C05, `src/shapes.py` · Reverses: none · Closes: Q29
+
+### D99 — The request-shape rule is shapes7 (resolves Q28)
+Date: 2026-09-28 · Decided by: author (escalated by agent as Q28)
+Options: d09 · shapes7 · shapes9 · families
+Chosen: **shapes7**, unchanged: advisory · factual.reference ·
+factual.climate · factual.forecast · venue.search · scheduling.draft ·
+scheduling.edit, plus `other`. A turn doing two things is `other`; the only
+exception is a search that feeds a draft. `other` is reported as its own row
+in C02. `shapes9` stays computable as a secondary view.
+Two variations were raised on the pilot data and declined by the author:
+- **Merge forecast and climate.** Declined: a forecast is a distinct call by
+  the agent. The one pilot turn that called forecast and climate tools
+  together was atypical, and it is no longer in the pilot data.
+- **Widen the draft exception** to any tool that feeds a draft. Declined for
+  now. The pilot's `other` turns are 4 of 19 (21 %), two recurring mixes seen
+  twice each: climate + search + draft, and Wikipedia + search.
+Reason: on the pilot (`study/05b_pilot_shapes`, 19 turns) d09's precedence
+hides every mixed turn, families spreads 19 turns over 6 labels, and shapes9
+equals shapes7 because the pilot has no live edits. The stored
+`request_type` and the re-derived d09 agree on every turn, and no tool fell
+outside the rules. On the suite (`sim/07_shapes`) shapes7 lands every
+non-advisory case on its declared label and is stable under the metamorphic
+relations. The pilot is technical test data; it shows the rule behaves on real
+traces, not what the class sizes will be.
+Not ruled here: Q28's advisory sub-decision, (i) `advisory` means "called no
+tool" or (ii) add a case whose advisory answer needs no tool. It stays open
+under Q28.
+`REQUEST_SHAPE_RULE_VERSION` is still `0-candidates`; it is set when the rule
+is frozen at C05.
+Affects: C02, C05, `src/shapes.py`, MANUSCRIPT_SYNC · Reverses: none ·
+Closes: Q28 (except the advisory sub-decision)
+
 ### D98 — A place added from Tonic's reply is linked to its turn through study_user_actions, not on the mutation row
 Date: 2026-09-26 · Decided by: author (escalated by agent after the pilot
 notebook flagged "agent_place_added without an origin")

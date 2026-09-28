@@ -1,0 +1,158 @@
+"""Tests for ``src.analysis`` — the C02 statistics, on hand-built rows."""
+
+import math
+
+import pytest
+
+from src import analysis
+
+
+def turn(tid, *tools, error=None, run="r1", session="s1", index=1, intent=None, request_type=None, action=None,
+         reply=None, errored_tools=()):
+    trace = [{"kind": "tool", "seq": i, "tool": t, "args": {}, "result_error": t in errored_tools}
+             for i, t in enumerate(tools)]
+    return {"id": tid, "run_id": run, "session_id": session, "turn_index": index, "agent_intent": intent,
+            "tool_call_trace": trace, "error_code": error, "request_type": request_type,
+            "user_action": action, "reply_message_id": reply or f"m-{tid}"}
+
+
+# --- P1 ------------------------------------------------------------------------
+
+
+def test_a_slash_starts_a_request_and_reference_is_not_used():
+    run = [
+        turn("a", "search_places", index=1, intent="find"),
+        turn("b", "search_places", index=2),
+        turn("c", "search_places", index=3, intent="find"),
+    ]
+    assert [[t["id"] for t in s] for s in analysis.segments(run)] == [["a", "b"], ["c"]]
+
+
+def test_a_request_across_two_turns_is_typed_by_all_its_tools():
+    sig = analysis.interaction_signature([turn("a", "search_places"), turn("b", "propose_plan", index=2)])
+    assert sig[0] == "scheduling"
+    assert sig[1] == ("search_places", "propose_plan")
+    assert sig[3] == "2"
+
+
+def test_coverage_matches_on_the_whole_signature():
+    suite = [[turn("s1", "search_places")]]
+    part = [[turn("p1", "search_places")], [turn("p2", "get_weather")]]
+    rows = analysis.coverage(part, suite, "request")
+    assert [r.covered for r in rows] == [True, False]
+    assert analysis.uncovered_by(rows) == {"factual.forecast": 1}
+    summary = analysis.coverage_summary(rows)
+    assert (summary["n"], summary["covered"]) == (2, 1)
+
+
+def test_nearest_miss_names_the_differing_parts():
+    suite = [[turn("s1", "search_places"), turn("s2", "propose_plan", index=2)]]
+    one_turn = [[turn("p1", "search_places", "propose_plan")]]
+    rows = analysis.uncovered_diagnosis(one_turn, suite)
+    assert [(r["shape"], r["differs in"], r["parts off"]) for r in rows] == [("scheduling.draft", "turns", 1)]
+
+
+def test_nearest_miss_skips_covered_requests_and_handles_an_empty_suite():
+    suite = [[turn("s1", "search_places")]]
+    assert analysis.uncovered_diagnosis([[turn("p1", "search_places")]], suite) == []
+    assert analysis.nearest_miss(("a",), []) == list(analysis.SIGNATURE_PARTS)
+
+
+def test_turn_coverage_compares_single_turns():
+    suite = [[turn("s1", "search_places"), turn("s2", "propose_plan", index=2)]]
+    part = [[turn("p1", "propose_plan")]]
+    assert analysis.coverage(part, suite, "request")[0].covered is False
+    assert analysis.coverage(part, suite, "turn")[0].covered is True
+
+
+# --- P2 ------------------------------------------------------------------------
+
+
+def test_failure_rates_per_class_with_wilson_intervals():
+    turns = [turn("a", request_type="scheduling", error="agent_timeout"),
+             turn("b", request_type="scheduling"),
+             turn("c", request_type="venue_lookup")]
+    rates = {r.group: r for r in analysis.failure_rates(turns)}
+    assert (rates["scheduling"].n, rates["scheduling"].failures, rates["scheduling"].rate) == (2, 1, 0.5)
+    assert rates["scheduling"].ci_low < 0.5 < rates["scheduling"].ci_high
+    assert rates["venue_lookup"].failures == 0
+
+
+def test_rank_agreement_is_descriptive_and_says_when_it_is_undefined():
+    r = analysis.Rate
+    sim = [r("a", 10, 1, 0.1, 0, 0), r("b", 10, 3, 0.3, 0, 0), r("c", 10, 5, 0.5, 0, 0)]
+    same = analysis.rank_agreement(sim, sim)
+    assert same["tau_b"] == pytest.approx(1.0) and "p" not in same
+    flat = [r("a", 10, 0, 0.0, 0, 0), r("b", 10, 0, 0.0, 0, 0), r("c", 10, 0, 0.0, 0, 0)]
+    none = analysis.rank_agreement(sim, flat)
+    assert none["tau_b"] is None and "undefined" in none["note"]
+
+
+def test_rank_agreement_uses_only_classes_both_rounds_saw():
+    r = analysis.Rate
+    sim = [r("a", 10, 1, 0.1, 0, 0), r("b", 10, 3, 0.3, 0, 0), r("c", 10, 5, 0.5, 0, 0)]
+    part = [r("a", 5, 0, 0.0, 0, 0), r("b", 5, 1, 0.2, 0, 0)]
+    assert analysis.rank_agreement(sim, part)["classes"] == ["a", "b"]
+
+
+def test_tool_errors_count_recoveries():
+    turns = [turn("a", "get_weather", "get_climate_normals", errored_tools={"get_weather"}),
+             turn("b", "get_weather", errored_tools={"get_weather"}, error="tool_failed")]
+    rows = {r["tool"]: r for r in analysis.tool_errors(turns)}
+    assert rows["get_weather"] == {"tool": "get_weather", "calls": 2, "errored calls": 2,
+                                   "turns completed after an error": 1}
+
+
+def test_recovered_errors_count_only_completed_turns():
+    turns = [turn("a", "get_weather", "get_climate_normals", errored_tools={"get_weather"}, request_type="factual_qa"),
+             turn("b", "get_weather", request_type="factual_qa"),
+             turn("c", "get_weather", errored_tools={"get_weather"}, error="tool_failed", request_type="factual_qa")]
+    by_tool = {r.group: r for r in analysis.recovered_error_rates(turns)}
+    assert (by_tool["get_weather"].n, by_tool["get_weather"].failures) == (2, 1)
+    assert by_tool["get_climate_normals"].failures == 0
+    by_type = {r.group: r for r in analysis.recovered_error_rates(turns, key="request_type")}
+    assert (by_type["factual_qa"].n, by_type["factual_qa"].failures) == (2, 1)
+
+
+# --- P3 ------------------------------------------------------------------------
+
+
+def test_feedback_signals_are_never_pooled():
+    turns = [turn("a", action="accepted", reply="ma"), turn("b", action="rejected", reply="mb"),
+             turn("c", action="ignored", reply="mc")]
+    feedback = [{"chat_message_id": "ma", "value": "down"}, {"chat_message_id": "mc", "value": "up"}]
+    groups = analysis.feedback_groups(turns, feedback, {"a": 8, "b": 3, "c": 9})
+    assert groups["thumbs"] == {"positive": [9.0], "negative": [8.0]}
+    assert groups["accept/reject"] == {"positive": [8.0], "negative": [3.0]}
+
+
+def test_rank_biserial_bounds():
+    assert analysis.rank_biserial([9, 10], [1, 2]) == 1
+    assert analysis.rank_biserial([1, 2], [9, 10]) == -1
+    assert analysis.rank_biserial([5, 5], [5, 5]) == 0
+
+
+def test_mann_whitney_refuses_tiny_groups_and_tests_otherwise():
+    assert analysis.mann_whitney([9], [1, 2])["test"] is None
+    res = analysis.mann_whitney([8, 9, 9, 10, 10], [2, 3, 4, 5, 6], resamples=500)
+    assert res["p"] < 0.05 and res["r_rb"] == 1
+    assert res["r_ci_low"] <= res["r_rb"] <= res["r_ci_high"]
+
+
+# --- UMUX-LITE -----------------------------------------------------------------
+
+
+def test_umux_lite_scale_and_grades():
+    assert analysis.umux_lite(7, 7) == 100 and analysis.umux_lite(1, 1) == 0
+    assert analysis.sus_equivalent(100) == pytest.approx(87.9)
+    assert analysis.curved_grade(87.9) == "A+"
+    assert analysis.curved_grade(68.0) == "C"
+    assert analysis.curved_grade(51.6) == "F"
+
+
+def test_usability_skips_dismissed_rows():
+    rows = analysis.usability([
+        {"submitted_at": "t", "umux_lite_capability": 6, "umux_lite_ease": 7, "likelihood_to_recommend": 6},
+        {"dismissed_at": "t"},
+    ])
+    assert len(rows) == 1 and math.isclose(rows[0]["umux_lite"], 11 / 12 * 100)

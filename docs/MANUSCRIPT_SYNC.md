@@ -1,7 +1,10 @@
 # Manuscript sync — where the implementation has moved past the text
 
-State as of 2026-09-24 (branch `feat/thesis-regression-testing`, after `ac3a1cb`),
-read against manuscript revision `260917`. Before the baseline run and the pilot.
+State as of 2026-09-28 (branch `feat/thesis-regression-testing`), read against
+manuscript revision `260917`. After the baseline run (B10), the regression run
+(B11) and the pilot sessions; the participant-round analysis is built but not
+yet run on study data. Items added or changed since the 2026-09-24 sync are
+marked *(09-28)*.
 Every item names the decision (`D…`), log entry (`L…`) or open question (`Q…`)
 that holds the full reasoning.
 
@@ -15,12 +18,15 @@ that holds the full reasoning.
 |---|---|---|---|---|
 | 1 | Stage 2 asserts an "expected change / no-change relation between source and follow-up **output**" (Table 9) | Relations are **not** checked by comparing outputs. A directional relation becomes a changed check on the follow-up; an invariance relation is covered by the checks it inherits plus the judge. Measured, not argued: across four runs of one venue seed only **one** place appeared in all four, so "same venues as the seed" would fail a correct agent. | D27, D49 | §3.1 text + Table 9 row 2 |
 | 2 | Stage 4 / P4: participant turns are "matched against existing cases" and "structural outcomes compared with user feedback" | **Structural checking is simulation-only.** Checks are written against the fixture trip: 10 of 20 check keys depend on it, and `trip_after` is in all 29 cases, so none carries over to a real trip. Participant turns get coverage matching (signature, request shape) and the judge, not structural verdicts. | D73 | §3.1 Stage 4, P4, P2 row "Stage 4", Table 9 row 4 |
-| 3 | Table 12 crosses the structural check outcome with the user's action | **No round produces both.** Simulation has verdicts but no real user action; the participant round has user actions but no verdicts. Recommended: replace the structural axis with the judge's verdict outside simulation (option B). | Q27 (open) | §4.3, Table 12, Table 11 "Structural check outcome" row |
+| 3 | Table 12 crosses the structural check outcome with the user's action | **No round produces both.** Simulation has verdicts but no real user action; the participant round has user actions but no verdicts. *(09-28)* **Ruled: the two axes are reported side by side, not crossed** (option A). The derived label (Positive / Neutral / Lacks quality / Failure) goes. | D102 (closes Q27) | §4.3, Table 12, Table 11 "Structural check outcome" row |
 | 4 | "Each case is run eight times" | Seeds n = 8, metamorphic follow-ups n = 4 (§3.1 already permits reducing n). | D21 | §3.1 |
 | 5 | Stage 1 = two seeds per function (the planned 8 seeds, 16 follow-ups, 128 executions) | **13 seeds + 18 follow-ups = 31 cases, ceiling 176 executions.** The suite is **sized by tool coverage** (every agent tool must be reachable by some case), not only by budget. Added seeds: surf (the only way to reach `get_climate_normals`), a trip-dated vs. next-days forecast pair, and two seeds that act over two turns. | D50, D51, D54, D81–D84 | §3.1 Stage 1 |
 | 6 | P1: simulation covers "the whole stack **from frontend** to backend"; §3.3: the simulator "interacts with the same interface regular users do" | The simulator writes the member's message row the way the browser does and calls the same API endpoint (`POST /api/ai/agent/chat`). **The web UI is not driven.** Everything from the API down is the production path. | `src/simulator.py` | P1 row, §3.3 |
 | 7 | Runner "makes sure application states are reset in between executions" | **Nothing is reset. Each repetition gets a new fixture trip**, and nothing is ever deleted. Resetting the state destroyed the previous repetition's record, and with it the replies the pair-wise stage needs. | D38, L08 | §3.4 Runner, Table 11 run row |
 | 8 | Test case = "expected tool calls **and their order**" | A case lists the tools it **permits**, and every other tool is forbidden. It asserts the **outcome**: a time is a window plus a length, a place is a kind (never a specific venue), a retry is reported and not failed. The three read tools are always allowed. | D28, D30, D31, D32 | §3.4 Test cases, P5 |
+| 9 | P1: an interaction is covered "when a **test case** with the same signature exists in the suite" | *(09-28)* A case has no signature until it runs: the signature is read off a recorded trace. A participant **request** (a Tonic run split by shape change and slash command, D100) is covered when a **recorded simulated execution** (runs `1a872c09` + `e097f78e`) has the same D24 signature. Its request type is D09 over all of the request's tools. Coverage is also reported per turn, and no claim rests on a request count. | D24, D100, D101 | §4.2.3 P1, §4.3 (3) |
+| 10 | P3: "point-wise judging criteria are applied according to the assigned **request type**" | *(09-28)* **Not built; blocked.** The judge's rubrics are per test case, it is shown the fixture trip, and its scores are stored against simulated executions only. Scoring participant replies needs per-type rubrics, a decision on trip context, and a new table (an event-model change). | Q35 (open) | §4.2.3 P3 |
+| 11 | P2: "the rank correspondence between the two environments is the primary claim" | *(09-28)* With four request types no rank test can reach significance, so Kendall's τ-b is reported **descriptively, without a p-value**; the rates carry Wilson intervals. And the simulation produced **0 execution failures in 352 executions (426 turns)**, so its ranking is flat and τ is undefined whatever participants do. | D101, Q36 (open) | §4.2.3 P2 |
 
 ### B. Should add: facts the text does not have yet
 
@@ -91,10 +97,41 @@ that holds the full reasoning.
   Evaluators*, which shows verdicts flip with answer order and proposes
   evaluating both positions. Check whether Guan et al. (2025), already cited
   for point-wise vs pair-wise, covers it too.
-- **Request shapes / segmentation** (Q28, Q29, open): the four `request_type`
-  classes are too coarse and the D24 signature too fine for §4.3; a 7-class
-  "request shape" and a rule that splits runs into requests are proposed. The
-  participant round records **turns**, not requests.
+- **Request shapes / segmentation** (D99, D100): the four `request_type`
+  classes are too coarse and the D24 signature too fine for §4.3. A 7-class
+  "request shape" (shapes7) labels each turn: advisory · factual.reference ·
+  factual.climate · factual.forecast · venue.search · scheduling.draft ·
+  scheduling.edit, plus `other` for a turn doing two things (except search
+  feeding a draft). A participant's Tonic run is split into requests where the
+  shape changes or a slash command starts one. The participant round records
+  **turns**, not requests; segments serve coverage (P1), turns serve failure
+  rates (P2). *(09-28)* Reference to an earlier turn's place is deliberately
+  **not** a boundary signal, although the probe showed it joins search → "add
+  the second one" correctly: such a request counts as two. State this as the
+  segmentation's known split error.
+- *(09-28)* **Statistics** (D101), since §4.3 names none: failure and coverage
+  rates with 95 % **Wilson** intervals; P2's rank agreement as **Kendall's
+  τ-b**, descriptive; P3 as a one-sided **Mann–Whitney U** (positive > negative,
+  α = .05) with the **rank-biserial r** and a percentile-bootstrap interval,
+  thumbs and accept/reject never pooled.
+- *(09-28)* **Usability scoring**: the **UMUX-LITE → SUS conversion**. UMUX-LITE
+  (0–100) is converted to an estimated SUS score, SUS-equivalent ≈ 0.65 ×
+  UMUX-LITE + 22.9 (a published linear fit between the two questionnaires),
+  and graded on the Sauro–Lewis curved grading scale. Report it as an
+  estimate, not a measured SUS.
+- *(09-28)* **Recovered tool errors** as a secondary reading beside P2 (Q36
+  option C, not ruled): tool calls that errored in a turn that still completed.
+  Simulation: `get_weather` 11/43, `get_climate_normals` 2/19, `move_slot`
+  3/43. This is where the simulation's failures actually are.
+- *(09-28)* **Why a request is uncovered** is reported per request (the parts in
+  which the closest recorded signature differs), separating near misses (one
+  bucket off) from shapes the suite never produces.
+  **[cite: sources needed]** for the statistics and the usability conversion.
+  Candidates, to verify before citing: Wilson (1927) for the score interval;
+  Kendall (1938/1945) for τ-b; Mann & Whitney (1947); Kerby (2014) for the
+  rank-biserial as an effect size; Lewis, Utesch & Maher (2013) for UMUX-LITE
+  and the UMUX-LITE → SUS conversion; Sauro & Lewis (2016), *Quantifying the User
+  Experience*, for the curved grading scale.
 
 ### C. Must reword: a claim that changed meaning
 
@@ -103,6 +140,8 @@ that holds the full reasoning.
   advising (packing → climate, Sintra → Wikipedia), so no rule based on the
   tool trace ever labels a turn `advisory` (Q28). The advisory baseline is
   **scored, not checked**, which makes it a weaker instrument (L06).
+  *(09-28)* In the pilot, the one `advisory` turn is one that called no tool.
+  Whether `advisory` is *defined* that way is still open (Q28 sub-decision).
 - **§3.3 "execution follows the same paths as ordinary use"** is still true, but
   the system under test **changed during the build**, before any baseline. These
   were author rulings on findings, not instrumentation (see §3.4 draft, "changes
@@ -114,8 +153,14 @@ that holds the full reasoning.
 
 ## Part 2 — Rough draft, §3.4 Implementation
 
-> Draft prose. Numbers verified against the repository on 2026-09-24; items marked
-> **[fill]** are still to be measured (baseline, regression run, pilot).
+> Draft prose. Numbers verified against the repository on 2026-09-24 unless
+> marked *(09-28)*; items marked **[fill]** are still to be measured.
+>
+> *(09-28)* **Counts to refresh at the freeze.** Now: **103 decision entries**
+> (still **9** taken by the agent), **36 questions** raised, **6 open**; the
+> harness is **29 modules, ~9,070 lines** of Python with **317 test functions**.
+> Recount commits and application changes from git at the freeze rather than
+> patching the figures below one by one.
 
 ### 3.4.1 Build process and effort
 
@@ -247,6 +292,12 @@ What coverage revealed:
   correct agent would have failed the case (D58, D75).
 - **The advisory class is unreachable by any rule based on the tool trace**
   (Q28).
+- *(09-28)* **On the pilot, 7 of 16 requests (44 %) match a recorded
+  signature** (dry run only; pilot sessions are excluded from analysis). The
+  misses were mostly shapes the suite never produces: drafting from places
+  already on the trip without a search (3), revising a draft (1), and mixed
+  requests (3). Only 1 was a near miss (off by the turn bucket alone). This is
+  the kind of result §4.2.3 says matters more than the proportion.
 
 ### 3.4.6 Changes to the application it has already caused
 
@@ -269,7 +320,10 @@ All were author rulings, made before any baseline:
 - **Found, not yet fixed** (D83): when asked to extend a plan, the agent
   re-proposes stops already on the itinerary, so accepting the new plan
   schedules a stop twice. Only the new two-turn seed can reach this.
-  **[decide: fix before baseline or record as known regression target]**
+  *(09-28)* It was **not fixed before the baseline**: the baseline run shows it
+  in 6 of 8 repetitions of the tram case, and in the regression run that case
+  is the one stable agent failure (structural, 8/8). It is therefore in the
+  record as a known behaviour the suite detects.
 
 ### 3.4.7 Results so far — [fill]
 
@@ -285,24 +339,55 @@ All were author rulings, made before any baseline:
   remains of a seed `fail` on the judge is a consistent preference for the best
   reply: a high bar that notices small changes, read one failure at a time.
 
-- Verification runs so far are at n = 1 only (e.g. `42cab17a`, 29 cases, all
-  structurally clean after fixes). **[fill: baseline run id, n = 8/4,
-  executions, cost, duration, score distribution]**
-- **[fill: regression run pass rates per case; share of failures that are
-  structural vs. judge vs. capacity]**
-- **[fill: pilot — consent, event-model completeness assertion after first
-  session]**
+- *(09-28)* **Baseline (stage 3.1, B10):** run `1a872c09`, 31 cases at n = 8/4,
+  **176 executions, 0 failed, 165 structurally clean**, all 176 scored (mean
+  **9.26**), **$4.52**. Resumed once after the harness's session lapsed (D95).
+  Adopted by the author unchanged (D96, baseline key `0575abe1f224`). Findings:
+  `get_climate_normals` times out under the API's 8 s budget (2 of 8 surf
+  repetitions), and the D83 duplication (6 of 8). **[fill: duration, score
+  distribution figure from `sim/03_baseline`]**
+- *(09-28)* **Regression run (stage 3.2, B11):** run `e097f78e`, **no
+  configuration change** (every version field matches but `api_commit`, whose
+  application code is identical). 176 executions, 0 failed, 168 structurally
+  clean, all compared pair-wise (`judge-pairwise/2`, D97). **22 of 31 cases
+  pass, 9 fail** (D23 strict: 14/17); 27 position draws (16 %). One failure is
+  structural (the D83 case, 8/8); the other **eight fail on the judge**: their
+  executions pass every structural check of the case, and the judge finds the
+  reply not at least as good as the baseline, which is each case's best
+  execution (baseline entries 9.65 point-wise, this run 9.48). The
+  configuration did not change between the runs. This bears on §3.1's
+  variance claim and on the thresholds (the author's call; an
+  IMPLEMENTATION_LOG entry is owed).
+- *(09-28)* **Pilot:** `05_pilot` passed on 2026-09-26 over 4 sessions: every
+  event-model field populated, consent versioned, a decline records nothing,
+  post-task fires once after turn 3, the pinned model, the `ignored` job.
+  There are 7 pilot sessions now; **[fill: re-run `05_pilot` on all of them
+  and record C04]**. The propositions notebook ran end to end on the pilot as
+  a dry run (`06_analysis`); `08`/`09` are its clean copies for the study.
 
 ---
 
 ## Open before the manuscript can be final
 
 - **Citation** for LLM-judge position bias and the order-swap control (see Part 1 B, "Position bias").
+- **Citations** for the statistics and the UMUX-LITE conversion (see Part 1 B, "Statistics").
+- **Judge-only failures in the regression run** (B11): 8 of 31 cases pass their
+  structural checks and fail because the judge finds the replies not at least
+  as good as the best-of baseline, with no configuration change. Keep the rule
+  and report this, or revisit the thresholds or the baseline choice (D86).
 
-- **Q27** Table 12 — which axis replaces the structural verdict in the participant round.
-- **Q28** Request-shape rule, and whether "advisory" means "called no tool".
-- **Q29** Request boundary for participant data (segmentation rule C + slash/reference).
+- **Table 12** (D102): reported as two axes side by side; the manuscript's
+  derived label (Positive / Neutral / Lacks quality / Failure) must go.
+- **Q35** How the judge scores participant replies (rubric per request type,
+  trip context, storage).
+- **Q36** The simulation shows no execution failures, so P2's ranking has
+  nothing to rank against.
+- **Q28** Whether "advisory" means "called no tool". The rule itself is
+  ruled: shapes7 (D99).
+- **Q29** The request label (`interaction_label` vs the union of tools). The
+  boundary is ruled: C + slash, no reference (D100).
 - **Q22** Telemetry bounds — deferred until a baseline exists.
-- **D83 finding** — fix the duplicate-scheduling behaviour before the baseline or keep it as a known target.
+- ~~**D83 finding**~~ — settled by events: not fixed before the baseline, so it
+  is a known behaviour the suite detects (see 3.4.6).
 
 

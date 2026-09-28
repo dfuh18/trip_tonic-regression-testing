@@ -30,6 +30,66 @@ wait; one blocking a Phase A task cannot.
 
 ## Open
 
+### Q36 — The simulated round has no execution failures, so P2 has nothing to rank
+Raised: 2026-09-28 by agent (from the first run of `study/06_analysis`) · Blocks: P2's claim, C05 (the P2 expectation) · Phase: C
+
+Under D101's definition (a turn with `error_code` set, latest attempts only,
+D53), the compared runs `1a872c09` and `e097f78e` show **0 failures in 426
+simulated turns**. Every per-type simulated rate is 0, so the ranking P2
+compares against is flat and Kendall's τ is undefined whatever the
+participants do. The failures the simulation did see sit elsewhere:
+- superseded attempts (the platform, D53): 0 in these two runs;
+- tool calls that came back an error and were recovered within the turn:
+  11 of 43 `get_weather` calls, 3 of 43 `move_slot`, 2 of 19
+  `get_climate_normals`. These are not execution failures by §4.2.3's
+  definition.
+
+Options: **A** keep the definition, and report P2 as "no execution failure in
+simulation, n = 426; the participant rate is compared against zero", with no
+τ · **B** count every attempt, including superseded ones, in both rounds
+(0 here, but not 0 across all runs) · **C** add tool-level errors as a
+secondary P2 reading, "failures the agent recovered from", ranked the same way.
+Trade-off: A is honest and leaves P2 without a rank claim. C gives the ranking
+something to rank, but it is not what §4.2.3 calls an execution failure.
+Recommendation: **A as the primary result, C reported beside it**, with the
+manuscript stating that the simulation surfaced no execution failures.
+Added 2026-09-28: C is computed in `06_analysis` §6 as a descriptive
+secondary reading (`analysis.recovered_error_rates`, per tool and per request
+type, Wilson intervals, τ-b without p), pending this ruling. On the pilot, none
+of the three tools that errored in simulation was called.
+Status: open
+
+### Q35 — How the judge scores participant replies (P3)
+Raised: 2026-09-28 by agent (building C02) · Blocks: P3, C05 (the judge protocol version) · Phase: C
+
+P3 needs a point-wise score for each participant reply, and the judge cannot
+produce one as built:
+1. **Rubric.** `score_pointwise` takes a `Case` and scores against that case's
+   own criteria. P3 asks for "criteria applied according to the assigned
+   request type", and no per-`request_type` rubric exists.
+2. **Context.** Every call prepends the fixture trip (D54). A participant asks
+   about their own trip, so the fixture would mislead the judge. Their trip's
+   summary would have to be built from their data at the time of the turn.
+3. **Storage.** `study_scores` is keyed to a simulated execution
+   (`execution_id`) and is documented as simulation-only. Participant scores
+   need a table or a nullable key: an event-model change, and a new place
+   where a judge rationale about participant content is stored.
+4. **Which turns.** D82: P3 scores the opening turn of each request, which D100
+   now defines. Follow-ups are excluded.
+
+Options for 1: write four request-type rubrics (a new judge prompt version,
+reviewed like the case criteria) · reuse a representative case's criteria per
+type. For 2: summarise the member's trip as of the turn · no trip context, with
+trip-dependent criteria removed from the rubrics. For 3: a
+`study_participant_scores` table (service role only, cascading from the
+session like every study table, D14) · no persistence, scores kept only in the
+notebook run.
+Recommendation: four new request-type rubrics; no trip context and no
+trip-dependent criteria (the smallest change to what the judge sees); a new
+cascading table, so a withdrawal deletes the scores with everything else.
+`06_analysis` §4 is written to consume the scores the moment they exist.
+Status: open
+
 ### Q34 — [RESOLVED 2026-09-24, see D88] — What a seed verdict means against a best-of baseline
 Raised: 2026-09-24 by agent (from the comparison rehearsal, `sim/04_regress`) · Blocks: reading B11's verdicts · Phase: B
 
@@ -200,7 +260,7 @@ changes `suite_version`. Without one, a Q29 rule is validated in one error
 direction only.
 Status: resolved — D81 (two seeds)
 
-### Q29 — The participant round has no request boundary
+### Q29 — [RESOLVED 2026-09-28, see D100] — The participant round has no request boundary
 Raised: 2026-09-23 by author · Blocks: C02 (coverage per request, D24's `turns`), C05 (freeze) · Phase: C
 
 In the simulation a case is one request, and in 42cab17a one Tonic run. In the
@@ -256,9 +316,11 @@ Open alongside: a request's label. `interaction_label` calls a
 search-then-draft request `other`, while the same tools inside one turn are
 `scheduling.draft`. Labelling a request by the union of its turns' tools
 would make the two agree.
-Status: open
+Status: resolved — D100 (C + slash, no reference). The request label
+(`interaction_label` vs union of tools) remains open; the two agree on every
+pilot request under D100's variant.
 
-### Q28 — The request-shape rule for the participant round's automatic labels
+### Q28 — [RULED 2026-09-28, see D99; advisory sub-decision open] — The request-shape rule for the participant round's automatic labels
 Raised: 2026-09-23 by author and agent · Blocks: C02 (§4.3 (3), "the shapes where uncovered concentrates"), C05 (freeze) · Phase: C
 
 D09's `request_type` (4 classes) is too coarse to say where uncovered
@@ -301,9 +363,11 @@ baseline's n.
 Recommendation: **shapes7 with (i)**, `other` reported as its own row in
 C02, rule frozen at C05. Keep shapes9 computable as a secondary view, the way
 D09 keeps the composite derivable.
-Status: open
+Status: rule resolved — D99 (shapes7, unchanged). Still open: the advisory
+sub-decision (i) vs (ii). On the pilot, the one `advisory` turn called no
+tool, which is (i)'s meaning.
 
-### Q27 — Table 12's label has no round that can produce it
+### Q27 — [RESOLVED 2026-09-28, see D102] — Table 12's label has no round that can produce it
 Raised: 2026-09-23 (from D73) · Blocks: the participant-round analysis, not the baseline
 
 Table 12 derives a label from `structural_check_outcome` x `user_action`:
@@ -335,6 +399,7 @@ structural axis is the judge outside the simulated round. It is the only option
 that leaves Table 12 computable in both rounds, and P3 already establishes the
 judge as blind to everything but request, reply and rubric. A is the fallback
 if the manuscript cannot move.
+Status: resolved — D102 (A: two axes side by side)
 
 
 ### Q26 — [RESOLVED 2026-09-22, see D68] — Should a case require `get_region_climate` specifically?

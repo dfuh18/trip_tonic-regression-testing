@@ -887,7 +887,8 @@ version field matches except `api_commit`, whose application code is identical
 strict: 14/17); 27 position draws (16 %). The one stable agent failure is
 `scheduling_afternoon_then_tram` (structural, 8/8); the other eight fail on the
 judge against a best-of-eight baseline (entries 9.65 point-wise vs 9.48 for this
-run): with no change present, they measure the pass rule's false-alarm rate. That
+run): their executions pass the structural checks and the judge finds the replies
+not at least as good as the baseline, with no configuration change. That
 bears on the manuscript's variance claim (§3.1) and on the thresholds, which are
 the author's call; an IMPLEMENTATION_LOG entry is owed by the Fable tier
 Spec: Execute the suite a second time with no configuration change, `baseline_ref`
@@ -1097,8 +1098,14 @@ Phase: C
 Tier: [FABLE]
 Depends on: B11, B12, C01
 Estimate: 12h
-Status: blocked — Q02 (§4.3 unwritten). Q19 and Q03 were ruled on (D24, D17/D18/D13) and no longer block it
-(survey scales)
+Status: built (2026-09-28), not done. Logic in `src/analysis.py`, 13 offline
+tests in `tests/test_analysis.py`; runs end to end on `run_type = 'pilot'`
+against runs 1a872c09 + e097f78e, with five figures written to the ignored
+`notebooks/study/figures/`. Statistics per D101, Table 12 per D102,
+segmentation per D100. Open: P3 has no participant judge scores (Q35); P2's
+simulated side has no failures (Q36); §4.3 itself is still scaffolding (Q02).
+(Previously: blocked — Q02. Q19 and Q03 were ruled on (D24, D17/D18/D13) and no longer block it
+(survey scales).)
 Spec: `notebooks/study/06_analysis.ipynb`, outputs stripped, parameterised on
 the participant `run_type` and the simulation run ids to compare against.
 Following the §4.3 skeleton in order: (1) descriptive — interaction counts,
