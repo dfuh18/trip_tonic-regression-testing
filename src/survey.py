@@ -217,6 +217,7 @@ def turn_frame(run_id: str) -> "DataFrame":
         trace = t.get("tool_call_trace") or []
         rows.append({
             "case": ex.get("case_id"),
+            "repetition": ex.get("repetition") or 1,
             "provenance": ex.get("provenance"),
             "turn": t.get("turn_index"),
             "latency_ms": t.get("latency_ms") or 0,

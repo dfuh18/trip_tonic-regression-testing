@@ -148,6 +148,11 @@ that holds the full reasoning.
   Ruled (D105): `advisory` *is* defined that way, a turn that called no acting
   tool, so the suite's advisory cases count as factual shapes by what the agent
   did. Say so where the advisory class is reported.
+  *(09-29)* Precise it to **requests** (D107). On the 31-case runs, 19 and 20
+  **turns** are `advisory` (the no-tool closing turns of two-turn executions),
+  but no **request** is: each unions to a factual or `other` shape (D106). And
+  the suite is not free of mixed work: 17 and 13 requests are `other` (draft +
+  move, weather + climate), so a mixed participant request can be covered.
 - **§3.3 "execution follows the same paths as ordinary use"** is still true, but
   the system under test **changed during the build**, before any baseline. These
   were author rulings on findings, not instrumentation (see §3.4 draft, "changes
@@ -329,8 +334,10 @@ What coverage revealed:
 - **One metamorphic relation (typos) had zero cases** (D61).
 - **Several tool caps sat exactly on observed behaviour.** One more search by a
   correct agent would have failed the case (D58, D75).
-- **The advisory class is unreachable by any rule based on the tool trace**
-  (Q28).
+- **No request in the suite is advisory by any rule based on the tool trace**
+  (Q28, D107): the agent looks something up before it advises. *(09-29)* Per
+  turn the class is reached, by the no-tool closing turns of two-turn
+  executions; per request it never is.
 - *(09-28)* **On the pilot, 7 of 16 requests (44 %) match a recorded
   signature** (dry run only; pilot sessions are excluded from analysis). The
   misses were mostly shapes the suite never produces: drafting from places

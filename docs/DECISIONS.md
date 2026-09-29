@@ -31,6 +31,51 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D107 — The suite does produce `other` and per-turn `advisory`: evidence for D99, D105 and Q28 corrected, rulings unchanged
+Date: 2026-09-29 · Decided by: author (escalated by agent after rerunning
+`sim/08_segmentation` on the 31-case runs)
+Options: leave D99/D105 standing on 29-case evidence · record the corrected
+evidence as a new entry (the log is append-only)
+Chosen: **record it.** No ruling changes: shapes7 (D99), `advisory` = no
+acting tool (D105), the union (D106) and shape + slash (D100) all stand. What
+changes is three statements of fact they rest on, all measured on the 29-case
+run `42cab17a` (`sim/07_shapes`), before the two multi-step seeds (D81)
+existed. On the B10 baseline `1a872c09` and the B11 regression run `e097f78e`
+(31 cases, 176 executions each; `sim/08_segmentation__baseline_1a872c09`,
+`__regression_e097f78e`):
+- **`other` is not empty** (Q28 finding 3, "the suite has no mixed turn").
+  Turns: 16 and 11. Requests by D106's union: 17 and 13 —
+  `scheduling_afternoon_then_tram` 8/8 in both (draft + move; per turn,
+  re-draft and move together in 7/8 and 6/8), the packing list and its `inv3`
+  variant (weather + climate, 6 and 4), `factual_qa_lisbon_surf_conditions`
+  (climate/Wikipedia/search mixes, 3 and 0), Sintra (Wikipedia + search, 0
+  and 1). So a mixed participant request is **not** uncovered by construction:
+  it can match one of these signatures. D99's case for `other` ("what
+  participants may do and the suite does not") becomes "what the suite does
+  rarely".
+- **Per turn, `advisory` is not empty** (D105's consequence, "no advisory
+  counterpart in the simulated runs by construction"). Turns: 19 and 20, all
+  the no-tool closing turns of two-turn executions (packing list and its
+  variants, forecast, surf, Sintra, one dinner). **Per request it still
+  holds:** 0 advisory requests in both runs, because each such turn's request
+  unions to a factual or `other` shape. D105's consequence is true of
+  requests, not of turns.
+- **Not every non-advisory case lands on its declared label** (D99's reason):
+  the afternoon seed is `other`, and surf conditions was `other` in 3/8
+  baseline repetitions.
+Reason: DECISIONS is the record of what was believed and why; a later run that
+contradicts the evidence behind a ruling is recorded, not edited in. `07_shapes`
+stays pinned to `42cab17a` and is correct for that run.
+Also measured, for D100: shape + slash finds 92.3 % / 91.9 % of boundaries over
+all 30 800 fused pairs (93.8 % on the old pool); split error 19 / 16 of 176
+executions without reference, 4 / 2 with it. The single-shape surf case splits
+through a mixed first turn, so the multi-step seeds are not the only source of
+split error.
+Affects: MANUSCRIPT_SYNC (§C advisory item, §3.4.5), `sim/07_shapes`
+(pointer), `sim/07_shapes__baseline_1a872c09`, `sim/08_segmentation__*` ·
+Reverses: none · Corrects the evidence
+of: D99, D105, Q28
+
 ### D106 — A request's shape is shapes7 over the union of its turns' tools (closes Q29)
 Date: 2026-09-28 · Decided by: author (escalated by agent as the remainder of Q29)
 Options: `interaction_label` (label each turn, then combine: one acting label
