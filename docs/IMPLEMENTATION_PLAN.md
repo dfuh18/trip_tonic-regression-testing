@@ -1104,7 +1104,8 @@ against runs 1a872c09 + e097f78e, with five figures written to the ignored
 `notebooks/study/figures/`. Statistics per D101, Table 12 per D102,
 segmentation per D100, P2 per tool over absorbed tool errors (D103), and
 descriptive only with a per-participant overview (D104, reversing D101's
-statistics). Open: the criterion per proposition (Q37); P3 has no participant
+statistics). Coverage segments both sides (D108); each proposition prints a
+verdict against its criterion (D109, closing Q37). Open: P3 has no participant
 judge scores (Q35); §4.3 itself is still scaffolding (Q02).
 (Previously: blocked — Q02. Q19 and Q03 were ruled on (D24, D17/D18/D13) and no longer block it
 (survey scales).)

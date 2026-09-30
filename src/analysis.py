@@ -15,9 +15,11 @@ What each proposition is computed from:
 * **P1 — coverage.** A participant *interaction* is one request: a Tonic run
   split by ``shapes.segment_with`` with the slash signal and without reference
   (D100), over ``shapes7`` labels (D99). Its signature is D24's
-  (``src.signature``) over the request's turns taken together. It is covered
-  when a simulated execution has the same signature. Reported per request, per
-  turn, and per participant.
+  (``src.signature``) over the request's turns taken together. The headline
+  (D108) splits every simulated execution by the same rule, so both sides
+  pass through one segmentation and D100's split error falls on both; a
+  request is covered when a simulated segment has the same signature.
+  Coverage against whole executions is reported beside it, and per turn.
 * **P2 — failures the system recovered from (D103).** Tool calls that came back
   an error in a turn that still answered, per tool, side by side for both
   rounds; empty lookups as a secondary row. Simulated turns are read under D53
@@ -49,7 +51,8 @@ from src.signature import SIGNATURE_RULE_VERSION, signature
 Row = dict[str, Any]
 
 #: 2: descriptive only (D104) — intervals, τ and the Mann–Whitney test removed.
-ANALYSIS_VERSION = "2"
+#: 3: P1's headline matches against segmented simulated executions (D108).
+ANALYSIS_VERSION = "3"
 
 
 def share(k: int, n: int) -> float:
@@ -135,6 +138,13 @@ def segments(run: Sequence[Row], reply_place_ids: Mapping[str, Iterable[str]] | 
     ]
     cut = shapes.segment_with(signals, use_intent=SEGMENT_USE_INTENT, use_reference=SEGMENT_USE_REFERENCE)
     return [[run[i] for i in seg] for seg in cut]
+
+
+def simulated_requests(executions: Sequence[Sequence[Row]]) -> list[list[Row]]:
+    """Every simulated execution split under D100, as a participant run is
+    (D108). A multi-step execution the rule splits becomes several units, so a
+    participant who did exactly what a case did gets exactly its units."""
+    return [seg for ex in executions for seg in segments(ex)]
 
 
 def joined_trace(turns: Sequence[Row]) -> list[dict]:
@@ -441,6 +451,80 @@ def feedback_scores(groups: Mapping[str, Mapping[str, Sequence[float]]]) -> list
     side, never pooled."""
     return [{"signal": signal, "group": group, **score_summary(values)}
             for signal, by_group in groups.items() for group, values in by_group.items()]
+
+
+# --- the criteria (D109, closes Q37) ---------------------------------------------------
+
+#: P1: supported if more than this share of participant requests is covered.
+P1_MIN_SHARE = 0.5
+#: P2: how many tools count as "highest", how many of the simulation's must
+#: reappear, and the calls a tool needs in each round to be compared.
+P2_TOP, P2_MIN_OVERLAP, P2_MIN_CALLS = 3, 2, 10
+#: P3: the thumbs-up mean must exceed the thumbs-down mean by this much, with
+#: at least this many replies in each group.
+P3_MIN_DIFFERENCE, P3_MIN_REPLIES = 1.0, 10
+
+SUPPORTED, NOT_SUPPORTED, NOT_ASSESSED = "supported", "not supported", "not assessed"
+
+
+@dataclass(frozen=True)
+class Verdict:
+    outcome: str  # SUPPORTED | NOT_SUPPORTED | NOT_ASSESSED
+    reason: str
+
+
+def p1_verdict(rows: Sequence[CoverageRow]) -> Verdict:
+    """More than half of the participant requests covered (the D108 headline)."""
+    s = coverage_summary(rows)
+    if not s["n"]:
+        return Verdict(NOT_ASSESSED, "no participant requests")
+    ok = s["share covered"] > P1_MIN_SHARE
+    return Verdict(SUPPORTED if ok else NOT_SUPPORTED,
+                   f"{s['covered']}/{s['n']} = {s['share covered']:.1%} covered, criterion > {P1_MIN_SHARE:.0%}")
+
+
+def top_error_tools(rates: Sequence[Rate], eligible: Iterable[str], k: int = P2_TOP) -> list[str]:
+    """The ``k`` eligible tools with the highest error rate, errored tools only.
+    A tool tied with the k-th rate is included, so a tie never decides by name."""
+    ranked = sorted((r for r in rates if r.group in set(eligible) and r.failures), key=lambda r: -r.rate)
+    if len(ranked) <= k:
+        return [r.group for r in ranked]
+    cut = ranked[k - 1].rate
+    return [r.group for r in ranked if r.rate >= cut]
+
+
+def p2_verdict(sim_rates: Sequence[Rate], part_rates: Sequence[Rate]) -> Verdict:
+    """At least two of the simulation's top three error tools are among the
+    participant round's top three, over tools called at least ten times in
+    each round. Not assessed when fewer than two of the simulation's top three
+    reach ten calls among participants."""
+    sim_n = {r.group: r.n for r in sim_rates}
+    part_n = {r.group: r.n for r in part_rates}
+    sim_top = top_error_tools(sim_rates, [t for t, n in sim_n.items() if n >= P2_MIN_CALLS])
+    reachable = [t for t in sim_top if part_n.get(t, 0) >= P2_MIN_CALLS]
+    if len(reachable) < P2_MIN_OVERLAP:
+        return Verdict(NOT_ASSESSED, f"simulation top {sim_top}; called ≥ {P2_MIN_CALLS} times by "
+                                     f"participants: {reachable or 'none'}")
+    both = [t for t in part_n if part_n[t] >= P2_MIN_CALLS and sim_n.get(t, 0) >= P2_MIN_CALLS]
+    part_top = top_error_tools(part_rates, both)
+    overlap = [t for t in sim_top if t in part_top]
+    ok = len(overlap) >= P2_MIN_OVERLAP
+    return Verdict(SUPPORTED if ok else NOT_SUPPORTED,
+                   f"simulation top {sim_top}; participant top {part_top or 'none'}; "
+                   f"{len(overlap)} shared, criterion ≥ {P2_MIN_OVERLAP}")
+
+
+def p3_verdict(thumbs: Mapping[str, Sequence[float]]) -> Verdict:
+    """Thumbs-up replies score at least one point higher on average than
+    thumbs-down replies; accept/reject is not assessed (D109)."""
+    pos, neg = list(thumbs.get("positive", [])), list(thumbs.get("negative", []))
+    if len(pos) < P3_MIN_REPLIES or len(neg) < P3_MIN_REPLIES:
+        return Verdict(NOT_ASSESSED, f"{len(pos)} thumbs up, {len(neg)} thumbs down scored; "
+                                     f"needs ≥ {P3_MIN_REPLIES} each")
+    diff = statistics.mean(pos) - statistics.mean(neg)
+    return Verdict(SUPPORTED if diff >= P3_MIN_DIFFERENCE else NOT_SUPPORTED,
+                   f"mean up {statistics.mean(pos):.2f} − mean down {statistics.mean(neg):.2f} = {diff:+.2f}, "
+                   f"criterion ≥ +{P3_MIN_DIFFERENCE:.1f}")
 
 
 # --- a shallow per-participant overview ----------------------------------------------

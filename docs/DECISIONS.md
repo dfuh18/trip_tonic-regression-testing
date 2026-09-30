@@ -31,6 +31,72 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D109 — The criterion each proposition is judged against (closes Q37)
+Date: 2026-09-30 · Decided by: author (escalated by agent as Q37)
+Options: the Q37 proposals (P1 > half covered; P2 top-tool agreement with k
+open; P3 median difference, thumbs and accept/reject separately) · the
+author's wording below · demote P3 to exploratory
+Chosen, fixed before the participant data:
+- **P1** is supported if **more than half** of the participant requests are
+  covered, per request against the segmented simulated runs (D108). Per turn,
+  per participant and against whole executions are reported, not assessed.
+- **P2** is supported if **at least two** of the simulation's **three**
+  tools with the highest recovered-error rate (D103) are also among the
+  participant round's three highest. Only tools called **at least ten times in
+  each round** are compared; a tool with no errors in the participant round is
+  not in its list. **Not assessed** if fewer than two of the simulation's three
+  reach ten participant calls. In the pooled runs the three are `get_weather`
+  11/43, `get_climate_normals` 2/19 and `move_slot` 3/43.
+- **P3** is supported if the **mean** judge score of replies rated thumbs up is
+  **at least one point higher** than that of replies rated thumbs down. **Only
+  thumbs are assessed**; accept/reject is still shown. **Not assessed** if
+  fewer than ten scored replies are in either group.
+Reason: the author's. Ten calls: below it one error moves a tool's rate by more
+than ten points, and the participant round gives no instructions, so some
+tools may be called rarely or never. One point: the pooled judge score is
+9.37 ± 1.13 (n = 352, `sim/04c_pooled_summary`), so a point is 0.88 SD.
+Thumbs only: a reply usually holds several suggestions, and a member may act
+differently on each, so accept/reject does not judge the reply as a whole.
+Implementation (agent, not ruled by the author): a tool tied with the
+third-highest rate counts as among the top three, so a tie is never decided
+by the tool's name.
+Effect on the pilot dry run (`study/06_analysis`, technical test data): P1
+supported (10/16 = 62.5 %); P2 not assessed (no participant tool reached ten
+calls); P3 not assessed (no participant judge scores, Q35).
+Still open: P3 needs the participant judge (Q35) before the study round.
+Affects: C02, C05, `src/analysis.py` (`p1_verdict`, `p2_verdict`,
+`p3_verdict`), `notebooks/study/06_analysis`, `09_study_propositions`,
+MANUSCRIPT_SYNC · Amends: D102 and §4.2.3 P3 (accept/reject no longer
+assessed) · Reverses: none · Closes: Q37
+
+### D108 — Coverage segments both sides: simulated executions are split by D100 too
+Date: 2026-09-30 · Decided by: author (escalated by agent)
+Options: A match participant requests against whole simulated executions (as
+built) · B split every simulated execution by the same D100 rule and match
+against the segments · C report both
+Chosen: **C, with B as the headline.** P1's headline matches each
+participant request against the simulated executions split under D100
+(`analysis.simulated_requests`). Coverage against whole executions (A) is
+reported beside it, then per turn and per participant, as before.
+Reason: D100 has a known split error, and under A it fell on the participant
+side only. The suite's multi-step executions (dinner: search → draft; the
+afternoon seed: draft → edit) were single two- or three-turn units that no
+participant request could ever match, because D100 splits exactly that
+pattern; a participant who did what the case did got two requests and no
+match. Under B both sides pass through one segmentation, so the comparison
+measures the suite and not the segmenter. A stays beside it because an
+execution is the suite's own unit, one case run.
+Effect: the pooled runs give 387 simulated segments from 352 executions
+(`sim/08b_segmentation_pooled`: 35 executions split). On the pilot
+(`study/06_analysis`, technical test data) coverage is **10 of 16 requests
+(62.5 %)** under B against 7 of 16 (43.8 %) under A; the three that change
+are single-turn `scheduling.draft` requests that match the draft half of a
+split multi-step execution. Per turn is unchanged at 13 of 19 (68.4 %).
+`ANALYSIS_VERSION` 2 → 3.
+Affects: C02, `src/analysis.py`, `notebooks/study/06_analysis`,
+`09_study_propositions`, MANUSCRIPT_SYNC A9 · Amends: D100 (which unit the
+simulated side is) · Reverses: none
+
 ### D107 — The suite does produce `other` and per-turn `advisory`: evidence for D99, D105 and Q28 corrected, rulings unchanged
 Date: 2026-09-29 · Decided by: author (escalated by agent after rerunning
 `sim/08_segmentation` on the 31-case runs)
@@ -2888,6 +2954,16 @@ Chosen: `scheduling` if any of `propose_plan`, `move_slot`, `unschedule_block`,
 always stored so the composite label stays derivable.
 Reason: maps onto the four functions of §1.4 and P2's per-type rates; the
 information a precedence hides is recoverable from the trace.
+Amended 2026-09-29 (rationale for the order, added by the author; the rule is
+unchanged): the classes rank by consequence. Changing the itinerary outranks
+finding a venue, which outranks answering from a reference source, which
+outranks only talking. The lower classes usually serve the higher ones within
+one request — a search feeds a plan, a forecast informs a venue choice — so the
+highest class present names what the request was for, and the others are the
+steps taken to get there. The cost, stated: in any per-class figure, a request
+that spans classes is counted under its highest class only, and the lower
+classes lose that instance. `shapes.families()` gives the composite label where
+that matters.
 Affects: A02, A03, B12, C02 · Reverses: none · Closes: Q08
 
 ### D08 — Thumbs: a dedicated control, and suggestion = agent turn

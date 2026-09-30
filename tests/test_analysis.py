@@ -58,6 +58,15 @@ def test_nearest_miss_skips_covered_requests_and_handles_an_empty_suite():
     assert analysis.nearest_miss(("a",), []) == list(analysis.SIGNATURE_PARTS)
 
 
+def test_simulated_executions_are_segmented_like_participant_runs():
+    execution = [turn("s1", "search_places", intent="find"), turn("s2", "propose_plan", index=2)]
+    units = analysis.simulated_requests([execution])
+    assert [[t["id"] for t in u] for u in units] == [["s1"], ["s2"]]
+    part = [[turn("p1", "propose_plan")]]
+    assert analysis.coverage(part, [execution], "request")[0].covered is False
+    assert analysis.coverage(part, units, "request")[0].covered is True
+
+
 def test_turn_coverage_compares_single_turns():
     suite = [[turn("s1", "search_places"), turn("s2", "propose_plan", index=2)]]
     part = [[turn("p1", "propose_plan")]]
@@ -196,3 +205,49 @@ def test_usability_skips_dismissed_rows():
         {"dismissed_at": "t"},
     ])
     assert len(rows) == 1 and math.isclose(rows[0]["umux_lite"], 11 / 12 * 100)
+
+
+# --- criteria (D109) -------------------------------------------------------------
+
+
+def _cov(*covered):
+    return [analysis.CoverageRow("request", "venue.search", "venue_lookup", c) for c in covered]
+
+
+def test_p1_needs_more_than_half():
+    assert analysis.p1_verdict(_cov(True, False)).outcome == analysis.NOT_SUPPORTED
+    assert analysis.p1_verdict(_cov(True, True, False)).outcome == analysis.SUPPORTED
+    assert analysis.p1_verdict([]).outcome == analysis.NOT_ASSESSED
+
+
+def _rates(**tools):
+    return [analysis.Rate(t, n, k, k / n) for t, (k, n) in tools.items()]
+
+
+SIM = _rates(get_weather=(11, 43), get_climate_normals=(2, 19), move_slot=(3, 43), search_places=(0, 306))
+
+
+def test_p2_two_shared_top_tools_support_it():
+    part = _rates(get_weather=(3, 12), move_slot=(1, 20), search_places=(1, 50), get_climate_normals=(0, 11))
+    assert analysis.p2_verdict(SIM, part).outcome == analysis.SUPPORTED
+
+
+def test_p2_one_shared_tool_does_not():
+    part = _rates(get_weather=(3, 12), move_slot=(0, 20), search_places=(1, 50), get_climate_normals=(0, 11))
+    assert analysis.p2_verdict(SIM, part).outcome == analysis.NOT_SUPPORTED
+
+
+def test_p2_is_not_assessed_when_participants_rarely_call_the_tools():
+    part = _rates(get_weather=(1, 4), move_slot=(0, 20), search_places=(0, 50))
+    assert analysis.p2_verdict(SIM, part).outcome == analysis.NOT_ASSESSED
+
+
+def test_a_tie_at_the_cut_is_included():
+    rates = _rates(a=(2, 10), b=(1, 10), c=(1, 10), d=(1, 10))
+    assert analysis.top_error_tools(rates, "abcd", k=2) == ["a", "b", "c", "d"]
+
+
+def test_p3_needs_ten_each_and_one_point():
+    assert analysis.p3_verdict({"positive": [9.0] * 10, "negative": [8.0] * 9}).outcome == analysis.NOT_ASSESSED
+    assert analysis.p3_verdict({"positive": [9.0] * 10, "negative": [8.0] * 10}).outcome == analysis.SUPPORTED
+    assert analysis.p3_verdict({"positive": [9.0] * 10, "negative": [8.5] * 10}).outcome == analysis.NOT_SUPPORTED

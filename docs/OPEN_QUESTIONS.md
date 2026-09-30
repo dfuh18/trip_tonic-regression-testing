@@ -30,7 +30,7 @@ wait; one blocking a Phase A task cannot.
 
 ## Open
 
-### Q37 — The criterion each proposition is judged against
+### Q37 — [RESOLVED 2026-09-30, see D109] — The criterion each proposition is judged against
 Raised: 2026-09-28 by agent (from D104) · Blocks: C05 (the freeze), the study round · Phase: C
 
 After D104 no proposition is tested, so each needs a criterion stated before
@@ -55,7 +55,9 @@ Proposals, for the author to fix or replace:
   accept/reject separately.* Needs a rule for a signal with too few replies in
   a group (e.g. not assessable below 3), and it depends on Q35. Alternative:
   demote P3 to an exploratory comparison, which the manuscript then has to say.
-Status: open
+Status: resolved — D109 (P1 more than half covered; P2 at least 2 of the top 3
+over tools with ≥ 10 calls in each round; P3 thumbs-up mean ≥ 1 point higher,
+thumbs only, ≥ 10 replies per group).
 
 ### Q36 — [RESOLVED 2026-09-28, see D103] — The simulated round has no execution failures, so P2 has nothing to rank
 Raised: 2026-09-28 by agent (from the first run of `study/06_analysis`) · Blocks: P2's claim, C05 (the P2 expectation) · Phase: C
