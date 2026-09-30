@@ -91,6 +91,9 @@ change later only with a new entry, and scores already written stay under the
 version they were written with.
 Reviewed: the prompt and the four rubrics were read and approved by the
 author on 2026-10-01, before any score was written.
+Applied: the migration was pushed to the live project on 2026-10-01 (table,
+RLS, service-role-only grants and the updated job verified there). The pilot
+was scored the same day: 16 of 16 opening turns, mean 9.75.
 Not frozen strictly (the author, for C05): the four rubrics and the judge
 version are fixed for the participant run, but the rubric text is not part of
 the propositions' freeze.

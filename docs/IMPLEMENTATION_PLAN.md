@@ -1098,7 +1098,7 @@ Phase: C
 Tier: [FABLE]
 Depends on: B11, B12, C01
 Estimate: 12h
-Status: built (2026-09-28), not done. Logic in `src/analysis.py`, 13 offline
+Status: done (2026-10-01): `06` runs end to end on the pilot with every section filled, P3 included (16 participant replies scored under D110). History: built (2026-09-28). Logic in `src/analysis.py`, 13 offline
 tests in `tests/test_analysis.py`; runs end to end on `run_type = 'pilot'`
 against runs 1a872c09 + e097f78e, with five figures written to the ignored
 `notebooks/study/figures/`. Statistics per D101, Table 12 per D102,
@@ -1109,8 +1109,6 @@ verdict against its criterion (D109, closing Q37); the participant judge
 exists (D110, closing Q35) and P1's labels get a random review (D111). The
 spec below predates D101–D111, which replace its statistics, its Table 12
 crossing and its structural checks of participant rows; it is kept as written.
-Done once `06` runs end to end with participant scores, which needs the D110
-migration pushed and `tools/score_participants.py --run-type pilot --apply`.
 Open: §4.3 itself is still scaffolding (Q02).
 (Previously: blocked — Q02. Q19 and Q03 were ruled on (D24, D17/D18/D13) and no longer block it
 (survey scales).)
