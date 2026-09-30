@@ -31,6 +31,74 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D111 — P1's automatic labels are checked on a random sample of 10 covered and 10 uncovered requests
+Date: 2026-10-01 · Decided by: author
+Options: no check of the labels · a random sample read by the author · every
+request read by the author
+Chosen: after the round, the author reads **ten covered and ten uncovered
+requests**, drawn at random with a seed fixed now (`REVIEW_SEED = 20261001`
+in `06`/`09`, `analysis.review_sample`), all of a group that has fewer than
+ten. For each: does the shape (and request type) describe what the member
+asked, and is the covered / uncovered verdict plausible? The counts labelled
+correctly are reported with P1. It is a check of the instrument, not a
+criterion: it does not change P1's verdict.
+Privacy: the table shows labels only; the members' words are printed only
+with `SHOW_REVIEW_TEXT = True` in a local run, the study notebooks' outputs
+are stripped on commit, and no text is quoted in the thesis (the consent
+form's quotation statement).
+Reason: the author's. The labels are computed from tool calls alone, without
+reading the conversation (D99, D100); a small blind sample is the cheapest
+way to say whether they describe what people asked.
+Affects: C02, `src/analysis.py`, `notebooks/study/06_analysis`,
+`09_study_propositions` · Reverses: none
+
+### D110 — The participant judge: four request-type rubrics, no trip, a cascading table (closes Q35)
+Date: 2026-10-01 · Decided by: author (escalated by agent as Q35; the
+recommendation taken)
+Options: see Q35 — rubrics per request type or a representative case's
+criteria; the member's trip summarised or no trip; a new table or no
+persistence
+Chosen, as Q35 recommended:
+- **Rubrics:** four, one per request type (D09), in
+  `src/prompts/participant_rubrics_v1.md`, with the prompt
+  `judge_participant_v1.md`. Stored version:
+  `judge-participant/1+participant-rubrics/1`. Same judge model as the
+  simulation (`JUDGE_MODEL`, the pinned `gemini-3.5-flash`), temperature 0.
+- **No trip context:** the judge sees the member's request and the reply,
+  nothing else, and no criterion depends on the trip. The prompt tells it not
+  to reward or punish fit to a trip it cannot see.
+- **Which replies:** the opening turn of each request (D82), requests cut by
+  D100. The rubric is the opening turn's own request type, because it is that
+  turn's reply that is scored. Thumbs on a follow-up turn have no score and
+  fall out of P3.
+- **Storage:** `study_participant_scores` (migration
+  `20260930120000_study_participant_scores`), service role only, keyed to the
+  suggestion with ON DELETE CASCADE and to the session likewise: account
+  deletion and withdrawal remove the scores (D14). The eight-month job removes
+  the rationale and rounds the time (D91); score, request type and judge
+  version stay. Append-only per judge version, like `study_scores`.
+- **Written by** `tools/score_participants.py --run-type <pilot|study>
+  --apply` after the round; `06`/`09` read the scores under the current judge
+  version.
+Tested: 9 offline tests (`tests/test_participant_judge.py`); the migration
+and the extended `tools/anonymise_rollback_test.sql` ran together in one
+rolled-back transaction on the live project and returned `ANONYMISE_TEST_OK`
+(rationale removed, score kept, scores deleted with their session); nothing
+was left behind.
+Reason: the author's, following the recommendation, so the deletion rule is in
+place before any participant data exists. The rubrics and their version may
+change later only with a new entry, and scores already written stay under the
+version they were written with.
+Reviewed: the prompt and the four rubrics were read and approved by the
+author on 2026-10-01, before any score was written.
+Not frozen strictly (the author, for C05): the four rubrics and the judge
+version are fixed for the participant run, but the rubric text is not part of
+the propositions' freeze.
+Affects: C02, C05, P3, `src/participant_judge.py`,
+`tools/score_participants.py`, `tools/withdraw_participant.py` (docstring),
+`docs/event-model.md`, `docs/participant-data-facts.md`, MANUSCRIPT_SYNC A10 ·
+Reverses: none · Closes: Q35
+
 ### D109 — The criterion each proposition is judged against (closes Q37)
 Date: 2026-09-30 · Decided by: author (escalated by agent as Q37)
 Options: the Q37 proposals (P1 > half covered; P2 top-tool agreement with k

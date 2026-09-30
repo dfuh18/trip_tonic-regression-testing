@@ -89,7 +89,7 @@ of the three tools that errored in simulation was called.
 Status: resolved — D103 (C as P2's measure, compared per tool; request type and
 shape secondary)
 
-### Q35 — How the judge scores participant replies (P3)
+### Q35 — [RESOLVED 2026-10-01, see D110] — How the judge scores participant replies (P3)
 Raised: 2026-09-28 by agent (building C02) · Blocks: P3, C05 (the judge protocol version) · Phase: C
 
 P3 needs a point-wise score for each participant reply, and the judge cannot
@@ -118,7 +118,7 @@ Recommendation: four new request-type rubrics; no trip context and no
 trip-dependent criteria (the smallest change to what the judge sees); a new
 cascading table, so a withdrawal deletes the scores with everything else.
 `06_analysis` §4 is written to consume the scores the moment they exist.
-Status: open
+Status: resolved — D110 (four request-type rubrics, no trip context, `study_participant_scores` cascading from the suggestion and session).
 
 ### Q34 — [RESOLVED 2026-09-24, see D88] — What a seed verdict means against a best-of baseline
 Raised: 2026-09-24 by agent (from the comparison rehearsal, `sim/04_regress`) · Blocks: reading B11's verdicts · Phase: B

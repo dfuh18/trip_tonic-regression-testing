@@ -9,7 +9,7 @@ Three steps, and all are needed:
 
 1. Delete the person's ``pilot`` / ``study`` sessions. Every study table
    hangs off the session with ON DELETE CASCADE (surveys, turns, their
-   action rows and verdicts, thumbs, plan mutations), so this is the whole
+   action rows, verdicts and judge scores, thumbs, plan mutations), so this is the whole
    of their study data.
 2. Null ``study_user_actions.actor_user_id`` where the person acted on
    *another* participant's suggestion (a shared trip). Those rows belong to

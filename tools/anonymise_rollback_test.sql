@@ -17,6 +17,9 @@
 -- ids stripped from action targets; the participant's api_usage_events rows
 -- inside [consent, last turn + 1 hour] lose user/trip/session while rows
 -- outside it keep them; the recent session untouched; a second run a no-op.
+-- Since 20260930120000_study_participant_scores (D110): a participant score
+-- loses its rationale and its exact time but keeps its score and type, and
+-- deleting a session deletes its scores (D14).
 
 begin;
 
@@ -72,6 +75,10 @@ begin
           '{"day_date":"2026-11-07","start_time":"10:00","trip_block_id":"22222222-2222-2222-2222-222222222222","itinerary_day_id":"33333333-3333-3333-3333-333333333333"}',
           v_turn, 'agent_draft_accepted', v_user, v_old, v_t0 + interval '10 minutes');
 
+  insert into public.study_participant_scores (suggestion_id, session_id, request_type, judge_model, judge_prompt_version, score, rationale, reply_chars, created_at)
+  values (v_turn, v_old, 'venue_lookup', 'judge', 'test', 8, 'the seafood places fit the request', 400, v_t0 + interval '2 months'),
+         (v_turn_new, v_new, 'advisory', 'judge', 'test', 7, 'recent rationale', 100, v_recent);
+
   -- The participant's usage rows: one inside the window, one before consent,
   -- one more than an hour after the last turn completed.
   insert into public.api_usage_events (id, user_id, trip_id, session_id, provider, call_type, tokens_input, tokens_output, latency_ms, created_at)
@@ -115,7 +122,10 @@ begin
      or exists (select 1 from public.study_mutations where session_id = v_old
                 and (actor_user_id is not null or row_id is not null or origin_suggestion_id <> v_turn
                      or occurred_at is distinct from v_day
-                     or projection <> '{"day_date":"2026-11-07","start_time":"10:00"}'::jsonb)) then
+                     or projection <> '{"day_date":"2026-11-07","start_time":"10:00"}'::jsonb))
+     or exists (select 1 from public.study_participant_scores where suggestion_id = v_turn
+                and (rationale is not null or score <> 8 or request_type <> 'venue_lookup'
+                     or created_at is distinct from date_trunc('day', v_t0 + interval '2 months'))) then
     raise exception 'ANONYMISE_TEST_FAIL: a dependent row kept a link, lost a value, kept an id or kept an exact time';
   end if;
 
@@ -132,10 +142,18 @@ begin
      or (select consent_at from public.study_sessions where id = v_new) is distinct from v_recent then
     raise exception 'ANONYMISE_TEST_FAIL: the recent session was touched'; end if;
 
+  if (select rationale from public.study_participant_scores where suggestion_id = v_turn_new) <> 'recent rationale' then
+    raise exception 'ANONYMISE_TEST_FAIL: the recent score lost its rationale'; end if;
+
   if public.study_anonymise_expired() <> 0 then
     raise exception 'ANONYMISE_TEST_FAIL: a second run found work'; end if;
 
-  raise exception 'ANONYMISE_TEST_OK: 1 expired session anonymised (times rounded to the day, place id stripped, the usage row in the window cut and the 2 outside kept), the recent one untouched, a second run is a no-op';
+  -- Withdrawal / account deletion (D14): the session goes, its scores with it.
+  delete from public.study_sessions where id = v_new;
+  if exists (select 1 from public.study_participant_scores where session_id = v_new or suggestion_id = v_turn_new) then
+    raise exception 'ANONYMISE_TEST_FAIL: a deleted session left a participant score'; end if;
+
+  raise exception 'ANONYMISE_TEST_OK: 1 expired session anonymised (times rounded to the day, place id stripped, the usage row in the window cut and the 2 outside kept), the recent one untouched, a second run is a no-op, participant scores anonymised and deleted with their session';
 end $$;
 
 rollback;

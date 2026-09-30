@@ -251,3 +251,18 @@ def test_p3_needs_ten_each_and_one_point():
     assert analysis.p3_verdict({"positive": [9.0] * 10, "negative": [8.0] * 9}).outcome == analysis.NOT_ASSESSED
     assert analysis.p3_verdict({"positive": [9.0] * 10, "negative": [8.0] * 10}).outcome == analysis.SUPPORTED
     assert analysis.p3_verdict({"positive": [9.0] * 10, "negative": [8.5] * 10}).outcome == analysis.NOT_SUPPORTED
+
+
+def test_the_review_sample_is_fixed_by_its_seed_and_balanced():
+    requests = [[turn(f"t{i}", "search_places" if i % 2 else "get_weather")] for i in range(30)]
+    rows = analysis.coverage(requests, [[turn("s", "search_places")]], "request")
+    a = analysis.review_sample(rows, requests, 10, seed=7)
+    assert a == analysis.review_sample(rows, requests, 10, seed=7)
+    assert [r["covered"] for r in a].count(True) == 10 and [r["covered"] for r in a].count(False) == 10
+    assert all(rows[r["index"]].covered is r["covered"] for r in a)
+
+
+def test_the_review_sample_takes_all_of_a_small_group():
+    requests = [[turn("a", "search_places")], [turn("b", "get_weather")]]
+    rows = analysis.coverage(requests, [[turn("s", "search_places")]], "request")
+    assert len(analysis.review_sample(rows, requests, 10, seed=1)) == 2

@@ -201,6 +201,26 @@ def coverage(
     return rows
 
 
+def review_sample(
+    rows: Sequence[CoverageRow], requests: Sequence[Sequence[Row]], n: int, seed: int
+) -> list[dict[str, Any]]:
+    """The qualitative check of P1's automatic labels (D111): ``n`` covered
+    and ``n`` uncovered requests drawn at random with a fixed seed, or all of a
+    group that has fewer. Labels only; the notebook shows text on request.
+    ``index`` points into ``requests``."""
+    import random
+
+    rng = random.Random(seed)
+    out = []
+    for covered in (True, False):
+        pool = [i for i, r in enumerate(rows) if r.covered is covered]
+        for i in sorted(rng.sample(pool, min(n, len(pool)))):
+            sig = interaction_signature(requests[i])
+            out.append({"index": i, "covered": covered, "shape": rows[i].shape, "request type": sig[0],
+                        "turns": len(requests[i]), "tool sequence": " > ".join(sig[1]) or "-"})
+    return out
+
+
 #: The five parts of a D24 signature, in ``signature``'s order.
 SIGNATURE_PARTS = ("request type", "tool sequence", "calls per tool", "turns", "parameters")
 

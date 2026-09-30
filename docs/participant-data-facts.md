@@ -224,5 +224,11 @@ open:
    person back to consent. Account, trips and chat stay. Tested end to end on
    a throwaway account.
 
-Still open: whether Supabase backups keep deleted rows for some days (the form
-does not mention backups).
+Backups: none. The project is on the Supabase free tier, which keeps no
+backups (confirmed by the author, 2026-09-30), so a deletion or anonymisation
+is final when it runs and the form needs no backup caveat.
+
+7. **Judge scores (D110):** the scores of participant replies
+   (`study_participant_scores`) cascade from the turn and the session, so
+   account deletion and withdrawal remove them; the eight-month job removes
+   the judge's rationale. The form's judge statement (item 4) covers them.

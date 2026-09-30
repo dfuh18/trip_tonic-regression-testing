@@ -605,7 +605,7 @@ Phase: B
 Tier: [FABLE]
 Depends on: B04, B15
 Estimate: 6h
-Status: in progress (2026-09-22). `src/metamorphic.py`, the derivations in
+Status: done (2026-10-01 bookkeeping): the final suite of 13 seeds and 18 follow-ups loads and ran as B10 and B11. History as written 2026-09-22 below. `src/metamorphic.py`, the derivations in
 `cases/derivations.py`, the generated case files, `src/coverage.py` and
 `notebooks/sim/02_expand.ipynb`. The suite is **11 seeds and 18 follow-ups, 160
 executions** — above D21's 8/16/128, which D50, D51 and D61 rule on: the extra
@@ -1069,7 +1069,7 @@ Phase: C
 Tier: [FABLE]
 Depends on: A13, B14
 Estimate: 5h
-Status: built (2026-09-25), first half of done-when met. Logic in `src/pilot.py`,
+Status: done (2026-10-01 bookkeeping): the second half met, `05_pilot` passes on the pilot sessions (35/35 required fields, 76/76 columns, the rest exempt; all seven flow checks). History: built (2026-09-25), first half of done-when met. Logic in `src/pilot.py`,
 24 offline tests in `tests/test_pilot.py`; the notebook is a thin reader with a
 raising verdict cell. Run live on the empty `pilot` round: fails with all 35
 required event-model fields plus the draft `CONSENT_VERSION`. Exercised on the
@@ -1105,8 +1105,13 @@ against runs 1a872c09 + e097f78e, with five figures written to the ignored
 segmentation per D100, P2 per tool over absorbed tool errors (D103), and
 descriptive only with a per-participant overview (D104, reversing D101's
 statistics). Coverage segments both sides (D108); each proposition prints a
-verdict against its criterion (D109, closing Q37). Open: P3 has no participant
-judge scores (Q35); §4.3 itself is still scaffolding (Q02).
+verdict against its criterion (D109, closing Q37); the participant judge
+exists (D110, closing Q35) and P1's labels get a random review (D111). The
+spec below predates D101–D111, which replace its statistics, its Table 12
+crossing and its structural checks of participant rows; it is kept as written.
+Done once `06` runs end to end with participant scores, which needs the D110
+migration pushed and `tools/score_participants.py --run-type pilot --apply`.
+Open: §4.3 itself is still scaffolding (Q02).
 (Previously: blocked — Q02. Q19 and Q03 were ruled on (D24, D17/D18/D13) and no longer block it
 (survey scales).)
 Spec: `notebooks/study/06_analysis.ipynb`, outputs stripped, parameterised on
@@ -1159,7 +1164,7 @@ Phase: C
 Tier: [FABLE]
 Depends on: A13, C01
 Estimate: 3h
-Status: not started
+Status: done (2026-10-01 bookkeeping): 7 pilot sessions on the deployed app, 5 consented and 2 declined, one post-task dismissed and four submitted; `05_pilot` passes on them (C01).
 Spec: Author and one colleague run the full flow on the deployed app with the
 `pilot` link (D15): sign-up, consent, demographics, at least three interactions
 spanning the four functions, thumbs, accept and reject, the post-task screen

@@ -285,6 +285,13 @@ and the `*_id` keys of its projection, the draft id in `resulting_state_shape`,
 Those columns are nullable for that reason. Anything that needs the removed
 values (e.g. a P1 signature over argument text) must be computed before then.
 Deletion on request, without deleting the account: `tools/withdraw_participant.py`.
+The judge's rationale on a participant reply (`study_participant_scores`,
+D110) is removed by the same job; the score and its request type stay.
+
+**Backups.** The project is on the Supabase free tier, which keeps no
+backups (confirmed by the author, 2026-09-30). A deleted or anonymised row is
+therefore gone when the statement runs, and the consent form's deletion and
+retention statements need no backup caveat.
 
 ## Field → writer
 
@@ -303,6 +310,7 @@ task. A13 verifies each writer actually wrote.
 | `session_id` (suggestion) | `study_suggestions.session_id` | turn logger, from the caller's consented session (A02) |
 | `structural_check_outcome` | **`study_case_executions.structural_outcome` + `.structural_findings`** for simulation, because a check describes the execution and not a turn (D27, D41); participant rows are **not** structurally checked (D73), so `study_verdicts` stays empty for them; post-hoc checker output over simulated turns goes to `study_structural_verdicts` (D76). `study_suggestions.structural_check_outcome` is never written — A13 and C01 exempt it | harness / analysis — never the app |
 | judge scores, pair-wise verdicts | `study_scores` (point-wise, D23), `study_comparisons` (pair-wise in both orderings, D87) | harness (B09–B11) — simulation only |
+| participant judge scores (P3) | `study_participant_scores` (`suggestion_id`, `session_id`, `request_type`, judge model and version, `score`, `rationale`, `reply_chars`, `error`): one per opening turn of a request and judge version; cascades from the suggestion and the session (D14) | `tools/score_participants.py` after the round (D110) — never the app |
 | `user_action` | `study_suggestions.user_action`, with the per-target record in `study_user_actions` | A05 on accept/reject/revert; the `study-finalize-ignored` job after 24 h (D17) |
 | `thumb_feedback` | `study_feedback.value`, keyed by `chat_message_id` = the reply row | thumbs control via the study API (A06, A12) |
 | `mutation_id`, `origin_suggestion_id`, `origin_kind` | `study_mutations.id / origin_suggestion_id / origin_kind` (+ `table_name`, `row_id`, `op`, `changed_keys`, `projection`, `actor_user_id`, `session_id`) | triggers on the plan tables reading `x-study-origin` (A04) |
