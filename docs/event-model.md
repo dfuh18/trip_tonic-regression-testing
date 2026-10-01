@@ -288,6 +288,11 @@ Deletion on request, without deleting the account: `tools/withdraw_participant.p
 The judge's rationale on a participant reply (`study_participant_scores`,
 D110) is removed by the same job; the score and its request type stay.
 
+**Device type (D113).** `device_type` comes from the browser alone. Tablets in
+their default browser mode (Chrome on Android tablets, iPadOS Safari) report a
+desktop and are recorded as `desktop`, so the field separates phones from
+everything else.
+
 **Backups.** The project is on the Supabase free tier, which keeps no
 backups (confirmed by the author, 2026-09-30). A deleted or anonymised row is
 therefore gone when the statement runs, and the consent form's deletion and

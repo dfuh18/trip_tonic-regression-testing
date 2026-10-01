@@ -31,6 +31,26 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D113 — `device_type` cannot tell a tablet from a desktop; kept as a limitation
+Date: 2026-10-01 · Decided by: author (escalated by agent from the device test)
+Options: A add a touch signal (`matchMedia('(pointer: coarse)')`) so a browser
+that claims to be a desktop but is driven by touch is recorded as `tablet` ·
+B leave the detection unchanged and report the limit
+Chosen: **B.** `apps/web/src/lib/device-type.ts` is unchanged.
+Evidence: the author's device test on 2026-10-01, through the live study link
+on an Android tablet, recorded `desktop` on the session and on all three
+turns. Chrome on Android tablets requests the desktop site by default and
+then reports a Linux desktop user agent with `userAgentData.mobile = false`;
+iPadOS Safari reports a Mac by default. Neither carries anything the rule can
+read as a tablet.
+Consequence, stated: in the participant data `device_type` separates phones
+from everything else. `desktop` includes tablets in their default browser
+mode, and `tablet` will rarely or never occur. Device type is descriptive
+only and enters no proposition (D112).
+Reason: the author's; no change to how a logged field is computed this close
+to the round, and the field is not used by any criterion.
+Affects: `docs/event-model.md`, MANUSCRIPT_SYNC · Reverses: none
+
 ### D112 — Freeze: RQ2 and Propositions 1–3, before the participant round (C05)
 Date: 2026-10-01 · Decided by: author
 Chosen: the author's hand-in text of 2026-10-01 is frozen, stored word for

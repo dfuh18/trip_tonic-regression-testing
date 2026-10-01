@@ -415,6 +415,8 @@ All were author rulings, made before any baseline:
 
 ## Open before the manuscript can be final
 
+- *(10-01)* **Limitation to state (D113):** device type is read from the browser, and tablets in their default mode report a desktop, so the participant data distinguishes phones from other devices only.
+
 - *(10-01)* **Propositions frozen (D112).** RQ2, Props 1–3, Tables 14–16 and the segmentation rule as handed in on 2026-10-01 (`docs/FREEZE_2026-10-01_propositions.md`). The final manuscript must keep them as frozen; a change is a new decision, reported as such.
 
 - **Citation** for LLM-judge position bias and the order-swap control (see Part 1 B, "Position bias").

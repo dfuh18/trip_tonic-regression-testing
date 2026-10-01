@@ -1162,7 +1162,7 @@ Phase: C
 Tier: [FABLE]
 Depends on: A13, C01
 Estimate: 3h
-Status: done (2026-10-01 bookkeeping): 7 pilot sessions on the deployed app, 5 consented and 2 declined, one post-task dismissed and four submitted; `05_pilot` passes on them (C01).
+Status: done (2026-10-01 bookkeeping): 7 pilot sessions on the deployed app, 5 consented and 2 declined (one declined account deleted by the author on 2026-10-01 before the device test, leaving 6), one post-task dismissed and four submitted; `05_pilot` passes on them (C01).
 Spec: Author and one colleague run the full flow on the deployed app with the
 `pilot` link (D15): sign-up, consent, demographics, at least three interactions
 spanning the four functions, thumbs, accept and reject, the post-task screen
