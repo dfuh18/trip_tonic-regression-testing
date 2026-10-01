@@ -34,6 +34,73 @@ is evidence; one that implies it checked everything is not.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### R05 — 2026-10-01 — the gate (C03)
+Reviewed: the setup participants will use, at master `31d7003` (app code
+identical to the deployed `5e4dc76`, PR #55; PRs #56 and #57 changed docs and
+notebooks only), against C03's checklist. **Caveat stated up front:** the
+reviewing session is the session that built D108–D113; this is a check of the
+running system, not an independent review of that work.
+Checked against: C03's spec; the participant information
+(`participant-information-and-consent_260925.md`); D14, D15, D91, D110, D112,
+D113; hard invariants 2–5.
+Findings:
+  - **Recording (C01):** `05_pilot` on the pilot passes: every event-model
+    field populated, every flow check PASS, nothing pending (the `ignored`
+    job has run on the pilot turns).
+  - **Analysis (C02):** `06_analysis` runs end to end on the pilot, 0 errors;
+    P1 SUPPORTED (10/16), P2 and P3 NOT ASSESSED (pilot-sized), as expected.
+  - **Freeze (C05):** D112 records RQ2, Props 1–3, Tables 14–16, the
+    segmentation rule and the versions (signature 1, request type 1, request
+    shape 1, analysis 3; judge `judge-participant/1+participant-rubrics/1`
+    recorded, not frozen strictly).
+  - **Model (invariant 2):** every pilot turn on the pinned
+    `gemini-3.5-flash`, released 2026-05-19 (`05_pilot`).
+  - **Where the data lives (D15):** Supabase project `trip_tonic` in
+    `eu-north-1` (Stockholm), as the information sheet states. API and web
+    are served by Render (`api.` / `www.trip-tonic.com` CNAME to
+    `*.onrender.com`); the Frankfurt region was confirmed by the author from
+    the Render dashboard.
+  - **Access:** all 14 `study_*` tables have RLS on; `anon` holds no
+    privilege on any; `authenticated` can only SELECT the five tables the
+    export reads (sessions, suggestions, both surveys, feedback, user
+    actions; own rows by policy) and write none. Schema and permission
+    audits pass (68/68, 10/10) on the merged tree; the full research test
+    suite passes (424/424).
+  - **Retention (D91):** `study-anonymise-expired` (03:17 daily) and
+    `study-finalize-ignored` (hourly) are scheduled and active. The job,
+    extended for participant scores (D110), passed the rollback test on the
+    live project (`ANONYMISE_TEST_OK`).
+  - **Deletion is withdrawal (D14), both paths, on the live system:**
+    account deletion from the app (tablet test account) left no study row,
+    no profile, membership, trip, message or block, and no user id on
+    `api_usage_events` / `ux_events`; `tools/withdraw_participant.py`
+    (phone test account) removed every study row and cleared enrolment while
+    keeping the account, trip and chat, as the sheet promises.
+  - **Export:** the author's export matched the database row for row in all
+    19 sections, own rows only, including both study sessions, the surveys,
+    turns, thumbs and reactions the sheet lists.
+  - **Backups:** none on the free tier (author, 2026-09-30), so deletion is
+    final, as the sheet implies.
+  - **Notebooks (invariant 4):** `check_notebooks.py` clean after stripping
+    local outputs; committed study notebooks carry none.
+  - **Study cohort before the link goes out:** 0 sessions. Test and
+    accidental sessions were removed (one declined admin session by
+    withdrawal, two test accounts deleted or withdrawn).
+  - **Device type:** phones detected (`mobile`); tablets record `desktop`
+    (D113, limitation). A phone session is flagged by `05c_study_check`.
+Accepted: the setup, for the participant round to open at `31d7003`.
+Not covered:
+  - The `ignored` job on **study** sessions: verified on the pilot; on the
+    study cohort first checkable after 2026-10-02 20:39 UTC (`05c`, C06).
+  - The deployed web build's commit is not exposed by the site; it is taken
+    from Render deploying master, not observed. The API reports 0.1.10, as
+    master.
+  - The full phone flow was completed by the author but withdrawn before
+    `05c` read it; the full flow was read on the tablet.
+  - The live RLS suites (`rls-live`, `rls-hardening.live`) were not run:
+    they need a disposable project, never this one.
+  - The Render region rests on the author's dashboard reading.
+
 ### R04 — 2026-09-18
 Reviewed: the Phase A `[FABLE]` work landed since R03 — A01, A02, A04, A05,
 A06, A07, A09, A12, A13 (commits 009ebd5 … 01ae095) — plus a re-read of the
