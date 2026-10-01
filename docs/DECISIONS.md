@@ -397,6 +397,19 @@ by this ruling. What reference costs: 6 of 812 false merges on the bench,
 confined to requests that share a place. On the pilot it merged two more
 requests (16 → 14). D83's reasons for keeping both multi-step seeds in the
 suite are unaffected.
+Amended 2026-10-01 (the rule stated in full, unchanged; `shapes.segment_with`,
+pinned by `test_d100_treats_a_no_tool_turn_as_no_shape`): `advisory` labels a
+turn but is **not a shape for segmentation**. Within a Tonic run, for each
+turn in order: (1) the first turn of the run opens a request, whatever its
+label; (2) a turn with a slash command opens a request, whatever its label;
+(3) a turn with no acting tool (`advisory`: no tool, or only the three read
+tools) joins the current request; (4) a turn whose shape equals the current
+request's shape joins it; (5) any other turn opens a request. The current
+request's shape is its latest acting turn's (with reference off, its first
+acting turn's); a request of only no-tool turns has none, so its first acting
+turn opens a new request. Consequences: an `advisory` request exists only
+where no-tool turns open a run or follow a slash command; two `other` turns
+in a row are one request, whatever tools they mixed.
 Per Q29's recommendation, segments are used for shape distribution and
 coverage (P1). Turns stay the unit for failure rates (P2), thumbs and
 `user_action`. Coverage is reported per turn and per segment side by side,

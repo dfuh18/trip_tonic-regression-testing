@@ -191,3 +191,14 @@ def test_signals_are_read_from_the_recorded_shapes() -> None:
     assert s.intent is None
     assert s.acted_on == {"ChIJ-b", "bc224bfd"}
     assert s.offered == {"ChIJ-b", "bc224bfd"}
+
+
+def test_d100_treats_a_no_tool_turn_as_no_shape() -> None:
+    """D100 (slash on, reference off): a turn with no acting tool joins the
+    current request; it opens one only as the first turn of a run or with a
+    slash command. A request opened that way ends at the first acting turn."""
+    d100 = dict(use_intent=True, use_reference=False)
+    assert segment_with([T("venue.search"), T(ADVISORY), T(ADVISORY)], **d100) == [[0, 1, 2]]
+    assert segment_with([T(ADVISORY), T(ADVISORY), T("venue.search")], **d100) == [[0, 1], [2]]
+    assert segment_with([T("venue.search"), T(ADVISORY, "find")], **d100) == [[0], [1]]
+    assert segment_with([T("other"), T("other")], **d100) == [[0, 1]]
