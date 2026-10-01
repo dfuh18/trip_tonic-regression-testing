@@ -31,6 +31,17 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D114 — Participant round opened (C03)
+Date: 2026-10-01 (recorded) · Decided by: author
+Chosen: the participant round opens on **2026-10-02** at master `31d7003`,
+after the gate (C03) passed; the review is R05 in `REVIEW_LOG.md`. The study
+link `https://www.trip-tonic.com/study/join?cohort=study` is sent from that
+date, not before. Everything frozen in D112 holds from here.
+After the first real session, run `notebooks/study/05c_study_check.ipynb`
+(C06); after 2026-10-02 20:39 UTC it also confirms the `ignored` job on study
+sessions, which R05 could only verify on the pilot.
+Affects: C03 (done), C06 · Reverses: none
+
 ### D113 — `device_type` cannot tell a tablet from a desktop; kept as a limitation
 Date: 2026-10-01 · Decided by: author (escalated by agent from the device test)
 Options: A add a touch signal (`matchMedia('(pointer: coarse)')`) so a browser

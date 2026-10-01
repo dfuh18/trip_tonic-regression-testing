@@ -1143,7 +1143,7 @@ Phase: C
 Tier: [FABLE]
 Depends on: C01, C02, C04
 Estimate: 4h
-Status: not started
+Status: done (2026-10-01): R05 in REVIEW_LOG.md; the author's opening entry is D114 (round opens 2026-10-02 at master 31d7003).
 Spec: The one task that cannot be skipped or reordered. Run `05_pilot` against
 the pilot sessions and `06_analysis` against simulated data, on the deployment
 the participants will use (the existing project and API, D15), at the commit that will be live. Check: every
