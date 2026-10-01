@@ -1179,7 +1179,7 @@ Phase: C
 Tier: [FABLE]
 Depends on: B11, B12
 Estimate: 2h
-Status: not started
+Status: done (2026-10-01): the author's freeze entry is D112; the frozen text is `docs/FREEZE_2026-10-01_propositions.md`; it cites runs 1a872c09 + e097f78e.
 Spec: §4.2.3 fixes the propositions "after the simulation runs have been
 analysed and before any participant data is collected". Prepare, from
 `04_regress`, the per-`request_type` execution failure ranking (P2's

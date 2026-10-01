@@ -31,6 +31,38 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D112 — Freeze: RQ2 and Propositions 1–3, before the participant round (C05)
+Date: 2026-10-01 · Decided by: author
+Chosen: the author's hand-in text of 2026-10-01 is frozen, stored word for
+word in `docs/FREEZE_2026-10-01_propositions.md`: RQ2, the statements,
+measures, criteria and minimum counts of Propositions 1–3, Tables 14–16 and
+the segmentation rule. The rest of that text is a draft. Frozen after the
+simulation runs were analysed and before any participant data was collected:
+the only participant-like data at this point is the pilot (`run_type =
+'pilot'`), which is excluded from the analysis.
+What it rests on, as implemented and checked against the text before
+recording:
+- **Simulation runs:** baseline `1a872c09-7070-4789-a806-904969f9185d` (D96)
+  and regression `e097f78e-3326-4aea-acaa-0b904d3b0a1c`, pooled.
+- **Rule versions:** signature `1` (`SIGNATURE_RULE_VERSION`, D24); request
+  type `1` (`REQUEST_TYPE_RULE_VERSION`, D09, Table 16); request shape `1`
+  (`REQUEST_SHAPE_RULE_VERSION`, set from `0-candidates` in this commit;
+  shapes7, D99, Table 15); analysis `3` (`ANALYSIS_VERSION`).
+- **Segmentation:** D100 (shape + slash, no reference; the rule in full in
+  D100's 2026-10-01 amendment), applied to both sides (D108).
+- **Criteria:** D109, as the frozen text states them, ties in P2 included.
+- **P2's expectation:** `get_weather` 11/43, `get_climate_normals` 2/19,
+  `move_slot` 3/43, from the pooled runs.
+- **P3's reference:** judge score 9.37 ± 1.13, n = 352 (`sim/04c_pooled_summary`).
+- **Judge:** `judge-participant/1+participant-rubrics/1` (D110) with the
+  pinned `gemini-3.5-flash`. Recorded, not frozen strictly: by the author's
+  ruling the four request-type rubrics and this version are used for the
+  participant run, but their text is not part of the freeze.
+- **Label review:** D111, seed `20261001`.
+A change to anything frozen here after this date is a new entry that names
+what changed and why, and the frozen file is not edited.
+Affects: C05 (done), C03, `src/shapes.py` · Reverses: none
+
 ### D111 — P1's automatic labels are checked on a random sample of 10 covered and 10 uncovered requests
 Date: 2026-10-01 · Decided by: author
 Options: no check of the labels · a random sample read by the author · every
@@ -447,7 +479,7 @@ Not ruled here: Q28's advisory sub-decision, (i) `advisory` means "called no
 tool" or (ii) add a case whose advisory answer needs no tool. It stays open
 under Q28.
 `REQUEST_SHAPE_RULE_VERSION` is still `0-candidates`; it is set when the rule
-is frozen at C05.
+is frozen at C05. (Set to `1` on 2026-10-01, D112.)
 Affects: C02, C05, `src/shapes.py`, MANUSCRIPT_SYNC · Reverses: none ·
 Closes: Q28 (except the advisory sub-decision)
 

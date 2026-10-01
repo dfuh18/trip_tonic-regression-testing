@@ -47,7 +47,7 @@ from typing import Any, Callable, Iterable, Mapping, Optional, Sequence
 
 #: Bump when any rule below changes. Labels computed under different versions
 #: are not comparable.
-REQUEST_SHAPE_RULE_VERSION = "0-candidates"
+REQUEST_SHAPE_RULE_VERSION = "1"  # frozen 2026-10-01 (D112)
 
 READ_TOOLS = frozenset({"get_trip_details", "list_trip_blocks", "get_itinerary"})
 
