@@ -3,6 +3,7 @@
 # they hold participant rows and git history is permanent.
 #
 #   05_pilot                 pilot flow check (C01); RUN_TYPE switches to "study" for C06
+#   05c_study_check          05_pilot on the study cohort (C06 and checks during the round)
 #   05b_pilot_shapes         request-shape rules on the pilot turns (evidence for D99/D100)
 #   06_analysis              the propositions, dry run on the pilot (C02)
 #   07_pilot_distributions   basic distribution figures, pilot
