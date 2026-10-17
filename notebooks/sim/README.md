@@ -19,6 +19,12 @@
 #                         generation); a lower bound (no thinking tokens).
 #                         Google Places read from api_usage_events, the agent's
 #                         calls kept apart from the fixture build's.
+#   04e_runtime_estimate  how long the same two runs took, judging included:
+#                         execution phase and both judge passes from their
+#                         timestamps, idle pauses (> 5 min) excluded and listed;
+#                         per execution, per case (repetitions sequential vs
+#                         parallel) and the suite under four schedules, only
+#                         the sequential one measured.
 #   08b_segmentation_pooled  D100's request boundaries (shape + slash, no
 #                         reference) on the same two runs pooled: split and
 #                         merge error, request count, missed seams by shape;
