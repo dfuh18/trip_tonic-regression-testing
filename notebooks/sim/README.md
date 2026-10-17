@@ -13,6 +13,12 @@
 #                         comparison): judge scores, structural outcomes, turns,
 #                         recovered tool errors, latency, cost; figures P1-P3
 #                         (written to figures/pooled/).
+#   04d_cost_estimate     cost per execution and per run for the same two runs,
+#                         judge included: the judge's tokens are not logged, so
+#                         its prompts are rebuilt and counted (count_tokens, no
+#                         generation); a lower bound (no thinking tokens).
+#                         Google Places read from api_usage_events, the agent's
+#                         calls kept apart from the fixture build's.
 #   08b_segmentation_pooled  D100's request boundaries (shape + slash, no
 #                         reference) on the same two runs pooled: split and
 #                         merge error, request count, missed seams by shape;
