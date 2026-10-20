@@ -97,6 +97,12 @@ IGNORED_AFTER = timedelta(hours=25, minutes=5)
 #: A turn still open after this long did not complete — it crashed or hung.
 TURN_TIMEOUT = timedelta(minutes=10)
 POST_TASK_AFTER = 3
+#: A pause longer than this between two turns starts a new visit. Participants
+#: may come back on later days (there is no end step), and a span across those
+#: days is calendar time, not time on the task. In the study round every
+#: within-visit gap was <= 35 min and every return >= 980 min, so any cutoff in
+#: between splits the sessions identically.
+VISIT_GAP = timedelta(minutes=60)
 
 
 # --- reading the sources of truth --------------------------------------------
@@ -538,6 +544,17 @@ def _summary(values: list[float]) -> dict[str, Any]:
     return {"n": len(values), "min": ordered[0], "median": statistics.median(ordered), "p90": p90, "max": ordered[-1]}
 
 
+def _visits(turns: list[datetime]) -> list[list[datetime]]:
+    """Sorted turn times split wherever the pause exceeds VISIT_GAP."""
+    visits: list[list[datetime]] = []
+    for t in turns:
+        if visits and t - visits[-1][-1] <= VISIT_GAP:
+            visits[-1].append(t)
+        else:
+            visits.append([t])
+    return visits
+
+
 def session_table(data: PilotData) -> list[dict[str, Any]]:
     """One row per session, pseudonymous: status, turns, duration, reactions."""
     names = data.pseudonyms()
@@ -555,6 +572,9 @@ def session_table(data: PilotData) -> list[dict[str, Any]]:
             "questionnaire": sid in demo,
             "turns": len(turns),
             "minutes first→last turn": round((turns[-1] - turns[0]).total_seconds() / 60, 1) if len(turns) > 1 else None,
+            "visits": len(_visits(turns)),
+            "minutes first visit": round((first[-1] - first[0]).total_seconds() / 60, 1)
+            if len(first := (_visits(turns) or [[]])[0]) > 1 else None,
             "post-task": "submitted" if p.get("submitted_at") else "dismissed" if p.get("dismissed_at") else None,
             "thumbs up": sum(1 for f in fb.get(sid, []) if f.get("value") == "up"),
             "thumbs down": sum(1 for f in fb.get(sid, []) if f.get("value") == "down"),

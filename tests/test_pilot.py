@@ -249,6 +249,16 @@ def test_descriptives_carry_no_ids_or_text():
     assert [r["session"] for r in pilot.session_table(data)] == ["D1", "S1", "S2"]
 
 
+def test_a_return_visit_does_not_stretch_the_first_visit():
+    data = complete()
+    data.suggestions.append(turn("a", 4, 5 + 3 * 24 * 60))
+    row = next(r for r in pilot.session_table(data) if r["session"] == "S1")
+    assert row["visits"] == 2
+    assert row["minutes first visit"] == 10.0
+    assert row["minutes first→last turn"] > 4000
+    assert next(r for r in pilot.session_table(data) if r["session"] == "S2")["visits"] == 1
+
+
 def test_a_turn_whose_trip_was_deleted_is_not_judged_silent():
     data = complete()
     data.suggestions[1].update(reply_message_id=None, trip_id=None)

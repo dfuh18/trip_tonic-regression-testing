@@ -448,6 +448,37 @@ def test_a_stop_moved_into_the_draft_is_detected():
     assert any("before the draft" in f and "17:00" in f for f in verdict.findings)
 
 
+def _afternoon_case():
+    return _picking_case(draft_slot_starts_between=["14:00", "18:00"])
+
+
+def test_the_live_lunch_before_the_window_is_not_a_draft_slot():
+    """The fixture's Time Out Market lunch sits at 12:30 on the 6th. The window
+    reads the propose_plan arguments only, so a draft that starts after it
+    passes: the live slot is the trip's, not the agent's."""
+    ex = execution(
+        trace=[tool(1, "search_places"), tool(2, "propose_plan")],
+        drafts=[_draft("ChIJ-a", day="2026-11-06", start="14:30", end="15:15")], draft_turns=[1],
+    )
+    verdict = check(_afternoon_case(), ex)
+    assert verdict.outcome == "none", verdict.findings
+
+
+def test_a_draft_that_carries_the_scheduled_lunch_again_is_detected():
+    """The agent put the already-scheduled lunch into its own draft. Accepting
+    that slot schedules the saved block a second time (draft-accept.ts), so a
+    second 12:30 lunch on the 6th: the window is right to name it."""
+    draft = {"days": [{"day_date": "2026-11-06", "slots": [
+        {"start_time": "12:30", "end_time": "14:00",
+         "block": {"title": "Time Out Market lunch", "reuse_block_id": "block-ma"}},
+        {"start_time": "14:15", "end_time": "15:00", "block": {"title": "Miradouro", "google_place_id": "ChIJ-a"}},
+    ]}]}
+    ex = execution(trace=[tool(1, "search_places"), tool(2, "propose_plan")], drafts=[draft], draft_turns=[1])
+    verdict = check(_afternoon_case(), ex)
+    assert verdict.outcome == "detected"
+    assert verdict.findings == ["draft slots outside 14:00-18:00: ['Time Out Market lunch at 12:30']"]
+
+
 # --- the two probe-found check faults (287e7780) ---------------------------
 
 

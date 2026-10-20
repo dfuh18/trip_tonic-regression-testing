@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import pathlib
 import statistics
+from collections import Counter
 from typing import Iterable, Mapping, Optional, Sequence
 
 import matplotlib.pyplot as plt
@@ -241,12 +242,16 @@ def _grouped_rows(ax, rows: Sequence[Mapping], draw_row) -> float:
 
 
 def count_grid(ax, rows: Sequence[Mapping], columns: Sequence, title: str, xlabel: str,
-               mark_column=None, right: Optional[Sequence[str]] = None) -> None:
+               mark_column=None, right: Optional[Sequence] = None,
+               right_header: Optional[Sequence[str]] = None, signed: bool = True) -> None:
     """Rows of counts over ordered columns: each cell shows its count, shaded
     in one hue by its **share of the row**, blank when zero, so rows of
     different sizes (8 vs 4 repetitions) read alike. ``rows`` as for
     ``execution_grid`` but with ``counts`` (column → count) instead of
-    ``cells``; ``mark_column`` gets a guide line; ``right`` is one note per row."""
+    ``cells``; ``mark_column`` gets a guide line; ``right`` is one note per
+    row, or a tuple of notes per row for several columns, headed by
+    ``right_header``. ``signed`` labels integer columns as changes (+1),
+    off for plain values such as scores."""
     from matplotlib.patches import Rectangle
 
     ax.set_title(title)
@@ -270,14 +275,20 @@ def count_grid(ax, rows: Sequence[Mapping], columns: Sequence, title: str, xlabe
     if mark_column is not None and mark_column in columns:
         x = list(columns).index(mark_column) + 0.5
         ax.axvline(x, color=MUTED, linewidth=0.8, zorder=0)
+    width = 0.0
     if right:
-        for (r, note), y in zip(zip(rows, right), [t for t in ax.get_yticks()]):
-            ax.text(len(columns) + 0.3, y, note, va="center", fontsize=8,
-                    color=INK if r.get("verdict") not in (None, "pass") else MUTED)
-    ax.set_xticks([i + 0.5 for i in range(len(columns))], [f"{c:+d}" if isinstance(c, int) and c else str(c) for c in columns])
+        notes = [n if isinstance(n, (tuple, list)) else (n,) for n in right]
+        width = 1.3 * max(len(n) for n in notes) + 0.3
+        for (r, note), y in zip(zip(rows, notes), [t for t in ax.get_yticks()]):
+            for k, text in enumerate(note):
+                ax.text(len(columns) + 1.3 * (k + 1), y, text, va="center", ha="right", fontsize=8,
+                        color=INK if r.get("verdict") not in (None, "pass") else MUTED)
+        for k, text in enumerate(right_header or ()):
+            ax.text(len(columns) + 1.3 * (k + 1), -0.75, text, va="bottom", ha="right", fontsize=7, color=MUTED)
+    ax.set_xticks([i + 0.5 for i in range(len(columns))], [f"{c:+d}" if signed and isinstance(c, int) and c else str(c) for c in columns])
     ax.xaxis.set_ticks_position("top")
     ax.tick_params(axis="x", length=0, labelsize=8, colors=MUTED)
-    ax.set_xlim(0, len(columns) + (1.6 if right else 0))
+    ax.set_xlim(0, len(columns) + width)
     ax.set_ylim(bottom, -0.8)
     ax.set_xlabel(xlabel, fontsize=8, color=MUTED)
 
@@ -304,17 +315,31 @@ def paired_shares(ax, shares: Mapping[str, Mapping[str, float]], title: str, xla
 
 def grade_band(ax, values: Sequence[float], grades: Iterable[tuple[float, str]], title: str,
                xlabel: str, x_min: float = 40, color: str = SERIES) -> None:
-    """Values against labelled bands (the curved grading scale); bar = mean."""
+    """Values against labelled bands (the curved grading scale); bar = mean.
+
+    The scale has few distinct values (UMUX-LITE: 13), so equal values are
+    stacked rather than drawn on one spot, and the axis widens below ``x_min``
+    when a value would otherwise fall off it — a dot count that disagrees with
+    the n in the title hid participants."""
     ax.set_title(f"{title} (n = {len(values)})")
+    if values:
+        x_min = min(x_min, (min(values) // 5) * 5)
     bounds = sorted(grades)
     edges = [b for b, _ in bounds] + [100]
     for k, ((lo, g), hi) in enumerate(zip(bounds, edges[1:])):
         ax.axvspan(lo, hi, color=BAND[k % 2], linewidth=0)
         shown_lo = max(lo, x_min)
-        if hi - shown_lo >= 3:
-            ax.text((shown_lo + hi) / 2, 1.35, g, ha="center", va="center", fontsize=8, color=MUTED)
+        # A band too narrow for its grade shows only its +/−; the letter is on its neighbour.
+        label = g if hi - shown_lo >= 3 else g[1:].replace("-", "−")
+        if label:
+            ax.text((shown_lo + hi) / 2, 1.35, label, ha="center", va="center", fontsize=8, color=MUTED)
     if values:
-        ax.scatter(values, [1] * len(values), s=64, color=color, edgecolor="white", linewidth=2, zorder=3)
+        ties, seen = Counter(values), Counter()
+        heights = []
+        for v in values:
+            heights.append(1 + (seen[v] - (ties[v] - 1) / 2) * 0.12)
+            seen[v] += 1
+        ax.scatter(values, heights, s=64, color=color, edgecolor="white", linewidth=2, zorder=3)
         ax.axvline(sum(values) / len(values), color=INK, linewidth=2, ymin=0.2, ymax=0.8)
     else:
         ax.text(70, 1, "no data yet", ha="center", va="center", color=MUTED, fontstyle="italic")
