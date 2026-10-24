@@ -31,6 +31,28 @@ author's, and recording it otherwise misstates the transparency record.
 
 <!-- TEMPLATE-END — entries below, newest first. -->
 
+### D115 — The label review sample is frozen as reviewed (amends D111)
+Date: 2026-10-24 · Decided by: author
+Options: keep drawing from the seed on every run · pin the reviewed requests
+Chosen: **pin them.** D111's seed fixes the draw only while the request list
+is unchanged, and it is not: a further session changes the pool, and
+`pilot.load` reads `study_suggestions` without an order, so even the same rows
+can come back reordered. Either would put a different sample in front of a
+review that has already been entered in `REVIEW`. The 20 requests drawn with
+seed `20261001` on 2026-10-24 (80 turns, 54 requests, 23 covered), which the
+author reviewed, are now named in `09`'s `REVIEW_KEYS` and read back by
+`analysis.frozen_review`; a request is named by a 16-character hash of its
+first turn's id (`analysis.review_key`), so no id is committed. The notebook
+stops with an error if any of them can no longer be found. The covered /
+uncovered label shown for each is still computed on the current data.
+Checked before recording: the frozen set equals the seeded draw on the data
+as reviewed, row for row.
+Consequence, stated: requests from any session after this date are outside
+the review's frame; the review is reported as drawn from the 54 requests
+present on 2026-10-24.
+Affects: `src/analysis.py`, `notebooks/study/09_study_propositions.ipynb`,
+`tests/test_analysis.py` · Reverses: none (D111's seed and sizes stand)
+
 ### D114 — Participant round opened (C03)
 Date: 2026-10-01 (recorded) · Decided by: author
 Chosen: the participant round opens on **2026-10-02** at master `31d7003`,

@@ -266,3 +266,27 @@ def test_the_review_sample_takes_all_of_a_small_group():
     requests = [[turn("a", "search_places")], [turn("b", "get_weather")]]
     rows = analysis.coverage(requests, [[turn("s", "search_places")]], "request")
     assert len(analysis.review_sample(rows, requests, 10, seed=1)) == 2
+
+
+def test_the_frozen_review_survives_a_new_request_and_a_reordering():
+    requests = [[turn(f"t{i}", "search_places" if i % 2 else "get_weather")] for i in range(30)]
+    rows = analysis.coverage(requests, [[turn("s", "search_places")]], "request")
+    drawn = analysis.review_sample(rows, requests, 10, seed=7)
+    keys = [analysis.review_key(requests[r["index"]]) for r in drawn]
+
+    later = [[turn("new", "search_places")]] + requests[::-1]
+    later_rows = analysis.coverage(later, [[turn("s", "search_places")]], "request")
+    frozen = analysis.frozen_review(later_rows, later, keys)
+    assert sorted(analysis.review_key(later[r["index"]]) for r in frozen) == sorted(keys)
+    assert [r["covered"] for r in frozen] == [True] * 10 + [False] * 10
+    # without the freeze, the same seed draws another sample from the grown list
+    redrawn = analysis.review_sample(later_rows, later, 10, seed=7)
+    assert sorted(analysis.review_key(later[r["index"]]) for r in redrawn) != sorted(keys)
+
+
+def test_the_frozen_review_fails_loudly_when_a_reviewed_request_is_gone():
+    requests = [[turn("a", "search_places")], [turn("b", "get_weather")]]
+    rows = analysis.coverage(requests, [[turn("s", "search_places")]], "request")
+    keys = [analysis.review_key(r) for r in requests]
+    with pytest.raises(ValueError, match="1 of 2"):
+        analysis.frozen_review(rows[:1], requests[:1], keys)

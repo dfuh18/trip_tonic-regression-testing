@@ -40,6 +40,7 @@ Nothing here prints, and nothing returns a participant's words or an id.
 
 from __future__ import annotations
 
+import hashlib
 import statistics
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -207,18 +208,48 @@ def review_sample(
     """The qualitative check of P1's automatic labels (D111): ``n`` covered
     and ``n`` uncovered requests drawn at random with a fixed seed, or all of a
     group that has fewer. Labels only; the notebook shows text on request.
-    ``index`` points into ``requests``."""
+    ``index`` points into ``requests``.
+
+    The draw is fixed by the seed only while the request list is: a new
+    request, or the database returning rows in another order, draws another
+    sample. Once reviewed, the sample is pinned with ``frozen_review`` (D115)."""
     import random
 
     rng = random.Random(seed)
-    out = []
+    picked = []
     for covered in (True, False):
         pool = [i for i, r in enumerate(rows) if r.covered is covered]
-        for i in sorted(rng.sample(pool, min(n, len(pool)))):
-            sig = interaction_signature(requests[i])
-            out.append({"index": i, "covered": covered, "shape": rows[i].shape, "request type": sig[0],
-                        "turns": len(requests[i]), "tool sequence": " > ".join(sig[1]) or "-"})
-    return out
+        picked += sorted(rng.sample(pool, min(n, len(pool))))
+    return [_review_row(rows, requests, i) for i in picked]
+
+
+def review_key(request: Sequence[Row]) -> str:
+    """A request's identity in the frozen review sample (D115): a short hash
+    of its first turn's id, so the notebook names a reviewed request without
+    holding the id. The first turn stays the first when a run grows."""
+    return hashlib.sha256(str(request[0]["id"]).encode()).hexdigest()[:16]
+
+
+def frozen_review(
+    rows: Sequence[CoverageRow], requests: Sequence[Sequence[Row]], keys: Iterable[str]
+) -> list[dict[str, Any]]:
+    """The review sample exactly as the author read it (D115): the requests
+    whose ``review_key`` is in ``keys``, covered first, in the same shape as
+    ``review_sample``. Raises if a reviewed request can no longer be found,
+    because a review of requests that are not there is not a review."""
+    keys = set(keys)
+    found = {review_key(r): i for i, r in enumerate(requests) if review_key(r) in keys}
+    if missing := keys - found.keys():
+        raise ValueError(f"frozen review: {len(missing)} of {len(keys)} reviewed requests no longer found; "
+                         "the data or the segmentation changed since the review")
+    picked = sorted(found.values(), key=lambda i: (not rows[i].covered, i))
+    return [_review_row(rows, requests, i) for i in picked]
+
+
+def _review_row(rows: Sequence[CoverageRow], requests: Sequence[Sequence[Row]], i: int) -> dict[str, Any]:
+    sig = interaction_signature(requests[i])
+    return {"index": i, "covered": rows[i].covered, "shape": rows[i].shape, "request type": sig[0],
+            "turns": len(requests[i]), "tool sequence": " > ".join(sig[1]) or "-"}
 
 
 #: The five parts of a D24 signature, in ``signature``'s order.
