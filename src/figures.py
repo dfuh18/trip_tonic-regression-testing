@@ -313,6 +313,40 @@ def paired_shares(ax, shares: Mapping[str, Mapping[str, float]], title: str, xla
     ax.legend(handles[::-1], labels[::-1], frameon=False, loc="lower right")
 
 
+def paired_distribution(ax, rounds: Mapping[str, Sequence[float]], title: str, xlabel: str,
+                        colors: Optional[Mapping[str, str]] = None) -> None:
+    """One row per round: every value as a jittered dot, a box over it (median
+    bar, quartile box, whiskers to the furthest value within 1.5 IQR). Rows
+    top to bottom in ``rounds`` order; the dot size shrinks with n so a round
+    of several hundred stays legible beside one of a few dozen."""
+    import random
+
+    colors = colors or ROUND_COLOR
+    names = [r for r in rounds][::-1]  # the first round is drawn on top
+    ax.set_title(title)
+    if not any(rounds.values()):
+        empty(ax)
+        return
+    for y, name in enumerate(names):
+        values = list(rounds[name])
+        if not values:
+            ax.annotate("no data", (0, y), xytext=(4, 0), textcoords="offset points", va="center",
+                        fontsize=8, color=MUTED, fontstyle="italic")
+            continue
+        rng = random.Random(y)  # fixed jitter: the figure is the same on every run
+        size = 30 if len(values) <= 100 else 12
+        ax.scatter(values, [y + rng.uniform(-0.28, 0.28) for _ in values], s=size, color=colors[name],
+                   alpha=0.75, edgecolor="white", linewidth=0.6, zorder=2)
+        ax.boxplot(values, positions=[y], vert=False, widths=0.62, showfliers=False, patch_artist=True,
+                   boxprops={"facecolor": "none", "edgecolor": INK, "linewidth": 1},
+                   medianprops={"color": INK, "linewidth": 2.2}, whiskerprops={"color": INK, "linewidth": 1},
+                   capprops={"color": INK, "linewidth": 1}, zorder=3)
+    ax.set_yticks(range(len(names)), [f"{n}\n(n = {len(rounds[n])})" for n in names])
+    ax.set_ylim(-0.6, len(names) - 0.4)
+    ax.set_xlabel(xlabel)
+    _grid(ax)
+
+
 def grade_band(ax, values: Sequence[float], grades: Iterable[tuple[float, str]], title: str,
                xlabel: str, x_min: float = 40, color: str = SERIES) -> None:
     """Values against labelled bands (the curved grading scale); bar = mean.

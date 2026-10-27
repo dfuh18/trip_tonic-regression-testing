@@ -290,3 +290,11 @@ def test_the_frozen_review_fails_loudly_when_a_reviewed_request_is_gone():
     keys = [analysis.review_key(r) for r in requests]
     with pytest.raises(ValueError, match="1 of 2"):
         analysis.frozen_review(rows[:1], requests[:1], keys)
+
+
+def test_a_turn_is_actionable_when_its_reply_offered_a_draft_or_places():
+    assert analysis.actionable(turn("a", "search_places", "propose_plan"))
+    assert analysis.actionable(turn("b", "search_places"), reply_place_ids={"p1"})
+    assert not analysis.actionable(turn("c", "read_wikipedia"))
+    assert not analysis.actionable(turn("d", "unschedule_block"))  # a live edit is only revertable
+    assert not analysis.actionable(turn("e", "propose_plan", error="timeout"), reply_place_ids={"p1"})

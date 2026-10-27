@@ -48,3 +48,12 @@ def test_rate_plot_draws_rates_without_intervals():
 def test_an_empty_count_says_so():
     shown, title = bars({})
     assert shown == {} and "n = 0" in title
+
+
+def test_paired_distribution_draws_one_row_per_round_and_says_when_one_is_empty():
+    fig, ax = plt.subplots()
+    figures.paired_distribution(ax, {"simulation": [1.0, 2.0, 3.0], "participant": []}, "Latency", "s")
+    labels = [t.get_text() for t in ax.get_yticklabels()]
+    assert labels == ["participant\n(n = 0)", "simulation\n(n = 3)"]
+    assert any(t.get_text() == "no data" for t in ax.texts)
+    plt.close(fig)

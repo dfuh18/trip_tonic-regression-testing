@@ -127,6 +127,17 @@ def failed(turn: Row) -> bool:
     return bool(turn.get("error_code"))
 
 
+def actionable(turn: Row, reply_place_ids: Iterable[str] = ()) -> bool:
+    """Whether a turn's reply offered something to accept: a draft plan
+    (``propose_plan`` in the trace) or place cards (place refs on the reply).
+    The turns ``user_action`` can be ``accepted`` on; every other turn is
+    stamped ``ignored`` by D17 without having offered a choice. A failed turn
+    has no reply, and a live edit can only be reverted, so neither counts."""
+    if failed(turn):
+        return False
+    return "propose_plan" in shapes.tools_of(_trace(turn)) or any(True for _ in reply_place_ids)
+
+
 # --- P1: coverage ------------------------------------------------------------
 
 

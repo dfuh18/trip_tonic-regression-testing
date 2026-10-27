@@ -1,4 +1,4 @@
-# Study notebooks 05-09. Outputs are stripped by the nbstripout filter
+# Study notebooks 05-10. Outputs are stripped by the nbstripout filter
 # configured in .gitattributes here. Never commit a notebook with output cells:
 # they hold participant rows and git history is permanent.
 #
@@ -9,6 +9,7 @@
 #   07_pilot_distributions   basic distribution figures, pilot
 #   08_study_distributions   basic distribution figures, participant round (run after it closes)
 #   09_study_propositions    the propositions, participant round (run after C03)
+#   10_study_performance     performance per turn, pooled simulation beside the participant round
 #
 # 06/09 and 07/08 are the same notebook with a different RUN_TYPE. The logic is
 # in src/analysis.py and src/pilot.py, the figures in src/figures.py; change it
