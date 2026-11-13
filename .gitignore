@@ -5,3 +5,14 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 runs/
+
+# Credentials, the venv and the manuscript cache. The repository root
+# .gitignore covers these in trip_tonic; they are repeated here so the
+# standalone copy of this folder is safe on its own.
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+.manuscript-cache/
+.ipynb_checkpoints/
