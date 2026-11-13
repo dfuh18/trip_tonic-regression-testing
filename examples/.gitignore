@@ -1,4 +1,6 @@
 # Rendered examples (tools/render_example.py) hold study rows, and a pilot
 # session holds a real person's words. Never committed; printed on purpose.
+# Three pages are committed deliberately (git add -f): two simulated executions,
+# and the author's own pilot session S1, which carries a note saying so.
 *
 !.gitignore

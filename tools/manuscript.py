@@ -19,7 +19,10 @@ Usage
 Resolution order for the manuscript path:
   1. $MA_MANUSCRIPT (a full path to a .docx)
   2. $MA_MANUSCRIPT_DIR/MA_Thesis_*.docx  -> newest by filename
-  3. MANUSCRIPT_DIR_DEFAULT below         -> newest by filename
+
+Both are read from the environment or from this subtree's .env. There is no
+built-in default: the manuscript lives in a private folder on the author's
+machine, and its path does not belong in the repository.
 
 Filenames end in a date (..._260917.docx), so "newest by filename" is "latest
 revision". Pin an exact file with $MA_MANUSCRIPT when a result must be
@@ -36,14 +39,7 @@ import sys
 import zipfile
 import xml.etree.ElementTree as ElementTree
 
-MANUSCRIPT_DIR_DEFAULT = os.path.join(
-    os.path.expanduser("~"),
-    "OneDrive - Universität St.Gallen",
-    "MBI",
-    "MA",
-    "MA _Trip_Tonic",
-    "Working Documents",
-)
+ENV_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
 MANUSCRIPT_GLOB = "MA_Thesis_*.docx"
 
 # WordprocessingML is parsed as a tree, not with regexes over the markup.
@@ -60,12 +56,20 @@ TABLE_CAPTION = re.compile(r"Table\s*(\d+)")
 
 
 def resolve_path():
+    try:  # the same .env the pipeline reads; never overrides the environment
+        from dotenv import load_dotenv
+        load_dotenv(ENV_FILE)
+    except ImportError:
+        pass
     explicit = os.environ.get("MA_MANUSCRIPT")
     if explicit:
         if not os.path.isfile(explicit):
             sys.exit("MA_MANUSCRIPT is set but not a file: " + explicit)
         return explicit
-    folder = os.environ.get("MA_MANUSCRIPT_DIR", MANUSCRIPT_DIR_DEFAULT)
+    folder = os.environ.get("MA_MANUSCRIPT_DIR")
+    if not folder:
+        sys.exit("Set MA_MANUSCRIPT (a .docx) or MA_MANUSCRIPT_DIR (the folder holding "
+                 + MANUSCRIPT_GLOB + ") in the environment or in .env.")
     hits = sorted(glob.glob(os.path.join(folder, MANUSCRIPT_GLOB)))
     if not hits:
         sys.exit(
