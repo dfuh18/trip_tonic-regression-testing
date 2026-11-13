@@ -1,9 +1,9 @@
 # Conversational regression testing — Trip Tonic
 
-The instantiation of the evaluation pipeline described in Chapter 3 of the
-Master's thesis *Conversational Regression Testing for LLM Agents* (Gian Andri
-Hofmann, University of St.Gallen, 2026), together with the analysis of the
-participant round described in Chapter 4.
+The instantiation of the evaluation pipeline described in Chapter 3 of a
+Master's thesis on conversational regression testing for LLM agents (Gian Andri
+Hofmann, University of St.Gallen, 2026; unpublished), together with the analysis
+of the participant round described in Chapter 4.
 
 Trip Tonic, a collaborative trip-planning app with an LLM planning agent
 ("Tonic"), is the agent under test. The testing system is not a module bolted on
@@ -36,7 +36,7 @@ What is **not** here, and why:
 | The schema of record | Migrations are authored and applied in the application's `supabase/migrations/` | `migrations/` holds copies of the study's migrations, with their history; see `migrations/README.md` |
 | Participant data | Consent: study data stays in the study database, is never committed, and is anonymised eight months after consent | `notebooks/study/` carries code only, with outputs stripped, in every committed version |
 | Figures from the participant round | They are drawn from participant data and appear in the thesis itself; `notebooks/study/figures/` is git-ignored | Only the simulation figures (`notebooks/sim/figures/`) are committed. The study notebooks show how each participant-round figure was produced |
-| The manuscript | Not part of the code release | `tools/manuscript.py` needs a local copy |
+| The thesis manuscript | It is unpublished and has never been in any repository | `tools/manuscript.py`, which sessions used to read it, needs a local copy. Section references such as §3.4 point into it |
 | The agent session setup (`.claude/`) | Lives at the application repository root | Reproduced verbatim in `appendix/` (A1–A7) |
 
 Some commit messages and documents refer to paths outside this folder for the
@@ -133,9 +133,21 @@ participant round (opened 2026-10-02, D114) have been run. The analysis is in
 `notebooks/sim/` and `notebooks/study/`, and the decisions behind it are in
 `docs/DECISIONS.md`.
 
-## Citation
+## License
 
-```
-Hofmann, G. A. (2026). Conversational Regression Testing for LLM Agents
-[Master's thesis, University of St.Gallen].
-```
+Two licenses, split by what a file is:
+
+| Covers | License |
+|---|---|
+| Code: `src/` (except `src/prompts/`), `tests/`, `tools/`, `migrations/`, `cases/`, `conftest.py`, and the code cells of the notebooks | MIT — [`LICENSE`](LICENSE) |
+| Writing and results: `docs/`, `appendix/`, `src/prompts/`, `examples/`, the figures and stored outputs in `notebooks/sim/`, and the Markdown files (README, CLAUDE.md) | CC BY 4.0 — [`LICENSE-CC-BY-4.0.txt`](LICENSE-CC-BY-4.0.txt) |
+
+Both allow reuse, including commercial reuse, provided the author is credited.
+
+## Attribution
+
+The thesis is not published. If you reuse this work, credit it as:
+
+> Gian Andri Hofmann, *Conversational regression testing for LLM agents* (code and
+> materials of an unpublished Master's thesis), University of St.Gallen, 2026.
+> https://github.com/dfuh18/trip_tonic-regression-testing
