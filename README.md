@@ -37,6 +37,7 @@ output cells, and git history is permanent.
   notebooks/study/  analysis and pilot — outputs stripped
   tools/            manuscript extractor, notebook check
   docs/             event model, plan, decisions, open questions, logs
+  migrations/       copies of the study's SQL migrations (record: supabase/migrations/)
   appendix/         this environment, as submitted with the thesis
 ```
 
