@@ -36,12 +36,15 @@ What is **not** here, and why:
 | The schema of record | Migrations are authored and applied in the application's `supabase/migrations/` | `migrations/` holds copies of the study's migrations, with their history; see `migrations/README.md` |
 | Participant data | Consent: study data stays in the study database, is never committed, and is anonymised eight months after consent | `notebooks/study/` carries code only, with outputs stripped, in every committed version |
 | Figures from the participant round | They are drawn from participant data and appear in the thesis itself; `notebooks/study/figures/` is git-ignored | Only the simulation figures (`notebooks/sim/figures/`) are committed. The study notebooks show how each participant-round figure was produced |
-| The thesis manuscript | It is unpublished and has never been in any repository | `tools/manuscript.py`, which sessions used to read it, needs a local copy. Section references such as §3.4 point into it |
+| The thesis manuscript | It is unpublished and has never been in any repository | `tools/manuscript.py` needs a local copy |
 | The agent session setup (`.claude/`) | Lives at the application repository root | Reproduced verbatim in `appendix/` (A1–A7) |
 
 Some commit messages and documents refer to paths outside this folder for the
 same reason. They are left as written: the history is the record of how the
 artifact was built, and rewriting it would make that record less true.
+
+Section and table numbers in the docs, notebooks and commit messages refer to
+working drafts of the manuscript and may not match the submitted version.
 
 ## Layout
 
@@ -68,8 +71,8 @@ artifact was built, and rewriting it would make that record less true.
 | `docs/IMPLEMENTATION_PLAN.md` | What is to be built, in what order, at which tier |
 | `docs/OPEN_QUESTIONS.md` | What is not yet decided, and what it blocks |
 | `docs/DECISIONS.md` | What was decided, when, by whom, why |
-| `docs/IMPLEMENTATION_LOG.md` | Where the difficulty actually went (§3.7) |
-| `docs/REVIEW_LOG.md` | What was reviewed and accepted (§3.4 transparency) |
+| `docs/IMPLEMENTATION_LOG.md` | Where the difficulty actually went |
+| `docs/REVIEW_LOG.md` | What was reviewed and accepted |
 | `docs/participant-data-facts.md` | What the study records about a participant, and where |
 | `appendix/README.md` | How the agent-assisted development environment was set up |
 
@@ -86,7 +89,6 @@ pip install -r requirements.txt
 nbstripout --install --attributes notebooks/study/.gitattributes
 cp .env.example .env                # then fill it in
 
-python tools/manuscript.py --outline        # check manuscript access works
 python tools/check_notebooks.py             # check no study notebook holds output
 ```
 
@@ -96,20 +98,12 @@ output cells, and git history is permanent.
 
 ## Reading the manuscript
 
-The manuscript is a `.docx`, which Claude Code cannot open. `tools/manuscript.py`
-extracts from it read-only:
-
-```bash
-python tools/manuscript.py --outline           # every heading
-python tools/manuscript.py --section 3.4       # one numbered section
-python tools/manuscript.py --table 11          # one table, as markdown
-python tools/manuscript.py --search "pass rate"
-python tools/manuscript.py --which             # which revision is being read
-```
-
-It finds the newest `MA_Thesis_*.docx` in the thesis folder. Set `MA_MANUSCRIPT`
-to pin one exact revision. It never writes to the manuscript or the thesis
-folder.
+`tools/manuscript.py` extracts headings, numbered sections, tables or search
+hits from the manuscript `.docx`, read-only. The coding sessions needed it to
+check the implementation against what the thesis states (definitions, tables,
+numbers): Claude Code cannot open a `.docx`, and the manuscript was never to be
+edited or committed. It needs a local copy of the manuscript (`MA_MANUSCRIPT` or
+`MA_MANUSCRIPT_DIR`), so it will not run from this repository.
 
 ## Sessions
 
